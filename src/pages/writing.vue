@@ -1,0 +1,75 @@
+<script setup lang="ts">
+import markdownParser from "@nuxt/content/transformers/markdown";
+
+const layoutState = useContentLayout();
+const dataPending = ref<boolean>(true);
+const t = useI18n().t;
+
+const parsedContents = ref<
+	{
+		title: string;
+		description?: string | null;
+		author?: string | null;
+		createdAt?: string | null;
+		updatedAt?: string | null;
+		url: string;
+	}[]
+>([
+	{
+		title: "GITHUB Clone",
+		description: "YOur github clone",
+		url: "https://github.com/MokiMeow/githubclone",
+	},
+	{
+		title: "DATA Puller",
+		description: "YOur data Puller",
+		url: "https://github.com/MokiMeow/DataPuller",
+	},
+	// Add more objects as needed
+]);
+
+useHead({
+	title: "Sai Mohith - Writing",
+	meta: [
+		{
+			name: "description",
+			content: t("iShareTips"),
+		},
+	],
+});
+
+definePageMeta({
+	layout: "content",
+});
+
+onMounted(async () => {
+	layoutState.value.displayLeftSide = true;
+	dataPending.value = false; // Since we're not fetching data, set dataPending to false
+});
+</script>
+
+<template>
+	<div
+		v-if="dataPending || !parsedContents.length"
+		class="flex items-center justify-center mt-20"
+	>
+		{{ dataPending ? "Loading resources..." : "No resource found" }}
+	</div>
+
+	<div v-if="!dataPending">
+		<LazyContentCard
+			v-for="(item, id) in parsedContents"
+			:key="id"
+			:title="item.title"
+			:url="item.url"
+			:description="item.description"
+		>
+			<template #footer>
+				<span class="text-sm text-right opacity-80">
+					Author(s):
+					<span class="text-primary">{{ item.author ?? "Mohith" }}</span>
+				</span>
+			</template>
+		</LazyContentCard>
+	</div>
+</template>
