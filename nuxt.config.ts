@@ -32,7 +32,7 @@ export default defineNuxtConfig({
 					name: "twitter:description",
 					content: "A 3D experience representing Sai Mohith 's room",
 				},
-				{ name: "application-name", content: "mydevjourney" },
+				{ name: "application-name", content: "Detective M HQ" },
 			],
 			link: [
 				{ rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
