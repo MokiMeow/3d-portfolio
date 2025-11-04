@@ -392,9 +392,6 @@ export class Scene1Component extends SceneComponentBlueprint {
 				aspect: this._initialPcScreenAspect,
 			});
 
-		if (this._experience.sound?.keyboard_typing_audio?.isPlaying === false)
-			this._experience.sound.keyboard_typing_audio.play();
-
 		if (!this.isPcOpen) {
 			const blackColor = new Color(0x000000);
 			const whiteColor = new Color(0xffffff);
@@ -428,9 +425,6 @@ export class Scene1Component extends SceneComponentBlueprint {
 				}
 			}
 
-			if (this._experience.sound?.keyboard_typing_audio && this.keyboards) {
-				this.keyboards.add(this._experience.sound.keyboard_typing_audio);
-			}
 
 			gsap.fromTo(
 				this.lightsBakedTextureStrength,
@@ -460,7 +454,6 @@ export class Scene1Component extends SceneComponentBlueprint {
 	}
 
 	public outro() {
-		this._experience.sound?.keyboard_typing_audio?.pause();
 		this._renderer?.removePortalAssets(`${Scene1Component.name}_pc_screen`);
 
 		return this.timeline;
