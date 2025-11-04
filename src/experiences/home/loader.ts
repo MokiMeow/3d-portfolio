@@ -45,6 +45,8 @@ import phone_screen_record from "~/assets/videos/phone_screen_record.webm?url";
 import computer_startup_audio from "~/assets/sounds/computer_startup.mp3?url";
 import keyboard_typing_audio from "~/assets/sounds/keyboard_typing.mp3?url";
 import empty_room_audio from "~/assets/sounds/empty_room_ambient_noise.mp3?url";
+import lofi_track_one_audio from "~/assets/sounds/lofi-girl-lofi-ambient-music-365952.mp3?url";
+import lofi_track_two_audio from "~/assets/sounds/lofi-lofi-song-424604.mp3?url";
 
 /**
  * [`quick-threejs#Resource`](https://www.npmjs.com/package/quick-threejs)
@@ -167,6 +169,16 @@ export class Loader extends ExperienceBasedBlueprint {
 				name: "empty_room_audio",
 				type: "audio",
 				path: empty_room_audio,
+			},
+			{
+				name: "lofi_track_one_audio",
+				type: "audio",
+				path: lofi_track_one_audio,
+			},
+			{
+				name: "lofi_track_two_audio",
+				type: "audio",
+				path: lofi_track_two_audio,
 			},
 
 			// OTHER TEXTURES
