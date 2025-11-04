@@ -1,7 +1,17 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { name } from "~~/package.json";
 
 const props = defineProps<{ link?: string; logoHeight?: number }>();
+
+const displayName = computed(() =>
+	name
+		.replace(/[-_]+/g, " ")
+		.replace(/([a-z])([A-Z])/g, "$1 $2")
+		.toUpperCase()
+		.trim()
+);
+const characters = computed(() => displayName.value.split(""));
 </script>
 
 <template>
@@ -19,7 +29,7 @@ const props = defineProps<{ link?: string; logoHeight?: number }>();
 		/>
 
 		<span class="flex flex-row">
-			<div v-for="(l, i) in name.split('')" :key="i" class="transition-all">
+			<div v-for="(l, i) in characters" :key="i" class="transition-all">
 				{{ l }}
 			</div>
 		</span>
@@ -27,7 +37,11 @@ const props = defineProps<{ link?: string; logoHeight?: number }>();
 </template>
 
 <style scoped lang="scss">
-$length: 12;
+$length: 20;
+
+a > span {
+	letter-spacing: 0.25em;
+}
 
 a {
 	@for $i from 1 through $length {
