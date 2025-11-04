@@ -18,6 +18,7 @@ export class Sound extends ExperienceBasedBlueprint {
 	private _keyboard_typing_audio?: PositionalAudio;
 	private _empty_room_audio?: PositionalAudio;
 	private _computer_startup_audio?: PositionalAudio;
+	private _lofi_audio?: PositionalAudio;
 	private _onBeforeCameraSwitch?: () => unknown;
 	private _onCameraSwitched?: () => unknown;
 
@@ -41,6 +42,9 @@ export class Sound extends ExperienceBasedBlueprint {
 	public get computer_startup_audio() {
 		return this._computer_startup_audio;
 	}
+	public get lofi_audio() {
+		return this._lofi_audio;
+	}
 	public get isMuted() {
 		return this.listener.getMasterVolume() !== 1;
 	}
@@ -59,6 +63,10 @@ export class Sound extends ExperienceBasedBlueprint {
 		this._computer_startup_audio = audio;
 		this.emit(events.CHANGED);
 	}
+	public set lofi_audio(audio: typeof this._lofi_audio) {
+		this._lofi_audio = audio;
+		this.emit(events.CHANGED);
+	}
 
 	public toggleMute() {
 		const vol = this.listener.getMasterVolume();
@@ -72,6 +80,10 @@ export class Sound extends ExperienceBasedBlueprint {
 		const keyboard_typing_audio = availableAudios?.keyboard_typing_audio;
 		const empty_room_audio = availableAudios?.empty_room_audio;
 		const computer_startup_audio = availableAudios?.computer_startup_audio;
+		const lofiTracks = [
+			availableAudios?.lofi_track_one_audio,
+			availableAudios?.lofi_track_two_audio,
+		].filter((track): track is AudioBuffer => Boolean(track));
 
 		if (
 			!this._camera?.instance ||
@@ -100,6 +112,18 @@ export class Sound extends ExperienceBasedBlueprint {
 		this.computer_startup_audio.setRefDistance(0.3);
 		this.computer_startup_audio.autoplay = false;
 
+		if (lofiTracks.length) {
+			const selected =
+				lofiTracks[Math.floor(Math.random() * lofiTracks.length)];
+			const lofiAudio = new PositionalAudio(this.listener);
+			lofiAudio.setBuffer(selected);
+			lofiAudio.setLoop(true);
+			lofiAudio.setRefDistance(4);
+			lofiAudio.setVolume(0.5);
+			lofiAudio.autoplay = false;
+			this.lofi_audio = lofiAudio;
+		}
+
 		this._onBeforeCameraSwitch = () => this.listener.removeFromParent();
 		this._onCameraSwitched = () => this._camera?.instance.add(this.listener);
 
@@ -121,6 +145,10 @@ export class Sound extends ExperienceBasedBlueprint {
 		if (this._computer_startup_audio) {
 			this._disposeAudio(this._computer_startup_audio);
 			this.computer_startup_audio = undefined;
+		}
+		if (this._lofi_audio) {
+			this._disposeAudio(this._lofi_audio);
+			this.lofi_audio = undefined;
 		}
 
 		this._onBeforeCameraSwitch &&
