@@ -15,7 +15,6 @@ export class Sound extends ExperienceBasedBlueprint {
 	private readonly _loader = this._experience.loader;
 	private readonly _camera = this._experience.camera;
 
-	private _keyboard_typing_audio?: PositionalAudio;
 	private _empty_room_audio?: PositionalAudio;
 	private _computer_startup_audio?: PositionalAudio;
 	private _lofi_audio?: PositionalAudio;
@@ -33,9 +32,6 @@ export class Sound extends ExperienceBasedBlueprint {
 		audio.removeFromParent();
 	}
 
-	public get keyboard_typing_audio() {
-		return this._keyboard_typing_audio;
-	}
 	public get empty_room_audio() {
 		return this._empty_room_audio;
 	}
@@ -49,10 +45,6 @@ export class Sound extends ExperienceBasedBlueprint {
 		return this.listener.getMasterVolume() !== 1;
 	}
 
-	public set keyboard_typing_audio(audio: typeof this._keyboard_typing_audio) {
-		this._keyboard_typing_audio = audio;
-		this.emit(events.CHANGED);
-	}
 	public set empty_room_audio(audio: typeof this._empty_room_audio) {
 		this._empty_room_audio = audio;
 		this.emit(events.CHANGED);
@@ -77,7 +69,6 @@ export class Sound extends ExperienceBasedBlueprint {
 
 	public construct() {
 		const availableAudios = this._loader?.availableAudios;
-		const keyboard_typing_audio = availableAudios?.keyboard_typing_audio;
 		const empty_room_audio = availableAudios?.empty_room_audio;
 		const computer_startup_audio = availableAudios?.computer_startup_audio;
 		const lofiTracks = [
@@ -87,18 +78,11 @@ export class Sound extends ExperienceBasedBlueprint {
 
 		if (
 			!this._camera?.instance ||
-			!keyboard_typing_audio ||
 			!empty_room_audio ||
 			!computer_startup_audio
 		)
 			return;
 		this._camera?.instance.add(this.listener);
-
-		this.keyboard_typing_audio = new PositionalAudio(this.listener);
-		this.keyboard_typing_audio.setBuffer(keyboard_typing_audio);
-		this.keyboard_typing_audio.setLoop(true);
-		this.keyboard_typing_audio.setRefDistance(0.5);
-		this.keyboard_typing_audio.autoplay = false;
 
 		this.empty_room_audio = new PositionalAudio(this.listener);
 		this.empty_room_audio.setBuffer(empty_room_audio);
@@ -134,10 +118,6 @@ export class Sound extends ExperienceBasedBlueprint {
 	}
 
 	public destruct() {
-		if (this._keyboard_typing_audio) {
-			this._disposeAudio(this._keyboard_typing_audio);
-			this.keyboard_typing_audio = undefined;
-		}
 		if (this._empty_room_audio) {
 			this._disposeAudio(this._empty_room_audio);
 			this.empty_room_audio = undefined;
