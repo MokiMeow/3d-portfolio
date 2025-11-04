@@ -43,7 +43,6 @@ import monitor_b_screen_record from "~/assets/videos/monitor_b_screen_record.web
 import phone_screen_record from "~/assets/videos/phone_screen_record.webm?url";
 
 import computer_startup_audio from "~/assets/sounds/computer_startup.mp3?url";
-import keyboard_typing_audio from "~/assets/sounds/keyboard_typing.mp3?url";
 import empty_room_audio from "~/assets/sounds/empty_room_ambient_noise.mp3?url";
 import lofi_track_one_audio from "~/assets/sounds/lofi-girl-lofi-ambient-music-365952.mp3?url";
 import lofi_track_two_audio from "~/assets/sounds/lofi-lofi-song-424604.mp3?url";
@@ -159,11 +158,6 @@ export class Loader extends ExperienceBasedBlueprint {
 				name: "computer_startup_audio",
 				type: "audio",
 				path: computer_startup_audio,
-			},
-			{
-				name: "keyboard_typing_audio",
-				type: "audio",
-				path: keyboard_typing_audio,
 			},
 			{
 				name: "empty_room_audio",
