@@ -421,6 +421,13 @@ export class Scene1Component extends SceneComponentBlueprint {
 				this._experience.sound.empty_room_audio.play();
 			}
 
+			if (this._experience.sound?.lofi_audio && this.fixedComputer) {
+				this.fixedComputer.add(this._experience.sound.lofi_audio);
+				if (this._experience.sound.lofi_audio.isPlaying === false) {
+					this._experience.sound.lofi_audio.play();
+				}
+			}
+
 			if (this._experience.sound?.keyboard_typing_audio && this.keyboards) {
 				this.keyboards.add(this._experience.sound.keyboard_typing_audio);
 			}
