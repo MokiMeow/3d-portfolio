@@ -1,7 +1,14 @@
 {
-	// https://v3.nuxtjs.org/concepts/typescript
-	"extends": "./.nuxt/tsconfig.json",
-	"compilerOptions": {
-		"types": ["node", "vite-plugin-glsl/ext"],
-	}
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
 }
