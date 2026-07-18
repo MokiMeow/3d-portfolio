@@ -116,8 +116,8 @@ const route = useRoute();
 				:show-menu-icon="false"
 				:routes="
 					layoutState.headerLinks ?? [
-						{ title: 'Home', path: '/' },
-								{ title: 'Portfolio', path: Config.PORTFOLIO_LINK },
+						{ title: 'Home', path: Config.PORTFOLIO_LINK, target: '_top' },
+						{ title: 'Portfolio', path: '/' },
 
 					]
 				"
