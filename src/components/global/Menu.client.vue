@@ -1,14 +1,16 @@
 <script lang="ts" setup>
 import gsap from "gsap";
+import { Config } from "~/config";
 
 // DATA
 const links = [
 	{
-		label: "Project",
-		icon: "?",
-		path: "/writing",
+		label: "Main portfolio",
+		path: Config.PORTFOLIO_LINK,
 	},
-
+	{ label: "Projects", path: `${Config.PORTFOLIO_LINK}/projects` },
+	{ label: "GitHub", path: Config.GITHUB_LINK },
+	{ label: "LinkedIn", path: Config.LINKEDIN_LINK },
 ];
 
 // STATES
@@ -60,13 +62,15 @@ watch(isMenuOpen, async (newState) => {
 		>
 			<ul id="menu-links-container" class="text-center">
 				<li v-for="(link, index) in links" :key="index" class="mb-5">
-					<nuxt-link
-						:to="link.path"
+					<a
+						:href="link.path"
+						target="_blank"
+						rel="noreferrer noopener"
 						class="text-3xl transition opacity-70 hover:opacity-100"
 						@click="() => (isMenuOpen = false)"
 					>
 						{{ link.label }}
-					</nuxt-link>
+					</a>
 				</li>
 			</ul>
 		</div>

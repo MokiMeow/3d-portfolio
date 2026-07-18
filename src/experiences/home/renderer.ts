@@ -18,6 +18,7 @@ import { ExperienceBasedBlueprint } from "~/common/blueprints/experience-based.b
 
 // STATIC
 import { events } from "~/static";
+import { DeviceConfig } from "~/config/device.config";
 
 export interface PortalAssets {
 	mesh: THREE.Mesh;
@@ -46,6 +47,8 @@ export class Renderer extends ExperienceBasedBlueprint {
 	private _currentXrEnabled = this._appRenderer.instance.xr.enabled;
 	private _currentShadowAutoUpdate =
 		this._appRenderer.instance.shadowMap.autoUpdate;
+	private _lastPortalRenderAt = 0;
+	private _lastCssFov = -1;
 	private _onResize = () =>
 		this._mixerContext?.rendererCss?.setSize(
 			this._appSizes.width,
@@ -95,7 +98,10 @@ export class Renderer extends ExperienceBasedBlueprint {
 			this._experience.app.sizes.height
 		);
 		this._appRenderer.instance.setPixelRatio(
-			this._experience.app.sizes.pixelRatio
+			Math.min(
+				this._experience.app.sizes.pixelRatio,
+				DeviceConfig.DEVICE === "pc" ? 1.5 : 1
+			)
 		);
 		this._appRenderer.instance.localClippingEnabled = true;
 
@@ -120,6 +126,10 @@ export class Renderer extends ExperienceBasedBlueprint {
 			this.enableCssRender && this._mixerContext?.update();
 
 			if (!Object.keys(this._renderPortalAssets).length) return;
+			const now = performance.now();
+			const portalInterval = DeviceConfig.DEVICE === "pc" ? 1000 / 30 : 1000 / 24;
+			if (now - this._lastPortalRenderAt < portalInterval) return;
+			this._lastPortalRenderAt = now;
 			const keys = Object.keys(this._renderPortalAssets);
 			for (let i = 0; i < keys.length; i++) {
 				if (this._renderPortalAssets[keys[i]]) {
@@ -180,12 +190,10 @@ export class Renderer extends ExperienceBasedBlueprint {
 
 	public update(): void {
 		if (!this._mixerContext) return;
-
-		this._mixerContext.rendererCss.setSize(
-			this._appSizes.width,
-			this._appSizes.height
-		);
-		this._mixerContext.cssCamera.fov = this._camera?.instance.fov ?? 0;
+		const nextFov = this._camera?.instance.fov ?? 0;
+		if (Math.abs(nextFov - this._lastCssFov) < 0.01) return;
+		this._lastCssFov = nextFov;
+		this._mixerContext.cssCamera.fov = nextFov;
 		this._mixerContext.cssCamera.matrixWorldNeedsUpdate = true;
 		this._mixerContext.cssCamera.updateProjectionMatrix();
 	}

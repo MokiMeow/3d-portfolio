@@ -14,6 +14,8 @@ const onPress = () => {
 <template>
 	<button
 		@click="onPress"
+		:aria-label="`${isMarkersDisplayed ? 'Hide' : 'Show'} scene notes`"
+		:aria-pressed="isMarkersDisplayed"
 		:title="`${isMarkersDisplayed ? 'Disable' : 'Enable'} Markers`"
 	>
 		<svg v-if="isMarkersDisplayed" fill="none" viewBox="0 0 32 32">

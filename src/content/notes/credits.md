@@ -1,38 +1,29 @@
 ---
 title: "Credits"
-description: "Thanks to open sourcers"
+description: "Open-source and creative credits for Mohith Lab"
 ---
 
-![Thanks](https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExemRwazUxbXJrdmFpZmxobjVxNDYxcGNkYjFkZ2pvNDFhZmd2d25zaCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/o7KOB0CkxIDxQ4hHyH/giphy.gif)
+## Built openly
 
-## Thanks to Contributors 👽
+Mohith Lab is personalized and maintained by Sai Mohith S. The initial open-source room architecture was created by Nathan Mande under the repository's Apache 2.0 license. Mohith's version updates the identity, writing, interactions, accessibility, loading strategy, and performance while preserving credit for the work it builds on.
 
-Here, I listed the resources and some extra.
+## Technology
 
-### 💻 About the App
+- [Nuxt](https://nuxt.com/)
+- [Three.js](https://threejs.org/)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [GSAP](https://gsap.com/)
+- Navigation concepts informed by [Bruno Simon's Three.js Journey](https://threejs-journey.com/)
+- HTML mixing based on [Jerome Etienne's threex.htmlmixer](https://github.com/jeromeetienne/threex.htmlmixer) and [threex.htmlmixer-continued](https://github.com/Neosoulink/threex.htmlmixer-continued)
+- Clock shader by [Andre VanKammen](https://www.shadertoy.com/view/3dtSRj)
+- Metro sun shader by Jan Mroz, shared on [Shadertoy](https://www.shadertoy.com/view/3t3GDB)
 
-- [NuxtJs](https://nuxt.com/)
-- [ThreeJs](https://threejs.org/)
-  - Thanks to [Bruno Simon](https://twitter.com/bruno_simon) for the `Navigation` module (Check his [course](https://threejs-journey.com/))
-  - Thanks to [Jeromeetienne](https://github.com/jeromeetienne) for `threex.htmlmixer`. I made an updated version here -> [threex.htmlmixer-continued](https://github.com/Neosoulink/threex.htmlmixer-continued)
-  - Clock Shader by [Andre VanKammen](https://github.com/AndreVanKammen) | [Source](https://www.shadertoy.com/view/3dtSRj)
-  - Metro sun shader by **Jan Mróz** | [Source](https://www.shadertoy.com/view/3t3GDB)
-- [Tailwindcss](https://tailwindcss.com/)
+## Models, textures, and sound
 
-### 📦 About 3D experience
+- Room assets were assembled and adapted in Blender.
+- Wood texture and plank source by [Satriacaster](https://free3d.com/user/satriacaster).
+- Empty-room ambience source from [YouTube](https://www.youtube.com/watch?v=8m91-gu-x8U).
+- Keyboard sound source from [YouTube](https://www.youtube.com/shorts/5y_hINHH_o0).
+- Portal technique informed by [Threejs-Portal](https://github.com/barnabasbartha/Threejs-Portal).
 
-- Used [blender](https://www.blender.org/) for modeling
-  - Thanks to [Satriacaster](https://free3d.com/user/satriacaster) for the wood texture and the plank which looks almost exactly the same then mine (≧∇≦)ﾉ.
-- Sound effects:
-  - [Empty Room Ambient Noise Sound FX](https://www.youtube.com/watch?v=8m91-gu-x8U)
-  - [Keyboard typing FX](https://www.youtube.com/shorts/5y_hINHH_o0)
-
-> Note: I had to use **Garageband** to remove some unwanted noises and have a perfect loop...
-
-### 🛠 Other resources
-
-- [Threejs-Portal](https://github.com/barnabasbartha/Threejs-Portal)
-
-### Special thanks
-
-A special thanks to [Bruno Simon](https://twitter.com/bruno_simon) for his course and advices ❤.
+Thank you to every creator whose work made this experiment possible.

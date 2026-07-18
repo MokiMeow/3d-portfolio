@@ -208,6 +208,8 @@ export class Navigation extends ExperienceBasedBlueprint {
 
 		this._view.onTouchStart = (e) => {
 			if (
+				!this._view.controls ||
+				!this._view.enabled ||
 				!this._view.down ||
 				!this._view.onTouchEnd ||
 				!this._view.onTouchMove ||

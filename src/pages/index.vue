@@ -19,7 +19,7 @@ const isExperienceReady = useState<boolean>("isExperienceReady", () => false);
 const isFreeCamera = useState<boolean>("isFreeCamera", () => false);
 const isFocusMode = useState<boolean>("isFocusMode", () => false);
 const isMarkersDisplayed = useState<boolean>("isMarkersDisplayed", () => false);
-const isSoundMuted = useState<boolean>("isSoundMuted", () => false);
+const isSoundMuted = useState<boolean>("isSoundMuted", () => true);
 
 // EVENTS;
 const onUiReady = () => {
@@ -112,10 +112,10 @@ const dispose = () => {
 };
 
 useHead({
-	title: "Sai Mohith - Home",
+	title: "Mohith Lab | Interactive 3D Portfolio",
 	link: [
 		{
-			href: "/notes/about",
+			href: "/notes/contact",
 			rel: "preload",
 			as: "document",
 		},
@@ -124,12 +124,12 @@ useHead({
 		{
 			name: "viewport",
 			content:
-				"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no",
+				"width=device-width, initial-scale=1.0, viewport-fit=cover",
 		},
 	],
 });
 
-prerenderRoutes(["/notes/about", "/notes/credits"]);
+prerenderRoutes(["/notes/about", "/notes/contact", "/notes/credits"]);
 onMounted(init);
 onBeforeUnmount(dispose);
 onBeforeRouteUpdate((route) => {
@@ -145,7 +145,10 @@ onBeforeRouteUpdate((route) => {
 	>
 		<LazyHomeLoader />
 
-		<canvas :id="appCanvasId" class="fixed top-0 left-0 z-0 w-full h-full" />
+		<canvas
+			:id="appCanvasId"
+			class="fixed top-0 left-0 z-0 w-full h-full overscroll-none touch-none"
+		/>
 
 		<LazyGContainer
 			:class="`relative flex flex-col justify-between h-full sm:py-8 md:py-12 ${
@@ -161,6 +164,8 @@ onBeforeRouteUpdate((route) => {
 
 			<LazyHomeFooter />
 		</LazyGContainer>
+
+		<LazyHomeBoardNoteDialog />
 	</main>
 </template>
 

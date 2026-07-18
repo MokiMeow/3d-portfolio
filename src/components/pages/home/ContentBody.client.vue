@@ -13,35 +13,17 @@ defineProps<{ content: string; title?: string }>();
 			{{ title }}
 		</h3>
 
-		<div
-			class="text-justify leading-[160%] transition-[opacity] duration-[0.4s]"
-		>
-			<span v-for="(l, i) in content.split('')" :key="i">{{ l }}</span>
-		</div>
+		<p class="content-copy leading-[160%]">{{ content }}</p>
 	</div>
 </template>
 
 <style scoped lang="scss">
-@use "sass:list";
+.content-copy {
+	animation: copy-enter 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
 
-$delays: 0.6, 0.7, 0.4, 0.65, 0.8, 0.6, 0.9, 0.55, 0.5, 0.7;
-$length: 10;
-
-div {
-	> span {
-		opacity: 0;
-
-		@for $i from 0 through 1 {
-			&:nth-of-type(2n - #{$i}) {
-				animation: #{0.2 * ($i + 1)}s linear show-with-transition forwards;
-			}
-		}
-
-		@for $i from 1 through $length {
-			&:nth-of-type(10n - #{$length - $i }) {
-				animation-delay: #{list.nth($delays, $i)}s !important;
-			}
-		}
-	}
+@keyframes copy-enter {
+	from { opacity: 0; transform: translate3d(0, 0.75rem, 0); }
+	to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 </style>

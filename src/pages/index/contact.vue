@@ -14,7 +14,7 @@ definePageMeta({
 
 <template>
 	<div>
-		<Title>Sai Mohith - Contact</Title>
+		<Title>Mohith Lab | Contact</Title>
 		<LazyHomeContent
 			:can-display-landing="canDisplayLanding"
 			:landing-head="$t('contactLandingHead')"

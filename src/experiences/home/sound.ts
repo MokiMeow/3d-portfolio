@@ -1,4 +1,5 @@
-import { AudioListener, PositionalAudio } from "three";
+import { AudioListener, AudioLoader, PositionalAudio } from "three";
+import lofiTrackUrl from "~/assets/sounds/lofi-girl-lofi-ambient-music-365952.mp3?url";
 
 // EXPERIENCES
 import { HomeExperience } from ".";
@@ -18,6 +19,8 @@ export class Sound extends ExperienceBasedBlueprint {
 	private _empty_room_audio?: PositionalAudio;
 	private _computer_startup_audio?: PositionalAudio;
 	private _lofi_audio?: PositionalAudio;
+	private _lofiLoadPromise?: Promise<PositionalAudio | undefined>;
+	private _shouldPlayLofi = false;
 	private _onBeforeCameraSwitch?: () => unknown;
 	private _onCameraSwitched?: () => unknown;
 
@@ -60,9 +63,49 @@ export class Sound extends ExperienceBasedBlueprint {
 		this.emit(events.CHANGED);
 	}
 
-	public toggleMute() {
+	private async _loadLofi() {
+		if (this._lofi_audio) return this._lofi_audio;
+		if (this._lofiLoadPromise) return this._lofiLoadPromise;
+
+		this._lofiLoadPromise = new AudioLoader()
+			.loadAsync(lofiTrackUrl)
+			.then((buffer) => {
+				const audio = new PositionalAudio(this.listener);
+				audio.setBuffer(buffer);
+				audio.setLoop(true);
+				audio.setRefDistance(4);
+				audio.setVolume(0.42);
+				const anchor = this._experience.world?.scene1?.fixedComputer;
+				(anchor ?? this._camera?.instance)?.add(audio);
+				this.lofi_audio = audio;
+				if (this._shouldPlayLofi && !audio.isPlaying) audio.play();
+				return audio;
+			})
+			.catch(() => {
+				this._lofiLoadPromise = undefined;
+				return undefined;
+			});
+
+		return this._lofiLoadPromise;
+	}
+
+	public async startFromGesture() {
+		this._shouldPlayLofi = true;
+		if (this.listener.context.state !== "running")
+			await this.listener.context.resume();
+		this.listener.setMasterVolume(1);
+		this.emit(events.CHANGED);
+
+		const lofi = await this._loadLofi();
+		if (lofi && !lofi.isPlaying) lofi.play();
+		this.emit(events.CHANGED);
+	}
+
+	public async toggleMute() {
 		const vol = this.listener.getMasterVolume();
-		this.listener.setMasterVolume(vol !== 1 ? 1 : 0);
+		const shouldEnable = vol !== 1;
+		if (shouldEnable) await this.startFromGesture();
+		else this.listener.setMasterVolume(0);
 
 		setTimeout(() => this.emit(events.CHANGED), 200);
 	}
@@ -71,10 +114,6 @@ export class Sound extends ExperienceBasedBlueprint {
 		const availableAudios = this._loader?.availableAudios;
 		const empty_room_audio = availableAudios?.empty_room_audio;
 		const computer_startup_audio = availableAudios?.computer_startup_audio;
-		const lofiTracks = [
-			availableAudios?.lofi_track_one_audio,
-			availableAudios?.lofi_track_two_audio,
-		].filter((track): track is AudioBuffer => Boolean(track));
 
 		if (
 			!this._camera?.instance ||
@@ -83,6 +122,8 @@ export class Sound extends ExperienceBasedBlueprint {
 		)
 			return;
 		this._camera?.instance.add(this.listener);
+		this.listener.setMasterVolume(0);
+		void this._loadLofi();
 
 		this.empty_room_audio = new PositionalAudio(this.listener);
 		this.empty_room_audio.setBuffer(empty_room_audio);
@@ -95,18 +136,6 @@ export class Sound extends ExperienceBasedBlueprint {
 		this.computer_startup_audio.setLoop(false);
 		this.computer_startup_audio.setRefDistance(0.3);
 		this.computer_startup_audio.autoplay = false;
-
-		if (lofiTracks.length) {
-			const selected =
-				lofiTracks[Math.floor(Math.random() * lofiTracks.length)];
-			const lofiAudio = new PositionalAudio(this.listener);
-			lofiAudio.setBuffer(selected);
-			lofiAudio.setLoop(true);
-			lofiAudio.setRefDistance(4);
-			lofiAudio.setVolume(0.5);
-			lofiAudio.autoplay = false;
-			this.lofi_audio = lofiAudio;
-		}
 
 		this._onBeforeCameraSwitch = () => this.listener.removeFromParent();
 		this._onCameraSwitched = () => this._camera?.instance.add(this.listener);
@@ -130,6 +159,8 @@ export class Sound extends ExperienceBasedBlueprint {
 			this._disposeAudio(this._lofi_audio);
 			this.lofi_audio = undefined;
 		}
+		this._lofiLoadPromise = undefined;
+		this._shouldPlayLofi = false;
 
 		this._onBeforeCameraSwitch &&
 			this._camera?.off(

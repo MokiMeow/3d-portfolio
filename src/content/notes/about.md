@@ -1,16 +1,16 @@
 ---
-title: "About"
-description: "About me"
+title: "About Mohith"
+description: "How Mohith builds products"
 ---
 
-![Job Done](/imgs/job_done.png)
+![Mohith's workroom](/imgs/job_done.png)
 
-## 👋 Hey there! How's it going?
+## Hello, I am Mohith
 
-Honestly, I don't expect many people to reach this section (ಥ ‿ ಥ). But hey, if you're reading this, thank you ❤.
+I am a self-taught full stack developer focused on building fast, useful web products. I work mainly with React, Next.js, TypeScript, and Node.js, with a strong interest in AI tooling, product design, and performance.
 
-I'm in the process of making positive changes in my life, looking to connect with new people, and just catching good vibes.
+I learn by making things real. Projects such as ZKAuth, AURORA, and OARS started as difficult ideas and became working systems through rapid experiments, careful iteration, and a lot of debugging.
 
-Not much to say right now, but, looking forward to meeting soon! ✨
+This room is a playful view of that process. Explore the screens, move through the scenes, and visit the contact space when you are ready to talk.
 
-Oh, and if you're feeling adventurous, check out the (☞ ﾟヮﾟ)☞ [credit section](/notes/credits/). I'd appreciate it!
+[View the main portfolio](https://smohith.vercel.app) or [browse Mohith's GitHub](https://github.com/MokiMeow).

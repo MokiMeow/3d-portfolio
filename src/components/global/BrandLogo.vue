@@ -20,13 +20,7 @@ const characters = computed(() => displayName.value.split(""));
 		:href="props.link"
 		class="flex flex-row items-center justify-start text-lg font-medium uppercase cursor-pointer"
 	>
-		<img
-			src="~/assets/img/logo.png"
-			:class="`h-7 sm:h-8 mb-1 mr-2 transition-all`"
-			:style="{
-				height: props.logoHeight ? `${props.logoHeight}px` : undefined,
-			}"
-		/>
+		<span class="brand-mark" aria-hidden="true">M</span>
 
 		<span class="flex flex-row">
 			<div v-for="(l, i) in characters" :key="i" class="transition-all">
@@ -38,6 +32,20 @@ const characters = computed(() => displayName.value.split(""));
 
 <style scoped lang="scss">
 $length: 20;
+
+.brand-mark {
+	display: grid;
+	width: 2rem;
+	height: 2rem;
+	margin-right: 0.65rem;
+	place-items: center;
+	border: 1px solid rgba(244, 247, 245, 0.65);
+	border-radius: 0.6rem 0.2rem 0.6rem 0.2rem;
+	font-size: 0.8rem;
+	font-weight: 700;
+	letter-spacing: 0;
+	transition: transform 220ms ease, background-color 220ms ease;
+}
 
 a > span {
 	letter-spacing: 0.25em;
@@ -52,8 +60,9 @@ a {
 	}
 
 	&:hover {
-		> img {
-			scale: 1.05;
+		> .brand-mark {
+			transform: rotate(-6deg) scale(1.04);
+			background: rgba(244, 247, 245, 0.1);
 		}
 
 		@for $i from 1 through $length {

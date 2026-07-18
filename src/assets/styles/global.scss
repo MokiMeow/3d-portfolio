@@ -37,31 +37,6 @@ body {
 	overflow-x: hidden;
 }
 
-#cursor {
-	position: absolute;
-	width: 20px;
-	height: 20px;
-	background: #fff;
-	mix-blend-mode: difference;
-	border-radius: 50%;
-	transform: translate(-50%, -50%);
-	transition: 180ms ease-out;
-	pointer-events: none;
-	z-index: 9999;
-}
-
-#cursor.active {
-	width: 35px;
-	height: 35px;
-	animation: cursor-bounce 0.8s ease-in-out;
-}
-
-#cursor.active-lg {
-	width: 60px;
-	height: 60px;
-	animation: cursor-bounce-lg 0.8s ease-in-out;
-}
-
 .exp-marker {
 	cursor: pointer;
 	position: absolute;
@@ -124,6 +99,22 @@ body {
 			transform: scale(1, 1);
 			background-color: rgba(var(--dark), 0.9);
 		}
+	}
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+	outline: 2px solid rgb(var(--primary));
+	outline-offset: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	* {
+		scroll-behavior: auto !important;
+		animation-duration: 1ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 1ms !important;
 	}
 }
 

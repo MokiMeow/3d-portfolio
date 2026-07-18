@@ -63,9 +63,10 @@ const route = useRoute();
                         }`"
                     >
                         <a
-                            href="https://discord.com/channels/@me/1227251038038523934"
-                            target="_blank"
-                            class="flex items-center justify-center transition-[background] bg-white rounded-full cursor-pointer w-8 h-8 bg-opacity-10 hover:bg-opacity-25 opacity-60 hover:opacity-100"
+							href="https://www.linkedin.com/in/smohiths"
+							target="_blank"
+							aria-label="LinkedIn"
+							class="hidden"
                         >
                             <svg viewBox="0 0 656 500" class="w-5 h-5 fill-none">
                                 <path
@@ -116,7 +117,7 @@ const route = useRoute();
 				:routes="
 					layoutState.headerLinks ?? [
 						{ title: 'Home', path: '/' },
-						{ title: 'Project', path: '/writing' },
+								{ title: 'Portfolio', path: Config.PORTFOLIO_LINK },
 
 					]
 				"

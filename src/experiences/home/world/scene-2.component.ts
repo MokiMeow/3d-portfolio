@@ -20,10 +20,10 @@ export class Scene2Component extends SceneComponentBlueprint {
 		spherical: {
 			radius: { min: 6.5, max: 12 },
 			phi: { min: 0.01, max: Math.PI * 0.5 },
-			theta: { min: 0, max: Math.PI * 0.5 },
+			theta: { min: -Math.PI, max: Math.PI },
 			enabled: true,
 			enabledPhi: true,
-			enabledTheta: false,
+			enabledTheta: true,
 		},
 		target: {
 			x: { min: -1.5, max: 1.5 },
@@ -40,7 +40,8 @@ export class Scene2Component extends SceneComponentBlueprint {
 			new Vector3(-8.3, 5.5, -1.9),
 			new Vector3(3, 4.65, -8.5),
 		],
-		true
+		false,
+		"centripetal"
 	);
 	public center = new Vector3(0, 1.7, 0);
 	public timeline = gsap.timeline();
@@ -55,7 +56,7 @@ export class Scene2Component extends SceneComponentBlueprint {
 			markers: [
 				{
 					icon: "💡",
-					content: "Some are missing...",
+					content: "The stack keeps evolving with the problems I choose to solve.",
 					position: new Vector3(0.14, 3, 0.35),
 				},
 			],

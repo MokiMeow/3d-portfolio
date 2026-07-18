@@ -13,7 +13,7 @@ definePageMeta({
 
 <template>
 	<div>
-		<Title>Sai Mohith - Skills</Title>
+		<Title>Mohith Lab | Skills</Title>
 		<LazyHomeContent
 			:can-display-landing="canDisplayLanding"
 			:landing-head="$t('skillsLandingHead')"

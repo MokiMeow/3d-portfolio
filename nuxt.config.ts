@@ -1,38 +1,39 @@
-import glslify from "vite-plugin-glslify";
+import { glslify } from "vite-plugin-glslify";
 
 export default defineNuxtConfig({
-	devtools: { enabled: true },
+	compatibilityDate: "2026-07-18",
+	devtools: { enabled: false },
 	ssr: false,
 	app: {
 		head: {
-			title: "Mohith's Site",
+			title: "Mohith Lab | Interactive 3D Portfolio",
 			charset: "utf-8",
 			viewport: "width=device-width, initial-scale=1",
 			meta: [
 				{
 					key: "description",
 					name: "description",
-					content: "A 3D experience representing Sai Mohith 's room",
+					content: "Explore Mohith's interactive 3D workroom, projects, skills, and ways to connect.",
 				},
 				{ name: "format-detection", content: "telephone=no" },
 				{ name: "x-ua-compatible", content: "IE=edge" },
-				{ name: "og:site_name", content: "Sai Mohith 's Site" },
+				{ name: "og:site_name", content: "Mohith Lab" },
 				{ name: "og:type", content: "website" },
-				{ name: "og:title", content: "Sai Mohith s website" },
+				{ name: "og:title", content: "Mohith Lab | Interactive 3D Portfolio" },
 				{
 					name: "og:description",
-					content: "A 3D experience representing Sai Mohith 's room",
+					content: "Step inside Mohith's interactive 3D workroom and explore how he builds.",
 				},
 				{ name: "og:image", content: "/imgs/screenshot.png" },
 				{ name: "twitter:card", content: "summary_large_image" },
-				{ name: "twitter:title", content: "Sai Mohith 's website" },
-				{ name: "twitter:creator", content: "https://twitter.com/nsl_nathan" },
+				{ name: "twitter:title", content: "Mohith Lab | Interactive 3D Portfolio" },
+				{ name: "twitter:creator", content: "@mohith50478695" },
 				{ name: "twitter:image", content: "/imgs/screenshot.png" },
 				{
 					name: "twitter:description",
-					content: "A 3D experience representing Sai Mohith 's room",
+					content: "Step inside Mohith's interactive 3D workroom and explore how he builds.",
 				},
-				{ name: "application-name", content: "Detective M HQ" },
+				{ name: "application-name", content: "Mohith Lab" },
 			],
 			link: [
 				{ rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
@@ -46,9 +47,6 @@ export default defineNuxtConfig({
 		// ~/components/pages/home/Update.vue => <HomeUpdate />
 		{ path: "~/components/pages" },
 
-		// ~/components/layout/Theme.vue => <L-Theme />
-		{ path: "~/components/layout", prefix: "L-" },
-
 		// ~/components/global/Btn.vue => <G-Btn />
 		{ path: "~/components/global", prefix: "G-" },
 
@@ -56,32 +54,35 @@ export default defineNuxtConfig({
 	],
 	modules: ["@nuxtjs/i18n", "@nuxt/content", "@nuxtjs/tailwindcss"],
 	runtimeConfig: {
-		GITHUB_TOKEN: process.env.GITHUB_TOKEN,
-		GITHUB_USERNAME: process.env.GITHUB_USERNAME,
-		GITHUB_REPO_NAME: process.env.GITHUB_REPO_NAME,
 		public: {
 			MODE: process.env.MODE,
-			GITHUB_LINK: process.env.GITHUB_LINK,
-			LINKEDIN_LINK: process.env.LINKEDIN_LINK,
-			DISCORD_LINK: process.env.DISCORD_LINK,
-			STACKOVERFLOW_LINK: process.env.STACKOVERFLOW_LINK,
-			TWITTER_LINK: process.env.TWITTER_LINK,
-			TELEGRAM_LINK: process.env.TELEGRAM_LINK,
+			GITHUB_LINK: process.env.GITHUB_LINK || "https://github.com/MokiMeow",
+			LINKEDIN_LINK: process.env.LINKEDIN_LINK || "https://www.linkedin.com/in/smohiths",
+			TWITTER_LINK: process.env.TWITTER_LINK || "https://x.com/mohith50478695",
+			PORTFOLIO_LINK: process.env.PORTFOLIO_LINK || "https://smohith.vercel.app",
+			EMAIL_LINK: process.env.EMAIL_LINK || "mailto:smohith.sm@gmail.com",
 			GITHUB_CONTENT_LINK: process.env.GITHUB_REPO_NAME,
 		},
 	},
 	typescript: {
-		typeCheck: true,
+		// Keep production builds deterministic and run vue-tsc explicitly in the build script.
+		typeCheck: false,
 		strict: true,
 	},
 	spaLoadingTemplate: false,
+	nitro: {
+		compressPublicAssets: true,
+	},
 	vite: {
 		plugins: [glslify()],
 	},
 	i18n: {
-		vueI18n: "./i18n.config.ts",
+		vueI18n: "../i18n.config.ts",
 		customRoutes: "config",
 		detectBrowserLanguage: false,
+		bundle: {
+			optimizeTranslationDirective: false,
+		},
 	},
 	content: {
 		highlight: {

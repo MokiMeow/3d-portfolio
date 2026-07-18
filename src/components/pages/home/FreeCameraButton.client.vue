@@ -4,6 +4,7 @@ import { HomeExperience } from "~/experiences/home";
 const experience = new HomeExperience();
 const isFreeCamera = useState<boolean>("isFreeCamera");
 const isFocusMode = useState<boolean>("isFocusMode");
+const isCameraHintVisible = useState<boolean>("isCameraHintVisible", () => false);
 
 const onLeaveFocusMode = () => {
 	if (!isFocusMode.value) return;
@@ -20,11 +21,23 @@ const onToggleFreeCamera = () => {
 
 <template>
 	<button
-		@pointerup="() => (isFocusMode ? onLeaveFocusMode() : onToggleFreeCamera())"
+		class="camera-control"
+		:class="{ 'camera-control--hinted': isCameraHintVisible && !isFocusMode }"
+		@click="() => (isFocusMode ? onLeaveFocusMode() : onToggleFreeCamera())"
+		:aria-label="
+			isFocusMode
+				? 'Leave focus mode'
+				: isFreeCamera
+					? 'Return to guided camera'
+					: 'Enable free camera'
+		"
+		:aria-pressed="isFreeCamera"
 		:title="
 			isFocusMode
 				? 'Leave Focus Mode'
-				: `${isFreeCamera ? 'Enable' : 'Disable'} Free Camera`
+				: isFreeCamera
+					? 'Return to Guided Camera'
+					: 'Enable Free Camera'
 		"
 	>
 		<svg
@@ -70,3 +83,42 @@ const onToggleFreeCamera = () => {
 		</svg>
 	</button>
 </template>
+
+<style scoped>
+.camera-control {
+	position: relative;
+}
+
+.camera-control::after {
+	position: absolute;
+	inset: -0.6rem;
+	pointer-events: none;
+	content: "";
+	border: 1px solid transparent;
+	border-radius: 999px;
+}
+
+.camera-control--hinted::after {
+	border-color: rgb(95 205 218 / 0.7);
+	animation: camera-control-hint 1.8s ease-out infinite;
+}
+
+@keyframes camera-control-hint {
+	0% {
+		opacity: 0.85;
+		transform: scale(0.78);
+	}
+	70%,
+	100% {
+		opacity: 0;
+		transform: scale(1.2);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.camera-control--hinted::after {
+		opacity: 0.8;
+		animation: none;
+	}
+}
+</style>

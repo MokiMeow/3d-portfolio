@@ -3,11 +3,12 @@ import { DeviceConfig } from "~/config/device.config";
 
 const isFreeCamera = useState<boolean>("isFreeCamera");
 const isFocusMode = useState<boolean>("isFocusMode");
+const currentYear = new Date().getFullYear();
 </script>
 
 <template>
 	<footer
-		:class="`z-20 flex flex-row items-center justify-center p-4 text-light bg-opacity-20 sm:backdrop-blur-none sm:bg-transparent sm:p-0 text-[3.5vw] xs:text-[12px] xs:justify-between transition-opacity flex-wrap ${
+		:class="`relative z-20 flex flex-row items-center justify-center p-4 text-light bg-opacity-20 sm:backdrop-blur-none sm:bg-transparent sm:p-0 text-[3.5vw] xs:text-[12px] xs:justify-between transition-opacity flex-wrap ${
 			isFreeCamera ? '' : 'bg-black'
 		}`"
 	>
@@ -16,7 +17,7 @@ const isFocusMode = useState<boolean>("isFocusMode");
 				isFocusMode ? '!opacity-40' : ''
 			}`"
 		>
-			Sai Mohith @ 2024
+			Sai Mohith S / {{ currentYear }}
 		</span>
 
 		<div
@@ -26,7 +27,7 @@ const isFocusMode = useState<boolean>("isFocusMode");
 		>
 			<lazy-home-camera-path-slider />
 			<span class="block text-[10px] opacity-70"
-				>Drag with slider
+				>Drag the slider
 				<span v-if="DeviceConfig.DEVICE === 'pc'">or use the wheel</span></span
 			>
 		</div>
@@ -48,6 +49,7 @@ const isFocusMode = useState<boolean>("isFocusMode");
 			<lazy-home-free-camera-button
 				class="w-[22px] transition-opacity h-6 opacity-70 hover:opacity-100"
 			/>
+			<lazy-home-camera-controls-hint />
 		</div>
 	</footer>
 </template>

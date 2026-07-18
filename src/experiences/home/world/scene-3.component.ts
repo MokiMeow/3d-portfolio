@@ -77,10 +77,10 @@ export class Scene3Component extends SceneComponentBlueprint {
 		spherical: {
 			radius: { min: 4, max: 8 },
 			phi: { min: 0.01, max: Math.PI * 0.5 },
-			theta: { min: 0, max: Math.PI * 0.5 },
+			theta: { min: -Math.PI, max: Math.PI },
 			enabled: true,
 			enabledPhi: true,
-			enabledTheta: false,
+			enabledTheta: true,
 		},
 		target: {
 			x: { min: -1.5, max: 1.5 },
@@ -98,7 +98,8 @@ export class Scene3Component extends SceneComponentBlueprint {
 			new Vector3(-4.6, 2, -5.3),
 			new Vector3(4.2, 2.7, -5),
 		],
-		true
+		false,
+		"centripetal"
 	);
 	public center = new Vector3(0, 1.3, 0);
 	public pcScreenMixerPlane?: HtmlMixerPlane;
@@ -133,33 +134,7 @@ export class Scene3Component extends SceneComponentBlueprint {
 				watch_screen: "watch_screen",
 				gamepad_led: "gamepad_led",
 			},
-			markers: [
-				{
-					icon: "❔",
-					content: "...",
-					position: new Vector3(-0.19, 2.52, 0.71),
-				},
-				{
-					icon: "💡",
-					content: "Twitter (not X)",
-					position: new Vector3(1.62, 1.54, 1.55),
-				},
-				{
-					icon: "💡",
-					content: "Linkedin",
-					position: new Vector3(-1.14, 0.8, -1.91),
-				},
-				{
-					icon: "💡",
-					content: "Discord",
-					position: new Vector3(0.39, 1.88, 0.41),
-				},
-				{
-					icon: "💡",
-					content: "Github",
-					position: new Vector3(1.33, 0.81, -0.97),
-				},
-			],
+			markers: [],
 			onTraverseModelScene: (child: Object3D<Object3DEventMap>) => {
 				this._setObjects(child);
 			},
@@ -171,7 +146,9 @@ export class Scene3Component extends SceneComponentBlueprint {
 
 			const pcScreenDomElement = document.createElement("iframe");
 			pcScreenDomElement.setAttribute("seamless", "true");
-			pcScreenDomElement.src = "/notes/about";
+			pcScreenDomElement.title = "Mohith contact desk";
+			pcScreenDomElement.loading = "lazy";
+			pcScreenDomElement.src = "/notes/contact";
 			pcScreenDomElement.style.border = "none";
 
 			this.pcScreenMixerPlane = new HtmlMixerPlane(
@@ -251,6 +228,14 @@ export class Scene3Component extends SceneComponentBlueprint {
 	}
 
 	private _setObjects(object: Object3D<Object3DEventMap>) {
+		if (
+			["discord_logo", "telegram_logo", "stackoverflow_logo"].includes(
+				object.name
+			)
+		) {
+			object.visible = false;
+			return;
+		}
 		if (
 			object instanceof Object3D &&
 			object.name === "pc_top_articulation_2" &&
@@ -381,14 +366,8 @@ export class Scene3Component extends SceneComponentBlueprint {
 			...(this.githubLogo !== undefined
 				? [{ object: this.githubLogo, externalLink: Config.GITHUB_LINK }]
 				: []),
-			...(this.discordLogo !== undefined
-				? [{ object: this.discordLogo, externalLink: Config.DISCORD_LINK }]
-				: []),
 			...(this.twitterLogo !== undefined
 				? [{ object: this.twitterLogo, externalLink: Config.TWITTER_LINK }]
-				: []),
-			...(this.telegramLogo !== undefined
-				? [{ object: this.telegramLogo, externalLink: Config.TELEGRAM_LINK }]
 				: []),
 			...(this.linkedinLogo !== undefined
 				? [{ object: this.linkedinLogo, externalLink: Config.LINKEDIN_LINK }]

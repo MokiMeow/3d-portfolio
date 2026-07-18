@@ -28,6 +28,7 @@ const appLaunchedTimes = ref(0);
 const loadingProgress = ref(0);
 const loadedResources = ref<string[]>([]);
 const isButtonPressable = ref(true);
+const isSoundMuted = useState<boolean>("isSoundMuted", () => true);
 
 const initLaunchedTimes = () => {
 	let localLaunchedTimes = localStorage.getItem("launchedTimes");
@@ -46,17 +47,15 @@ const onLoadStart = () => {
 };
 
 const onLoaderProgress = (progress: number, url: string) => {
-	setTimeout(() => {
-		loadingProgress.value = progress;
-		loadedResources.value.unshift(url.replace(/.*\/|\..*/gi, ""));
-	}, 10 * progress);
+	loadingProgress.value = progress;
+	loadedResources.value.unshift(url.replace(/.*\/|\..*/gi, ""));
 };
 
 const onLoaderCompleted = () => {
 	setTimeout(() => {
 		loadingProgress.value = 100;
 		isLoadingCompleted.value = true;
-	}, 10 * 170);
+	}, 180);
 };
 
 const initUI = () => {
@@ -94,6 +93,9 @@ const onPressStart = () => {
 	if (!isButtonPressable.value) return;
 	isButtonPressable.value = false;
 	window?.removeEventListener("keypress", onKeypress);
+	void new HomeExperience().sound?.startFromGesture().then(() => {
+		isSoundMuted.value = false;
+	});
 	setTimeout(intro, 200);
 };
 
@@ -124,12 +126,15 @@ const watchStopHandle = watchEffect(
 	<div
 		ref="loaderContainer"
 		v-if="!isLoadingEnded"
-		class="fixed top-0 z-50 py-12 overflow-hidden h-safe w-safe text-light bg-dark"
+		class="lab-loader fixed top-0 z-50 py-12 overflow-hidden h-safe w-safe text-light bg-dark"
 	>
 		<LazyGContainer class="relative flex flex-col h-full">
 			<section
 				class="flex flex-col items-center justify-center flex-1 text-center"
 			>
+				<p class="mb-4 text-[9px] tracking-[0.32em] uppercase opacity-40">
+					Mohith / interactive workroom
+				</p>
 				<p v-if="!isLoadingCompleted" class="text-sm">
 					{{
 						isLoadingStarted
@@ -144,7 +149,7 @@ const watchStopHandle = watchEffect(
 				>
 					<button
 						ref="loaderButton"
-						:class="`px-4 py-2 capitalize border-[1px] sm:border-[1.5px] rounded-md cursor-pointer text-md hover:animate-none active:opacity-40 border-light font-light ${
+						:class="`px-5 py-3 uppercase tracking-[0.12em] border-[1px] sm:border-[1.5px] rounded-lg cursor-pointer text-sm hover:animate-none active:opacity-40 border-light font-light ${
 							isButtonPressable ? 'animate-pulse' : 'pointer-events-none'
 						}`"
 						@click.once="onPressStart"
@@ -210,8 +215,7 @@ const watchStopHandle = watchEffect(
 					class="animate-[.1s_linear_show-with-transition_forwards] mt-2 sm:mt-1 text-[8px]"
 				>
 					<span class="opacity-40"
-						>You launched this app more then 5 times, Congratulation you
-						unlocked this message.
+						>You have visited the lab more than five times. Welcome back.
 					</span>
 				</span>
 			</section>
@@ -235,7 +239,7 @@ const watchStopHandle = watchEffect(
 					</div>
 
 					<div>
-						v{{ packageJson.version }} | Made by
+						v{{ packageJson.version }} | Built by
 						<a
 							:href="packageJson.repository.directory"
 							target="_blank"
@@ -261,6 +265,7 @@ const watchStopHandle = watchEffect(
 	height: 100dvh;
 	width: 100dvw;
 }
+
 h1 {
 	font-weight: 600;
 }

@@ -1,50 +1,45 @@
 {
-	"name": "detective-m-hq",
-	"version": "0.0.0",
-	"author": "Mohith",
+	"name": "mohith-lab",
+	"version": "1.0.0",
+	"author": "Sai Mohith S",
 	"repository": {
 		"url": "https://github.com/MokiMeow",
 		"directory": "https://github.com/MokiMeow",
 		"type": "git"
 	},
-	"contributors": [
-		"@MNAth_"
-	],
-	"description": "Official @Mohith's website",
+	"homepage": "https://smohith.vercel.app",
+	"description": "Mohith's interactive 3D lab and personal workroom.",
 	"private": true,
+	"packageManager": "pnpm@8.15.9",
+	"engines": {
+		"node": ">=20.17.0 <25"
+	},
 	"scripts": {
-		"prepare": "husky install",
-		"build": "nuxt build",
+		"build": "pnpm typecheck && nuxt build",
 		"dev": "nuxt dev",
 		"generate": "nuxt generate",
 		"preview": "nuxt preview",
-		"postinstall": "nuxt prepare"
+		"postinstall": "nuxt prepare",
+		"typecheck": "nuxi typecheck"
 	},
 	"devDependencies": {
-		"@commitlint/cli": "^17.8.1",
-		"@commitlint/config-conventional": "^17.8.1",
-		"@nuxt/content": "^2.11.0",
-		"@nuxt/devtools": "latest",
-		"@nuxtjs/i18n": "^8.0.1",
-		"@nuxtjs/tailwindcss": "^6.11.3",
+		"@nuxt/content": "2.13.4",
+		"@nuxtjs/i18n": "9.5.6",
+		"@nuxtjs/tailwindcss": "6.14.0",
 		"@tailwindcss/typography": "^0.5.10",
-		"@types/node": "^18.19.14",
+		"@types/node": "^22.19.0",
 		"@types/normalize-wheel": "^1.0.4",
 		"@types/three": "^0.161.2",
 		"autoprefixer": "^10.4.17",
-		"husky": "^8.0.3",
 		"lil-gui": "^0.18.2",
-		"nuxt": "^3.10.1",
-		"octokit": "^3.1.2",
+		"nuxt": "3.20.1",
 		"postcss": "^8.4.34",
 		"sass": "^1.70.0",
 		"tailwindcss": "^3.4.1",
-		"typescript": "^5.3.3",
-		"vite-plugin-glsl": "^1.2.1",
-		"vite-plugin-glslify": "^2.0.2",
-		"vue": "^3.4.15",
-		"vue-router": "^4.2.5",
-		"vue-tsc": "^1.8.27"
+		"typescript": "^5.9.3",
+		"vue": "^3.5.24",
+		"vue-router": "^4.6.3",
+		"vue-tsc": "^3.1.8"
 	},
 	"dependencies": {
 		"events": "^3.3.0",
@@ -53,6 +48,12 @@
 		"normalize-wheel": "^1.0.1",
 		"quick-threejs": "^0.1.33",
 		"three": "^0.161.0",
-		"threex.htmlmixer-continued": "^0.0.5"
+		"threex.htmlmixer-continued": "^0.0.5",
+		"vite-plugin-glslify": "2.0.2"
+	},
+	"pnpm": {
+		"overrides": {
+			"@nuxt/cli": "3.31.3"
+		}
 	}
 }

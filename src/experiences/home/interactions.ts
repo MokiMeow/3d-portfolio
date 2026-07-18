@@ -135,6 +135,8 @@ export class Interactions extends ExperienceBasedBlueprint {
 		const router = useRouter();
 		const currentObject = this._selectableObjects?.[this._selectedObject.uuid];
 
+		if (currentObject?.onSelect) return currentObject.onSelect();
+
 		if (
 			currentObject?.focusPoint &&
 			currentObject.focusTarget &&
@@ -214,8 +216,11 @@ export class Interactions extends ExperienceBasedBlueprint {
 
 		if (currentObject?.link) return router?.push(currentObject.link);
 
-		if (currentObject?.externalLink)
-			return window.open(currentObject.externalLink, "_blank");
+		if (currentObject?.externalLink) {
+			const nextWindow = window.open(currentObject.externalLink, "_blank", "noopener,noreferrer");
+			if (nextWindow) nextWindow.opener = null;
+			return nextWindow;
+		}
 	};
 	private readonly _onRouteChange = () => {
 		if (this._ui?.targetElement) this._ui.targetElement.style.cursor = "auto";

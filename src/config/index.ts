@@ -41,21 +41,6 @@ export class Config {
 			return repository.url;
 		}
 	})();
-	static readonly DISCORD_LINK: string = (() => {
-		try {
-			return useRuntimeConfig().public.DISCORD_LINK;
-		} catch {
-			return repository.url;
-		}
-	})();
-	static readonly STACKOVERFLOW_LINK: string = (() => {
-		try {
-			return useRuntimeConfig().public.STACKOVERFLOW_LINK;
-		} catch {
-			return repository.url;
-		}
-	})();
-
 	static readonly TWITTER_LINK: string = (() => {
 		try {
 			return useRuntimeConfig().public.TWITTER_LINK;
@@ -64,11 +49,18 @@ export class Config {
 		}
 	})();
 
-	static readonly TELEGRAM_LINK: string = (() => {
+	static readonly PORTFOLIO_LINK: string = (() => {
 		try {
-			return useRuntimeConfig().public.TELEGRAM_LINK;
+			return useRuntimeConfig().public.PORTFOLIO_LINK;
 		} catch {
-			return repository.url;
+			return "https://smohith.vercel.app";
+		}
+	})();
+	static readonly EMAIL_LINK: string = (() => {
+		try {
+			return useRuntimeConfig().public.EMAIL_LINK;
+		} catch {
+			return "mailto:smohith.sm@gmail.com";
 		}
 	})();
 

@@ -5,13 +5,15 @@ const experience = new HomeExperience();
 const isSoundMuted = useState("isSoundMuted");
 
 const onPress = () => {
-	experience.sound?.toggleMute();
+	void experience.sound?.toggleMute();
 };
 </script>
 
 <template>
 	<button
-		@pointerup="onPress"
+		@click="onPress"
+		:aria-label="`${isSoundMuted ? 'Enable' : 'Mute'} scene sound`"
+		:aria-pressed="!isSoundMuted"
 		:title="`${isSoundMuted ? 'Enable' : 'Disable'} Sound`"
 	>
 		<svg

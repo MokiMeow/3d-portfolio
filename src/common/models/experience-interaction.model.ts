@@ -4,6 +4,7 @@ export interface SelectableObject {
 	object: Object3D<Object3DEventMap>;
 	link?: string;
 	externalLink?: string;
+	onSelect?: () => unknown;
 	focusPoint?: Vector3;
 	focusTarget?: Vector3;
 	focusFov?: number;

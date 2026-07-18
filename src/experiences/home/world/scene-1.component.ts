@@ -13,6 +13,9 @@ import {
 	PerspectiveCamera,
 	Vector3,
 	Box3,
+	CanvasTexture,
+	PlaneGeometry,
+	SRGBColorSpace,
 } from "three";
 import gsap from "gsap";
 
@@ -28,6 +31,7 @@ import coffeeSteamVertex from "./shaders/scene-1/coffeeSteam/vertex.glsl";
 
 // CONFIGS
 import { Config } from "~/config";
+import { DeviceConfig } from "~/config/device.config";
 
 // STATIC
 import { DESTRUCTED } from "~/static/event.static";
@@ -39,6 +43,7 @@ import type {
 	ModelChildrenMaterials,
 } from "~/common/models/experience-world.model";
 import type { ViewLimits } from "~/common/models/experience-navigation.model";
+import type { BoardNoteDetails } from "~/common/models/board-note.model";
 
 export class Scene1Component extends SceneComponentBlueprint {
 	private readonly _renderer = this._experience.renderer;
@@ -103,13 +108,20 @@ export class Scene1Component extends SceneComponentBlueprint {
 	public keyboards?: Object3D;
 	public fixedComputer?: Object3D;
 	public pcTopArticulation?: Object3D;
-	public pcScreenWebglTexture = new WebGLRenderTarget(1024, 1024);
+	public pcScreenWebglTexture = new WebGLRenderTarget(
+		DeviceConfig.DEVICE === "pc" ? 768 : 512,
+		DeviceConfig.DEVICE === "pc" ? 768 : 512
+	);
 	public pcScreen?: Mesh;
 	public phoneScreen?: Mesh;
 	public monitorAScreen?: Mesh;
 	public monitorBScreen?: Mesh;
 	public treeOutside?: Object3D;
 	public coffeeSteam?: Mesh;
+	private readonly _boardNotes: Mesh[] = [];
+	private readonly _boardNoteTextures: CanvasTexture[] = [];
+	private readonly _boardNoteMaterials: MeshBasicMaterial[] = [];
+	private readonly _boardNoteGeometries: PlaneGeometry[] = [];
 
 	constructor() {
 		const t = useI18n().t;
@@ -331,7 +343,101 @@ export class Scene1Component extends SceneComponentBlueprint {
 				this.keyboards,
 				this.fixedComputer
 			);
+
+			this._createBoardNotes();
 		});
+	}
+
+	private _createBoardNotes() {
+		if (!this.modelScene || this._boardNotes.length) return;
+
+		const notes = [
+			{
+				position: new Vector3(-1.05, 4.28, -2.7),
+				rotation: -0.045,
+				details: {
+					title: "Ship the hard thing",
+					label: ["SHIP THE", "HARD THING"],
+					description:
+						"A reminder to choose the project that demands real learning, then turn the difficult part into something people can actually use.",
+					accent: "#d78949",
+				} satisfies BoardNoteDetails,
+			},
+			{
+				position: new Vector3(-0.43, 4.14, -2.7),
+				rotation: 0.035,
+				details: {
+					title: "Trace the system",
+					label: ["TRACE THE", "SYSTEM"],
+					description:
+						"AI is not magic. The interesting work is understanding the data, decisions, failure modes, and safeguards behind the result.",
+					accent: "#5f9ea0",
+				} satisfies BoardNoteDetails,
+			},
+			{
+				position: new Vector3(0.18, 4.24, -2.7),
+				rotation: -0.025,
+				details: {
+					title: "404: Comfort zone",
+					label: ["404", "COMFORT ZONE"],
+					description:
+						"A small rule for ambitious builds: stay curious, question the obvious path, and keep moving toward work that feels slightly impossible.",
+					accent: "#b86d61",
+				} satisfies BoardNoteDetails,
+			},
+		];
+
+		for (const note of notes) {
+			const canvas = document.createElement("canvas");
+			canvas.width = 384;
+			canvas.height = 320;
+			const context = canvas.getContext("2d");
+			if (!context) continue;
+
+			const texture = new CanvasTexture(canvas);
+			texture.colorSpace = SRGBColorSpace;
+			const material = new MeshBasicMaterial({ map: texture });
+			const geometry = new PlaneGeometry(0.42, 0.34);
+			const mesh = new Mesh(geometry, material);
+
+			const draw = () => {
+				context.fillStyle = note.details.accent;
+				context.fillRect(0, 0, canvas.width, canvas.height);
+				context.fillStyle = "rgba(255,255,255,0.12)";
+				context.fillRect(0, 0, canvas.width, 8);
+				context.fillStyle = "#151515";
+				context.font = "700 28px Arial, sans-serif";
+				context.textAlign = "center";
+				context.textBaseline = "middle";
+
+				context.fillText(note.details.label[0], canvas.width / 2, 132);
+				context.fillText(note.details.label[1], canvas.width / 2, 182);
+				context.fillStyle = "rgba(21,21,21,0.55)";
+				context.font = "600 16px Arial, sans-serif";
+				context.fillText("OPEN NOTE", canvas.width / 2, 274);
+				texture.needsUpdate = true;
+			};
+
+			draw();
+			mesh.position.copy(note.position);
+			mesh.rotation.z = note.rotation;
+			mesh.name = "interactive_board_note";
+			mesh.userData.onSelect = () => {
+				useState<BoardNoteDetails | null>("activeBoardNote", () => null).value =
+					note.details;
+				gsap.fromTo(
+					mesh.scale,
+					{ x: 0.94, y: 0.94 },
+					{ x: 1, y: 1, duration: 0.32, ease: "back.out(2)" }
+				);
+			};
+
+			this._boardNotes.push(mesh);
+			this._boardNoteTextures.push(texture);
+			this._boardNoteMaterials.push(material);
+			this._boardNoteGeometries.push(geometry);
+			this.modelScene.add(mesh);
+		}
 	}
 
 	public destruct() {
@@ -343,6 +449,13 @@ export class Scene1Component extends SceneComponentBlueprint {
 			opacity: 0,
 			onUpdate: () => {},
 			onComplete: () => {
+				for (const texture of this._boardNoteTextures) texture.dispose();
+				for (const material of this._boardNoteMaterials) material.dispose();
+				for (const geometry of this._boardNoteGeometries) geometry.dispose();
+				this._boardNotes.length = 0;
+				this._boardNoteTextures.length = 0;
+				this._boardNoteMaterials.length = 0;
+				this._boardNoteGeometries.length = 0;
 				this.modelScene?.clear();
 				this.modelScene?.removeFromParent();
 				this._renderer?.removePortalAssets(`${Scene1Component.name}_screen_pc`);
@@ -366,13 +479,26 @@ export class Scene1Component extends SceneComponentBlueprint {
 		}
 
 		this.selectableObjects = [
+			...this._boardNotes.map((object) => ({
+				object,
+				onSelect: () => object.userData.onSelect?.(),
+			})),
 			...(this.pcScreen && nextPage
 				? [
 						{
 							object: this.pcScreen,
 							link: nextPage,
 						},
-				  ]
+					  ]
+				: []),
+			...(this.monitorAScreen
+				? [{ object: this.monitorAScreen, link: "/projects" }]
+				: []),
+			...(this.monitorBScreen
+				? [{ object: this.monitorBScreen, externalLink: Config.GITHUB_LINK }]
+				: []),
+			...(this.phoneScreen
+				? [{ object: this.phoneScreen, link: "/contact" }]
 				: []),
 		];
 	}

@@ -17,7 +17,7 @@ const onInput = (e: Event) => {
 	const target = e.target as HTMLInputElement | undefined;
 	if (!experience.value?.cameraAnimation?.enabled || !target) return;
 
-	experience.value.cameraAnimation.progressTarget = Number(target.value) / 100;
+	experience.value.cameraAnimation.setProgress(Number(target.value) / 100);
 };
 const onCameraAnimationUpdate = () => {
 	if (!experience.value?.cameraAnimation) return;
@@ -40,6 +40,7 @@ onBeforeRouteUpdate(() => {
 
 <template>
 	<input
+		aria-label="Explore the scene camera path"
 		type="range"
 		min="0"
 		max="100"
@@ -49,6 +50,9 @@ onBeforeRouteUpdate(() => {
 		@input="onInput"
 		@pointerdown="onPointerDown"
 		@pointerup="onPointerUp"
+		@pointercancel="onPointerUp"
+		@change="onPointerUp"
+		@blur="onPointerUp"
 	/>
 </template>
 

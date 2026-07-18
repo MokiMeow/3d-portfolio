@@ -14,14 +14,15 @@ defineProps<{
 }>();
 
 const emits = defineEmits(["landingAnimationDone"]);
+let entranceTimer: ReturnType<typeof setTimeout> | undefined;
 
 onMounted(() => {
-	setTimeout(() => {
+	entranceTimer = setTimeout(() => {
 		timeline
 			.to(
 				{},
 				{
-					duration: 2,
+					duration: 1.35,
 					onStart: () => {
 						landingContainerRef.value?.classList.add("active", "opacity-100");
 					},
@@ -45,6 +46,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+	if (entranceTimer) clearTimeout(entranceTimer);
 	if (timeline.isActive()) timeline.progress(1);
 	timeline.clear();
 });
