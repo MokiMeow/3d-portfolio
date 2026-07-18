@@ -108,15 +108,18 @@ const layoutState = useContentLayout();
 		<div
 			class="z-10 flex flex-col flex-1 px-4 py-5 overflow-hidden prose sm:py-10 prose-invert"
 		>
-			<header class="flex justify-end mb-5 sm:my-0 sm:mb-10">
+			<header class="flex justify-start mb-5 sm:my-0 sm:mb-10">
 				<a
 					href="/"
 					aria-label="Back to MohithLab"
-					class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium no-underline uppercase transition-colors border rounded-full border-light/30 text-light/75 hover:text-light hover:border-light/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+					class="inline-flex min-h-11 items-center gap-2 px-2.5 py-1.5 text-xs font-medium no-underline uppercase transition-[color,border-color,background-color] border rounded-full border-light/30 bg-dark/55 text-light/75 hover:text-light hover:border-light/60 hover:bg-light/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
 				>
-					<svg aria-hidden="true" viewBox="0 0 24 24" class="w-3.5 h-3.5 fill-none stroke-current" stroke-width="1.75">
-						<path d="m15 18-6-6 6-6" stroke-linecap="round" stroke-linejoin="round" />
-					</svg>
+					<span class="grid w-7 h-7 border rounded-full place-items-center border-light/20 bg-light/5">
+						<svg aria-hidden="true" viewBox="0 0 20 20" class="w-3.5 h-3.5 fill-none stroke-current" stroke-width="1.7">
+							<path d="M16.5 10h-12" stroke-linecap="round" />
+							<path d="m9 5.5-4.5 4.5L9 14.5" stroke-linecap="round" stroke-linejoin="round" />
+						</svg>
+					</span>
 					Back
 				</a>
 			</header>
