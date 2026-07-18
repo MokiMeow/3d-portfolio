@@ -1,8 +1,5 @@
 <script setup lang="ts">
-import { Config } from "~/config";
-
 const layoutState = useContentLayout();
-const route = useRoute();
 </script>
 
 <template>
@@ -116,9 +113,7 @@ const route = useRoute();
 				:show-menu-icon="false"
 				:routes="
 					layoutState.headerLinks ?? [
-						{ title: 'Home', path: Config.PORTFOLIO_LINK, target: '_top' },
-						{ title: 'Portfolio', path: '/' },
-
+						{ title: 'Back', path: '/' },
 					]
 				"
 				class="mb-5 sm:my-0 sm:mb-10"

@@ -6,7 +6,7 @@ withDefaults(
 	defineProps<{
 		showMenuIcon?: boolean;
 		showLogo?: boolean;
-		routes?: { title: string; path: string; target?: "_self" | "_top" | "_blank" }[];
+		routes?: { title: string; path: string }[];
 		logoLink?: string;
 	}>(),
 	{
@@ -36,8 +36,6 @@ withDefaults(
 				v-for="(route, id) in routes"
 				:key="id"
 				:href="route.path"
-				:target="route.target"
-				:rel="route.target === '_blank' ? 'noopener noreferrer' : undefined"
 				>{{ route.title }}</NuxtLink
 			>
 		</div>

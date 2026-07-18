@@ -5,7 +5,7 @@ export const useContentLayout = () =>
 		displayNetworks: boolean;
 		title: string;
 		subTitle?: string;
-		headerLinks?: { title: string; path: string; target?: "_self" | "_top" | "_blank" }[];
+		headerLinks?: { title: string; path: string }[];
 	}>("contentLayoutState", () => ({
 		displayLeftSide: true,
 		displayTitle: true,
