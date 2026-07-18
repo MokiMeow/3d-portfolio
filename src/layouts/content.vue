@@ -108,16 +108,18 @@ const layoutState = useContentLayout();
 		<div
 			class="z-10 flex flex-col flex-1 px-4 py-5 overflow-hidden prose sm:py-10 prose-invert"
 		>
-			<LazyGHeader
-				:show-logo="false"
-				:show-menu-icon="false"
-				:routes="
-					layoutState.headerLinks ?? [
-						{ title: 'Back', path: '/' },
-					]
-				"
-				class="mb-5 sm:my-0 sm:mb-10"
-			/>
+			<header class="flex justify-end mb-5 sm:my-0 sm:mb-10">
+				<a
+					href="/"
+					aria-label="Back to MohithLab"
+					class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium no-underline uppercase transition-colors border rounded-full border-light/30 text-light/75 hover:text-light hover:border-light/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+				>
+					<svg aria-hidden="true" viewBox="0 0 24 24" class="w-3.5 h-3.5 fill-none stroke-current" stroke-width="1.75">
+						<path d="m15 18-6-6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+					</svg>
+					Back
+				</a>
+			</header>
 
 			<div class="flex-1 overflow-y-auto">
 				<slot />
