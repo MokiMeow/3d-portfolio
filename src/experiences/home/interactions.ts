@@ -50,6 +50,8 @@ export class Interactions extends ExperienceBasedBlueprint {
 	private _intersectableContainer?: Object3D<Object3DEventMap>;
 	private _selectedObject?: Object3D<Object3DEventMap>;
 	private _pointerDownSelectedObject?: Object3D<Object3DEventMap>;
+	private readonly _pointerDownCoord = new Vector2();
+	private _pointerDownMoved = false;
 	private _lastCameraPosition?: Vector3;
 	private _lastCameraTarget?: Vector3;
 	private _enabled = false;
@@ -85,13 +87,20 @@ export class Interactions extends ExperienceBasedBlueprint {
 			this._cameraAnimation?.enabled ||
 			!e.isPrimary ||
 			!this.enabled ||
-			!this.controls ||
-			!this.outlinePass?.selectedObjects.length ||
-			!this._selectedObject?.uuid
+			!this.controls
 		)
 			return;
 
+		// Touch devices do not have a hover phase. Resolve the object directly
+		// under the initial contact instead of relying on an earlier pointermove.
+		this._updatePointerCoordinates(e);
+		this._checkIntersection();
+		if (!this.outlinePass?.selectedObjects.length || !this._selectedObject?.uuid)
+			return;
+
 		this._pointerDownSelectedObject = this._selectedObject;
+		this._pointerDownCoord.set(e.clientX, e.clientY);
+		this._pointerDownMoved = false;
 	};
 	private readonly _onPointerMove = (
 		e: PointerEvent | IframeMouseDispatcherEvent
@@ -105,33 +114,43 @@ export class Interactions extends ExperienceBasedBlueprint {
 		)
 			return;
 
-		const clientX =
-			e instanceof PointerEvent ? e.clientX : e.detail?.clientX ?? 0.5;
-		const clientY =
-			e instanceof PointerEvent ? e.clientY : e.detail?.clientY ?? 0.5;
-
-		this._pointerCoord.x = (clientX / this._appSizes.width) * 2 - 1;
-		this._pointerCoord.y = -(clientY / this._appSizes.height) * 2 + 1;
-
-		this._normalizedFocusCoord.x = -(clientX / this._appSizes.width - 0.5);
-		this._normalizedFocusCoord.y = clientY / this._appSizes.height - 0.5;
+		this._updatePointerCoordinates(e);
+		if (
+			e instanceof PointerEvent &&
+			this._pointerDownSelectedObject
+		) {
+			const deltaX = e.clientX - this._pointerDownCoord.x;
+			const deltaY = e.clientY - this._pointerDownCoord.y;
+			if (deltaX * deltaX + deltaY * deltaY > 100)
+				this._pointerDownMoved = true;
+		}
 
 		this._checkIntersection();
 	};
 	private readonly _onPointerUp = (e: PointerEvent) => {
+		if (e.isPrimary && this.controls) {
+			this._updatePointerCoordinates(e);
+			this._checkIntersection();
+		}
+
+		const pressedObject = this._pointerDownSelectedObject;
+		const moved = this._pointerDownMoved;
+		this._pointerDownSelectedObject = undefined;
+		this._pointerDownMoved = false;
+
 		if (
 			!e.isPrimary ||
 			!this.controls ||
+			moved ||
 			!this.outlinePass?.selectedObjects.length ||
 			!this._camera?.instance ||
 			!this._navigation?.view ||
 			!this._selectedObject?.uuid ||
 			this.isFocusing ||
-			this._pointerDownSelectedObject?.uuid !== this._selectedObject.uuid
+			pressedObject?.uuid !== this._selectedObject.uuid
 		)
 			return;
 
-		this._pointerDownSelectedObject = undefined;
 		const router = useRouter();
 		const currentObject = this._selectableObjects?.[this._selectedObject.uuid];
 
@@ -222,6 +241,21 @@ export class Interactions extends ExperienceBasedBlueprint {
 			return nextWindow;
 		}
 	};
+
+	private _updatePointerCoordinates(
+		e: PointerEvent | IframeMouseDispatcherEvent
+	) {
+		const clientX =
+			e instanceof PointerEvent ? e.clientX : e.detail?.clientX ?? 0.5;
+		const clientY =
+			e instanceof PointerEvent ? e.clientY : e.detail?.clientY ?? 0.5;
+
+		this._pointerCoord.x = (clientX / this._appSizes.width) * 2 - 1;
+		this._pointerCoord.y = -(clientY / this._appSizes.height) * 2 + 1;
+
+		this._normalizedFocusCoord.x = -(clientX / this._appSizes.width - 0.5);
+		this._normalizedFocusCoord.y = clientY / this._appSizes.height - 0.5;
+	}
 	private readonly _onRouteChange = () => {
 		if (this._ui?.targetElement) this._ui.targetElement.style.cursor = "auto";
 		this.stop();
