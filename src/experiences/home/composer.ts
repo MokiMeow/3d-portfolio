@@ -11,7 +11,6 @@ import { ExperienceBasedBlueprint } from "~/common/blueprints/experience-based.b
 
 // STATIC
 import { events } from "~/static";
-import { DeviceConfig } from "~/config/device.config";
 
 /** Effect Composer Manager */
 export class Composer extends ExperienceBasedBlueprint {
@@ -37,11 +36,11 @@ export class Composer extends ExperienceBasedBlueprint {
 
 	public construct(): void {
 		this._effect = new EffectComposer(this._appRender.instance);
-		this._effect.setPixelRatio(Math.min(this._appSizes.pixelRatio, DeviceConfig.DEVICE === "pc" ? 1.5 : 1));
+		this._effect.setPixelRatio(Math.min(this._appSizes.pixelRatio, 1.5));
 		this._effect.setSize(this._appSizes.width, this._appSizes.height);
 
 		this._onResize = () => {
-			this._effect?.setPixelRatio(Math.min(this._appSizes.pixelRatio, DeviceConfig.DEVICE === "pc" ? 1.5 : 1));
+			this._effect?.setPixelRatio(Math.min(this._appSizes.pixelRatio, 1.5));
 			this._effect?.setSize(this._appSizes.width, this._appSizes.height);
 		};
 		this._appSizes.on("resize", this._onResize);

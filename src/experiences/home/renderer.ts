@@ -98,10 +98,7 @@ export class Renderer extends ExperienceBasedBlueprint {
 			this._experience.app.sizes.height
 		);
 		this._appRenderer.instance.setPixelRatio(
-			Math.min(
-				this._experience.app.sizes.pixelRatio,
-				DeviceConfig.DEVICE === "pc" ? 1.5 : 1
-			)
+			Math.min(this._experience.app.sizes.pixelRatio, 1.5)
 		);
 		this._appRenderer.instance.localClippingEnabled = true;
 
