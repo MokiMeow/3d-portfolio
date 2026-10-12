@@ -284,7 +284,11 @@ export class Interactions extends ExperienceBasedBlueprint {
 		const intersects = this.raycaster.intersectObject(
 			this._intersectableContainer,
 			true
-		);
+		).filter(hit => {
+			let object: Object3D | null = hit.object;
+			while (object) { if (!object.visible) return false; object = object.parent; }
+			return true;
+		});
 		const selectedObj =
 			intersects[0]?.object.uuid &&
 			this._selectableUuids.indexOf(intersects[0].object.uuid) !== -1

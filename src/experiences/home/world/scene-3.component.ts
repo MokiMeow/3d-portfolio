@@ -23,7 +23,10 @@ import { SceneComponentBlueprint } from "../blueprints/scene-component.blueprint
 import type { Materials } from "~/common/models/experience-world.model";
 
 // STATIC
-import { events } from "~/static";
+import { events, pages } from "~/static";
+import { createContactProps } from "./scene-3.props";
+import { createGuidedObjectPicker } from "./guided-object-picker";
+import type { LabDevice } from "~/common/models/lab-device.model";
 
 // UTILS
 import { getTodayTimestamp } from "~/utils/common-utils";
@@ -71,6 +74,8 @@ export class Scene3Component extends SceneComponentBlueprint {
 		this.pcScreenMixerPlane.object3d.userData.visible = undefined;
 	};
 	private _iframeUnloadCleanUp?: () => unknown;
+	private _contactProps?: ReturnType<typeof createContactProps>;
+	private _guidedPicker?: ReturnType<typeof createGuidedObjectPicker>;
 
 	public readonly timeline = gsap.timeline();
 	public readonly navigationLimits = {
@@ -80,7 +85,7 @@ export class Scene3Component extends SceneComponentBlueprint {
 			theta: { min: -Math.PI, max: Math.PI },
 			enabled: true,
 			enabledPhi: true,
-			enabledTheta: true,
+			enabledTheta: false,
 		},
 		target: {
 			x: { min: -1.5, max: 1.5 },
@@ -134,7 +139,11 @@ export class Scene3Component extends SceneComponentBlueprint {
 				watch_screen: "watch_screen",
 				gamepad_led: "gamepad_led",
 			},
-			markers: [],
+			markers: [
+				{ icon: "💡", content: "Pick up the phone. Camera, Chrome, and a very opinionated inbox.", position: new Vector3(0.68, 1.88, -0.55) },
+				{ icon: "💡", content: "Put on the smart glasses. There is something you should see.", position: new Vector3(0.43, 1.84, -0.17) },
+				{ icon: "💡", content: "A pocket terminal. Try help, projects, or coffee.", position: new Vector3(-0.27, 1.68, 0.99) },
+			],
 			onTraverseModelScene: (child: Object3D<Object3DEventMap>) => {
 				this._setObjects(child);
 			},
@@ -325,6 +334,7 @@ export class Scene3Component extends SceneComponentBlueprint {
 		pcScreen?.position.add(new Vector3(0, 1.415, 0));
 
 		this.selectableObjects = [
+			...(this._contactProps?.selectables ?? []),
 			...(pcScreen !== undefined
 				? [
 						{
@@ -341,6 +351,7 @@ export class Scene3Component extends SceneComponentBlueprint {
 				? [
 						{
 							object: this.phoneScreen,
+							onSelect: () => { useState<LabDevice>("activeLabDevice", () => null).value = "phone"; },
 							focusPoint: this.phoneScreen
 								.localToWorld(new Vector3())
 								.add(new Vector3(0.225, 1, 0.1)),
@@ -407,6 +418,14 @@ export class Scene3Component extends SceneComponentBlueprint {
 	public construct(): void {
 		super.construct();
 		this._initPcScreenIframe();
+		if (this.modelScene) this._contactProps = createContactProps(this.modelScene);
+		this.initSelectableObjects();
+		this._guidedPicker = createGuidedObjectPicker({
+			active: () => !!this._experience.cameraAnimation?.enabled && this._experience.router?.currentRouteKey === pages.CONTACT_PAGE && !this._experience.navigation?.timeline.isActive() && !this._experience.world?.manager?.timeline.isActive(),
+			scene: () => this.modelScene,
+			camera: () => this._experience.camera?.instance,
+			selectables: () => this.selectableObjects,
+		});
 
 		const matKeys = Object.keys(this._availableMaterials).slice(3);
 
@@ -417,6 +436,10 @@ export class Scene3Component extends SceneComponentBlueprint {
 	}
 
 	public destruct(): void {
+		this._guidedPicker?.dispose();
+		this._contactProps?.dispose();
+		this._experience.composer?.off(events.STARTED, this._onComposerStarted);
+		this._experience.composer?.off(events.ENDED, this._onComposerEnded);
 		super.destruct();
 		this._iframeUnloadCleanUp?.();
 	}
@@ -444,6 +467,7 @@ export class Scene3Component extends SceneComponentBlueprint {
 				"<"
 			)
 			.add(() => {
+				this._contactProps?.setVisible(true);
 				if (this._renderer) this._renderer.enableCssRender = true;
 				if (this.pcScreenMixerPlane)
 					this.pcScreenMixerPlane.object3d.visible = true;
@@ -467,6 +491,7 @@ export class Scene3Component extends SceneComponentBlueprint {
 				alphaTest: 1,
 				duration: Config.GSAP_ANIMATION_DURATION,
 				onStart: () => {
+					this._contactProps?.setVisible(false);
 					if (this._renderer) this._renderer.enableCssRender = false;
 					if (this.pcScreenMixerPlane)
 						this.pcScreenMixerPlane.object3d.visible = false;

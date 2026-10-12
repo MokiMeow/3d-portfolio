@@ -17,6 +17,7 @@ import {
 
 // BLUEPRINTS
 import { ExperienceBasedBlueprint } from "~/common/blueprints/experience-based.blueprint";
+import { HOME_PAGE } from "~/static/page.static";
 
 // ASSETS
 import scene_1_model from "~/assets/models/scene_1/model.glb?url";
@@ -38,8 +39,8 @@ import cloudAlphaMapTexture from "~/assets/textures/cloudAlphaMap.jpg?url";
 import rocksAlphaMapTexture from "~/assets/textures/rocksAlphaMap.jpg?url";
 import phoneScreenshotTexture from "~/assets/textures/phone_icons.png?url";
 
-import monitor_a_screen_record from "~/assets/videos/monitor_a_screen_record.webm?url";
-import monitor_b_screen_record from "~/assets/videos/monitor_b_screen_record.webm?url";
+import monitor_a_screen_record from "~/assets/videos/mohith-code.webm?url";
+import monitor_b_screen_record from "~/assets/videos/mohith-github.webm?url";
 import phone_screen_record from "~/assets/videos/phone_screen_record.webm?url";
 
 import computer_startup_audio from "~/assets/sounds/computer_startup.mp3?url";
@@ -57,6 +58,17 @@ export class Loader extends ExperienceBasedBlueprint {
 	private _progress = 0;
 	private _availableTextures: { [name: string]: Texture } = {};
 	private _availableAudios: { [name: string]: AudioBuffer } = {};
+	private _motionPreference?: MediaQueryList;
+	private readonly _syncScreenPlayback = () => {
+		const shouldPlay = !document.hidden && !this._motionPreference?.matches
+			&& this._experience.router?.currentRouteKey === HOME_PAGE;
+		for (const texture of Object.values(this._availableTextures)) {
+			if (!(texture instanceof VideoTexture)) continue;
+			const video = texture.image as HTMLVideoElement;
+			if (shouldPlay) { if (video.paused) void video.play().catch(() => {}); }
+			else video.pause();
+		}
+	};
 
 	constructor() {
 		super();
@@ -185,6 +197,7 @@ export class Loader extends ExperienceBasedBlueprint {
 		if (file instanceof Texture) {
 			this.correctTextures(file);
 			this._availableTextures[source.name] = file;
+			if (file instanceof VideoTexture) this._syncScreenPlayback();
 		}
 
 		if (file instanceof AudioBuffer) this._availableAudios[source.name] = file;
@@ -213,6 +226,10 @@ export class Loader extends ExperienceBasedBlueprint {
 	}
 
 	public construct() {
+		this._motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+		this._motionPreference.addEventListener("change", this._syncScreenPlayback);
+		document.addEventListener("visibilitychange", this._syncScreenPlayback);
+		this._experience.router?.on(CHANGED, this._syncScreenPlayback);
 		const onStart = () => {
 			this.emit(STARTED, this._progress);
 		};
@@ -243,6 +260,9 @@ export class Loader extends ExperienceBasedBlueprint {
 	}
 
 	public destruct() {
+		this._motionPreference?.removeEventListener("change", this._syncScreenPlayback);
+		document.removeEventListener("visibilitychange", this._syncScreenPlayback);
+		this._experience.router?.off(CHANGED, this._syncScreenPlayback);
 		this._appResources.loadingManager.removeHandler(
 			/onStart|onError|onProgress|onLoad/
 		);
@@ -250,6 +270,10 @@ export class Loader extends ExperienceBasedBlueprint {
 
 		for (let i = 0; i < keys.length; i++) {
 			const item = this._appResources.items[keys[i]];
+			if (item instanceof VideoTexture) {
+				const video = item.image as HTMLVideoElement;
+				video.pause(); video.removeAttribute("src"); video.load();
+			}
 			if (item instanceof Texture) item.dispose();
 		}
 

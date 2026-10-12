@@ -1,0 +1,161 @@
+<script setup lang="ts">
+import { HomeExperience } from "~/experiences/home";
+import type { LabDevice } from "~/common/models/lab-device.model";
+const route = useRoute();
+const menu = ref<HTMLDetailsElement>();
+const announcement = ref("");
+const isContact = computed(() => route.path === "/contact");
+const isHome = computed(() => route.path === "/");
+const active = useState<LabDevice>("activeLabDevice", () => null);
+const closeMenu = () => {
+	if (menu.value) menu.value.open = false;
+};
+const pickUp = (device: LabDevice) => {
+	closeMenu();
+	active.value = device;
+};
+const toggleDrawer = (index: number, label: string) => {
+	const open = new HomeExperience().world?.scene1?.toggleDrawer(index);
+	announcement.value = `${label} drawer ${open ? "opened" : "closed"}.`;
+};
+watch(() => route.path, closeMenu);
+</script>
+
+<template>
+	<details
+		v-if="isHome || isContact"
+		ref="menu"
+		class="desk-objects"
+		@pointerdown.stop
+		@pointerup.stop
+		@pointermove.stop
+		@click.stop
+		@wheel.stop
+		@keydown.esc.prevent="closeMenu"
+	>
+		<summary aria-label="Explore desk objects" title="Explore desk objects">
+			<svg
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.3"
+				aria-hidden="true"
+			>
+				<rect x="3.5" y="4" width="17" height="16" rx="3" />
+				<path d="M3.5 11.5h17M10 8h4m-4 7.5h4" />
+			</svg>
+		</summary>
+		<div class="desk-object-menu">
+			<p>{{ isContact ? "PICK SOMETHING UP" : "A LITTLE EXPLORING" }}</p>
+			<template v-if="isContact">
+				<button @click="pickUp('phone')">
+					<span>Phone</span><small>03 apps ↗</small>
+				</button>
+				<button @click="pickUp('glasses')">
+					<span>Smart glasses</span><small>▶ Play</small>
+				</button>
+				<button @click="pickUp('terminal')">
+					<span>Pocket terminal</span><small>⌘ Local</small>
+				</button>
+			</template>
+			<template v-else>
+				<button @click="toggleDrawer(2, 'Top')">
+					<span>Top drawer</span><small>Open / close</small>
+				</button>
+				<button @click="toggleDrawer(1, 'Middle')">
+					<span>Middle drawer</span><small>Open / close</small>
+				</button>
+				<button @click="toggleDrawer(0, 'Bottom')">
+					<span>Bottom drawer</span><small>Open / close</small>
+				</button>
+			</template>
+			<span class="desk-object-hint">You can also tap them in the room.</span>
+		</div>
+		<span class="sr-only" role="status">{{ announcement }}</span>
+	</details>
+</template>
+
+<style scoped>
+.desk-objects {
+	position: relative;
+	pointer-events: auto;
+	color: #ddd;
+}
+.desk-objects summary {
+	list-style: none;
+	cursor: pointer;
+	opacity: 0.7;
+	width: 26px;
+	height: 28px;
+	display: grid;
+	place-items: center;
+}
+.desk-objects summary::-webkit-details-marker {
+	display: none;
+}
+.desk-objects summary:hover,
+.desk-objects[open] summary {
+	opacity: 1;
+}
+.desk-objects summary svg {
+	width: 23px;
+	height: 23px;
+}
+.desk-object-menu {
+	position: absolute;
+	right: 0;
+	bottom: 45px;
+	width: 228px;
+	padding: 18px 17px 14px;
+	background: #192023f2;
+	border: 1px solid #ffffff24;
+	border-radius: 12px;
+	box-shadow: 0 16px 40px #0005;
+	text-align: left;
+	backdrop-filter: blur(16px);
+}
+.desk-object-menu p {
+	font-size: 8px;
+	letter-spacing: 1.8px;
+	color: #a3b6b9;
+	margin-bottom: 9px;
+}
+.desk-object-menu button {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+	padding: 11px 0;
+	border-bottom: 1px solid #ffffff10;
+	font-size: 12px;
+	color: #e8efed;
+	gap: 15px;
+}
+.desk-object-menu button small {
+	font-size: 9px;
+	color: #93aaa5;
+	white-space: nowrap;
+}
+.desk-object-menu button:hover span {
+	color: #bfddcb;
+}
+.desk-object-hint {
+	display: block;
+	font-size: 9px;
+	line-height: 1.5;
+	color: #91a09e;
+	margin-top: 13px;
+}
+summary:focus-visible,
+button:focus-visible {
+	outline: 2px solid #a9c9ba;
+	outline-offset: 4px;
+	border-radius: 3px;
+}
+@media (max-width: 480px) {
+	.desk-object-menu {
+		right: -90px;
+		bottom: 42px;
+	}
+}
+</style>

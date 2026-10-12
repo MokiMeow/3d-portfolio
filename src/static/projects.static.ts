@@ -16,8 +16,9 @@ export const PROJECTS = [
 		url: "https://zkauth.dev",
 	},
 	{
-		title: "Flash UI",
-		description: "A fast UI generation experiment for moving from an idea to an editable interface quickly.",
-		url: "https://flashs-ui.vercel.app",
+		title: "Inference Score",
+		description: "An LLM inference engine written in C++17, with hand-tuned AVX2 kernels, KV caching, and quantized weights.",
+		url: "https://github.com/MokiMeow/nutllm",
+		logo: "/images/inference-score.svg",
 	},
 ] as const;

@@ -62,14 +62,15 @@ const initUI = () => {
 	const _exp = new HomeExperience();
 
 	if (!_exp.loader) return;
-	isLoadingEnded.value = !!Object.keys(_exp.loader.availableTextures).length;
-
-	if (isLoadingEnded.value) return;
 
 	// EVENTS
 	onLoadStart();
+	loadingProgress.value = _exp.loader.progress;
 	_exp.loader?.on(events.PROGRESSED, onLoaderProgress);
 	_exp.loader?.on(events.LOADED, onLoaderCompleted);
+	// The lazy UI can mount after cached assets have already loaded. It still
+	// needs the entry gesture: that event starts the world's camera manager.
+	if (_exp.loader.progress >= 100) onLoaderCompleted();
 };
 
 const intro = () => {

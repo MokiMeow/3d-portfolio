@@ -28,6 +28,7 @@ onMounted(() => {
 			:description="project.description"
 		>
 			<template #footer>
+				<img v-if="'logo' in project" :src="project.logo" alt="Inference Score chip mark" width="32" height="32"/>
 				<span class="text-sm text-right opacity-80">Built by Mohith</span>
 			</template>
 		</LazyContentCard>

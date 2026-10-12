@@ -167,6 +167,7 @@ onBeforeRouteUpdate((route) => {
 
 		<LazyHomeBoardNoteDialog />
 		<LazyHomeProjectsPanel />
+		<LazyHomeLabDeviceDialog />
 	</main>
 </template>
 

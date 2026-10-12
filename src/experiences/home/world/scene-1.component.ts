@@ -50,6 +50,7 @@ import type { SelectableObject } from "~/common/models/experience-interaction.mo
 // PROPS
 import { createDeskProps } from "./scene-1.props";
 import { createWallLightSwitch, LIGHT_SWITCH_POSITION } from "./scene-1.light-switch";
+import { createInteractiveDrawers } from "./scene-1.drawers";
 
 export class Scene1Component extends SceneComponentBlueprint {
 	private readonly _renderer = this._experience.renderer;
@@ -128,6 +129,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 	private _deskProps?: ReturnType<typeof createDeskProps>;
 
 	private _lightSwitch?: ReturnType<typeof createWallLightSwitch>;
+	private _drawers?: ReturnType<typeof createInteractiveDrawers>;
 	public lightsOn = true;
 	/** Shared by the room and wood materials: 0 by day, 1 with the lights off. */
 	private readonly _night = { value: 0 };
@@ -451,6 +453,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 			window.addEventListener("pointerdown", this._onGuidedDown);
 			window.addEventListener("pointerup", this._onGuidedUp);
 		});
+		if (this.modelScene) this._drawers = createInteractiveDrawers(this.modelScene);
 	}
 
 	private _createLightSwitch() {
@@ -662,6 +665,8 @@ export class Scene1Component extends SceneComponentBlueprint {
 				this._deskProps = undefined;
 				this._lightSwitch?.dispose();
 				this._lightSwitch = undefined;
+				this._drawers?.dispose();
+				this._drawers = undefined;
 				this._boardNotes.length = 0;
 				this._boardNoteTextures.length = 0;
 				this._boardNoteMaterials.length = 0;
@@ -673,6 +678,11 @@ export class Scene1Component extends SceneComponentBlueprint {
 				this.emit(DESTRUCTED);
 			},
 		});
+	}
+
+	public toggleDrawer(index: number) {
+		if (!Number.isInteger(index) || index < 0 || index > 2) return;
+		return this._drawers?.toggle(index);
 	}
 
 	public initSelectableObjects() {
@@ -696,6 +706,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 			})),
 			...(this._deskProps?.selectables ?? []),
 			...(this._lightSwitch?.selectables ?? []),
+			...(this._drawers?.selectables ?? []),
 			...(this.pcScreen && nextPage
 				? [
 						{

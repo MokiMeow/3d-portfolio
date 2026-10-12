@@ -19,6 +19,7 @@ import { ExperienceBasedBlueprint } from "~/common/blueprints/experience-based.b
 // STATIC
 import { events } from "~/static";
 import { DeviceConfig } from "~/config/device.config";
+import type { LabDevice } from "~/common/models/lab-device.model";
 
 export interface PortalAssets {
 	mesh: THREE.Mesh;
@@ -39,6 +40,7 @@ export class Renderer extends ExperienceBasedBlueprint {
 	private readonly _ui = this._experience.ui;
 	private readonly _camera = this._experience.camera;
 	private readonly _appSizes = this._experience.app.sizes;
+	private readonly _activeDevice = useState<LabDevice>("activeLabDevice", () => null);
 	private readonly _renderPortalAssets: {
 		[callbackName: string]: PortalAssets;
 	} = {};
@@ -120,6 +122,7 @@ export class Renderer extends ExperienceBasedBlueprint {
 		this._appSizes.on(quickEvents.RESIZED, this._onResize);
 
 		this._app.on(quickEvents.PRE_UPDATED, () => {
+			if (this._activeDevice.value || document.hidden) return;
 			this.enableCssRender && this._mixerContext?.update();
 
 			if (!Object.keys(this._renderPortalAssets).length) return;

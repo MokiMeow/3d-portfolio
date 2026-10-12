@@ -11,6 +11,7 @@ import { ExperienceBasedBlueprint } from "~/common/blueprints/experience-based.b
 
 // STATIC
 import { events } from "~/static";
+import type { LabDevice } from "~/common/models/lab-device.model";
 
 /** Effect Composer Manager */
 export class Composer extends ExperienceBasedBlueprint {
@@ -20,6 +21,7 @@ export class Composer extends ExperienceBasedBlueprint {
 	private readonly _appCamera = this._experience.app.camera;
 	private readonly _appSizes = this._experience.app.sizes;
 	private readonly _passes: { [name: string]: Pass } = {};
+	private readonly _activeDevice = useState<LabDevice>("activeLabDevice", () => null);
 
 	private _effect?: EffectComposer;
 	private _renderPass?: RenderPass;
@@ -91,6 +93,12 @@ export class Composer extends ExperienceBasedBlueprint {
 	}
 
 	public update(): void {
+		// Keep the last room frame beneath the device dialog. The interactive
+		// DOM/YouTube UI does not need a second full WebGL scene every frame.
+		if (this._activeDevice.value || document.hidden) {
+			this._appRender.enabled = false;
+			return;
+		}
 		if (!this._effect?.passes.length) {
 			this._appRender.enabled = true;
 			return;
