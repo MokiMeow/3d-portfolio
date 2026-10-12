@@ -31,11 +31,16 @@ const isButtonPressable = ref(true);
 const isSoundMuted = useState<boolean>("isSoundMuted", () => true);
 
 const initLaunchedTimes = () => {
-	let localLaunchedTimes = localStorage.getItem("launchedTimes");
+	try {
+		let localLaunchedTimes = localStorage.getItem("launchedTimes");
 
-	if (!localLaunchedTimes) localLaunchedTimes = "0";
-	appLaunchedTimes.value = Number(localLaunchedTimes) + 1;
-	localStorage.setItem("launchedTimes", appLaunchedTimes.value.toString());
+		if (!localLaunchedTimes) localLaunchedTimes = "0";
+		appLaunchedTimes.value = Number(localLaunchedTimes) + 1;
+		localStorage.setItem("launchedTimes", appLaunchedTimes.value.toString());
+	} catch {
+		// A cross-site frame can be refused storage; count this as a first launch.
+		appLaunchedTimes.value = 1;
+	}
 };
 
 const onLoadStart = () => {

@@ -12,17 +12,27 @@ export default defineNuxtPlugin((nuxtApp) => {
 
 			document.documentElement.setAttribute("data-theme", safeTheme);
 
-			if (!safeTheme) return localStorage.removeItem("theme");
-			localStorage.theme = theme;
+			try {
+				localStorage.theme = theme;
+			} catch {
+				// A cross-site frame can be refused storage; the theme still applies.
+			}
 		} catch (error) {
 			new ErrorFactory(error);
 		}
 	};
 
 	const onThemeChange = () => {
+		let stored: string | null = null;
+		try {
+			stored = localStorage.getItem("theme");
+		} catch {
+			// No storage: follow the system theme.
+		}
+
 		setTheme(
-			localStorage.theme === "dark" ||
-				(!("theme" in localStorage) &&
+			stored === "dark" ||
+				(stored === null &&
 					window.matchMedia("(prefers-color-scheme: dark)").matches)
 				? "dark"
 				: "light"
