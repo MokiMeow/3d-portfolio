@@ -11,4 +11,4 @@ If you have a product to build, a hard technical problem, or an experiment worth
 
 [Email Mohith](mailto:smohith.sm@gmail.com)
 
-[GitHub](https://github.com/MokiMeow) · [LinkedIn](https://www.linkedin.com/in/smohiths) · [X](https://x.com/mohith50478695)
+[GitHub](https://github.com/MokiMeow) · [LinkedIn](https://www.linkedin.com/in/smohiths) · [X](https://x.com/smohiths)

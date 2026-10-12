@@ -45,6 +45,7 @@ export class WorldManager extends ExperienceBasedBlueprint {
 	private _onUiReady = async () => {
 		await this._intro();
 		this._setScene();
+		void this._warmUp();
 
 		this._router?.on(events.CHANGED, this._onRouterChange);
 		this._cameraAnimation?.on(events.CHANGED, this._onCameraAnimationChange);
@@ -85,6 +86,29 @@ export class WorldManager extends ExperienceBasedBlueprint {
 		if (!this._world?.availablePageScenes) return [];
 
 		return Object.keys(this._world.availablePageScenes);
+	}
+
+	/**
+	 * The Skills and Contact scenes are first drawn when the visitor first goes
+	 * to them, and compiling their shaders at that moment froze the page for
+	 * seconds. Compile them now instead, in the background, while the room is
+	 * on screen.
+	 */
+	private async _warmUp() {
+		const renderer = this._experience.app.renderer.instance;
+		const camera = this._camera?.cameras?.[1];
+		if (!camera || typeof renderer?.compileAsync !== "function") return;
+
+		for (const key of this._supportedPageKeys) {
+			const model = this._world?.availablePageScenes[key]?.modelScene;
+			if (!model || key === this._world?.mainSceneKey) continue;
+
+			try {
+				await renderer.compileAsync(model, camera, this._experience.app.scene);
+			} catch {
+				// A failed warm-up only means the old first-visit pause stays.
+			}
+		}
 	}
 
 	/** Launch a screen composer effect. */

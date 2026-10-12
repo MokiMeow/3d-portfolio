@@ -10,6 +10,9 @@ uniform float uGreenAccentStrength;
 uniform vec3 uBlueAccent;
 uniform float uBlueAccentStrength;
 
+// 0 with the room's lights on, 1 with them off for the night.
+uniform float uNight;
+
 varying vec2 vUv;
 
 #pragma glslify: blend = require(glsl-blend/lighten)
@@ -17,6 +20,11 @@ varying vec2 vUv;
 void main() {
 	vec3 bakedColor = texture2D(uBakedTexture, vUv).rgb;
 	vec3 lightMapColor = texture2D(uBakedLightTexture, vUv).rgb;
+
+	// Night: the lamps are baked into the texture, so they are dimmed here, toward
+	// a cool moonlit version of the same room. Screens and LEDs are added after,
+	// so anything still switched on keeps glowing in the dark.
+	bakedColor = mix(bakedColor, bakedColor * vec3(0.12, 0.16, 0.3), uNight);
 
 	float redAccentStrength = lightMapColor.r * uRedAccentStrength;
 	bakedColor = blend(bakedColor, uRedAccent, redAccentStrength);

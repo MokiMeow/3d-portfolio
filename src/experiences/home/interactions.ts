@@ -65,6 +65,7 @@ export class Interactions extends ExperienceBasedBlueprint {
 		},
 	});
 	public focusedObject?: SelectableObject;
+	private _hoveredUuid?: string;
 	public outlinePass?: OutlinePass;
 	public controls = true;
 
@@ -289,6 +290,12 @@ export class Interactions extends ExperienceBasedBlueprint {
 			this._selectableUuids.indexOf(intersects[0].object.uuid) !== -1
 				? intersects[0]?.object
 				: undefined;
+
+		if (selectedObj?.uuid !== this._hoveredUuid) {
+			if (this._hoveredUuid) this._selectableObjects?.[this._hoveredUuid]?.onHover?.(false);
+			if (selectedObj) this._selectableObjects?.[selectedObj.uuid]?.onHover?.(true);
+			this._hoveredUuid = selectedObj?.uuid;
+		}
 
 		if (!selectedObj) return;
 

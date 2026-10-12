@@ -5,6 +5,8 @@ export interface SelectableObject {
 	link?: string;
 	externalLink?: string;
 	onSelect?: () => unknown;
+	/** Called when the pointer moves onto the object (true) and off it (false). */
+	onHover?: (hovered: boolean) => unknown;
 	focusPoint?: Vector3;
 	focusTarget?: Vector3;
 	focusFov?: number;

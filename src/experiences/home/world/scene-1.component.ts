@@ -15,6 +15,7 @@ import {
 	Box3,
 	CanvasTexture,
 	PlaneGeometry,
+	Raycaster,
 	SRGBColorSpace,
 } from "three";
 import gsap from "gsap";
@@ -44,6 +45,11 @@ import type {
 } from "~/common/models/experience-world.model";
 import type { ViewLimits } from "~/common/models/experience-navigation.model";
 import type { BoardNoteDetails } from "~/common/models/board-note.model";
+import type { SelectableObject } from "~/common/models/experience-interaction.model";
+
+// PROPS
+import { createDeskProps } from "./scene-1.props";
+import { createWallLightSwitch, LIGHT_SWITCH_POSITION } from "./scene-1.light-switch";
 
 export class Scene1Component extends SceneComponentBlueprint {
 	private readonly _renderer = this._experience.renderer;
@@ -119,9 +125,90 @@ export class Scene1Component extends SceneComponentBlueprint {
 	public treeOutside?: Object3D;
 	public coffeeSteam?: Mesh;
 	private readonly _boardNotes: Mesh[] = [];
+	private _deskProps?: ReturnType<typeof createDeskProps>;
+
+	private _lightSwitch?: ReturnType<typeof createWallLightSwitch>;
+	public lightsOn = true;
+	/** Shared by the room and wood materials: 0 by day, 1 with the lights off. */
+	private readonly _night = { value: 0 };
 	private readonly _boardNoteTextures: CanvasTexture[] = [];
 	private readonly _boardNoteMaterials: MeshBasicMaterial[] = [];
 	private readonly _boardNoteGeometries: PlaneGeometry[] = [];
+
+	// Picking in the guided view. The free camera has its own outline-based
+	// interactions; this makes the same things answer a click without leaving
+	// the guided view first.
+	private readonly _picker = new Raycaster();
+	private readonly _pickerCoord = new Vector2();
+	private _pickerHovered?: SelectableObject;
+	private _pickerPressed?: { x: number; y: number; target?: SelectableObject };
+
+	private _pick(e: PointerEvent) {
+		const exp = this._experience;
+		const camera = exp.camera?.instance;
+
+		if (
+			!this.modelScene ||
+			!camera ||
+			!exp.cameraAnimation?.enabled ||
+			exp.camera?.currentCameraIndex !== 0 ||
+			exp.router?.currentRouteKey !== pages.HOME_PAGE ||
+			exp.navigation?.timeline.isActive() ||
+			exp.world?.manager?.timeline.isActive() ||
+			!(e.target instanceof Element) ||
+			e.target.closest("a, button, input, textarea, select, iframe, [role='dialog']")
+		)
+			return undefined;
+
+		if (!this.selectableObjects.length) this.initSelectableObjects();
+
+		this._pickerCoord.set(
+			(e.clientX / window.innerWidth) * 2 - 1,
+			-(e.clientY / window.innerHeight) * 2 + 1
+		);
+		this._picker.setFromCamera(this._pickerCoord, camera);
+
+		// Only the nearest surface counts, so the chair or a wall still blocks what is behind it.
+		// The coffee's steam is a see-through plane, so it does not block anything.
+		const hit = this._picker
+			.intersectObject(this.modelScene, true)
+			.find((item) => item.object !== this.coffeeSteam)?.object;
+		return hit
+			? this.selectableObjects.find((item) => item.object === hit)
+			: undefined;
+	}
+
+	private readonly _onGuidedMove = (e: PointerEvent) => {
+		if (e.pointerType !== "mouse") return;
+
+		const target = this._pick(e);
+		if (target === this._pickerHovered) return;
+
+		this._pickerHovered?.onHover?.(false);
+		target?.onHover?.(true);
+		this._pickerHovered = target;
+		document.documentElement.style.cursor = target ? "pointer" : "";
+	};
+
+	private readonly _onGuidedDown = (e: PointerEvent) => {
+		if (!e.isPrimary) return;
+		this._pickerPressed = { x: e.clientX, y: e.clientY, target: this._pick(e) };
+	};
+
+	private readonly _onGuidedUp = (e: PointerEvent) => {
+		const pressed = this._pickerPressed;
+		this._pickerPressed = undefined;
+		if (!pressed?.target || !e.isPrimary) return;
+
+		const dx = e.clientX - pressed.x;
+		const dy = e.clientY - pressed.y;
+		if (dx * dx + dy * dy > 64 || this._pick(e) !== pressed.target) return;
+
+		const { onSelect, link, externalLink } = pressed.target;
+		if (onSelect) onSelect();
+		else if (link) void useRouter().push(link);
+		else if (externalLink) window.open(externalLink, "_blank", "noopener");
+	};
 
 	constructor() {
 		const t = useI18n().t;
@@ -184,14 +271,24 @@ export class Scene1Component extends SceneComponentBlueprint {
 					position: new Vector3(-2.85, 4.3, 0.8),
 				},
 				{
-					icon: "❤",
-					content: t("neverFinished"),
-					position: new Vector3(-2.82, 4.51, 1.99),
-				},
-				{
 					icon: "❔",
 					content: t("sawSomething"),
 					position: new Vector3(2.08, 3.11, -2.92),
+				},
+				{
+					icon: "🧩",
+					content: t("rubiksCube"),
+					position: new Vector3(0.5, 2.58, -2.12),
+				},
+				{
+					icon: "💡",
+					content: t("newtonsCradle"),
+					position: new Vector3(0.3, 2.3, -1.47),
+				},
+				{
+					icon: "🌙",
+					content: t("lightSwitch"),
+					position: LIGHT_SWITCH_POSITION.clone().add(new Vector3(0.05, 0.36, 0)),
 				},
 			],
 			onTraverseModelScene: (child) => {
@@ -287,6 +384,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 
 				uBlueAccent: { value: new Color(this.colors.fixedComputerLed) },
 				uBlueAccentStrength: { value: this.lightsBakedTextureStrength.b },
+				uNight: this._night,
 			},
 			fragmentShader: bakedTextureFragment,
 			vertexShader: bakedTextureVertex,
@@ -308,6 +406,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 
 				uBlueAccent: { value: new Color(this.colors.phoneScreen) },
 				uBlueAccentStrength: { value: this.woodsLightsBakedTextureStrength.b },
+				uNight: this._night,
 			},
 			fragmentShader: bakedTextureFragment,
 			vertexShader: bakedTextureVertex,
@@ -345,102 +444,209 @@ export class Scene1Component extends SceneComponentBlueprint {
 			);
 
 			this._createBoardNotes();
+			if (!this._deskProps && this.modelScene) this._deskProps = createDeskProps(this.modelScene);
+			this._createLightSwitch();
+
+			window.addEventListener("pointermove", this._onGuidedMove);
+			window.addEventListener("pointerdown", this._onGuidedDown);
+			window.addEventListener("pointerup", this._onGuidedUp);
 		});
+	}
+
+	private _createLightSwitch() {
+		if (!this.modelScene || this._lightSwitch) return;
+		this._lightSwitch = createWallLightSwitch(this.modelScene, () => this.toggleLights());
+	}
+
+	/**
+	 * Good night: the lamps and both monitors go out, and the room is left with
+	 * the window, the little lights on the machines, and the cube's stand.
+	 */
+	public toggleLights() {
+		this.lightsOn = !this.lightsOn;
+		const on = this.lightsOn;
+		const tween = { duration: 1.1, ease: "power2.inOut" };
+
+		gsap.to(this._night, { value: on ? 0 : 1, ...tween });
+		// The machine under the desk stays on, so its blue light is what is left.
+		gsap.to(this.lightsBakedTextureStrength, { r: on ? 0.5 : 0, g: on ? 1 : 0, b: on ? 1.8 : 1.1, ...tween });
+		gsap.to(this.woodsLightsBakedTextureStrength, { r: on ? 0.7 : 0, g: on ? 0.7 : 0, b: on ? 1.5 : 0.6, ...tween });
+		for (const material of this._boardNoteMaterials) {
+			gsap.to(material.color, { r: on ? 0.8 : 0.13, g: on ? 0.78 : 0.16, b: on ? 0.76 : 0.26, ...tween });
+		}
+		for (const screen of [this.monitorAScreen, this.monitorBScreen]) {
+			if (screen?.material instanceof MeshBasicMaterial) {
+				const level = on ? 1 : 0;
+				gsap.to(screen.material.color, { r: level, g: level, b: level, ...tween });
+			}
+		}
+		this._lightSwitch?.setOn(on);
+		this._deskProps?.setLights(on);
 	}
 
 	private _createBoardNotes() {
 		if (!this.modelScene || this._boardNotes.length) return;
 
-		const notes = [
+		// Two rows of square sticky notes. The top three are the originals; the
+		// lower three carry lines already written elsewhere in the lab.
+		const notes: { position: Vector3; rotation: number; details: BoardNoteDetails }[] = [
 			{
-				position: new Vector3(-1.05, 4.28, -2.7),
-				rotation: -0.045,
+				position: new Vector3(-1.05, 4.2, -2.74),
+				rotation: -0.06,
 				details: {
 					title: "Ship the hard thing",
-					label: ["SHIP THE", "HARD THING"],
+					label: ["Ship the", "hard thing"],
 					description:
 						"A reminder to choose the project that demands real learning, then turn the difficult part into something people can actually use.",
-					accent: "#d78949",
-				} satisfies BoardNoteDetails,
+					accent: "#f0b45a",
+				},
 			},
 			{
-				position: new Vector3(-0.43, 4.14, -2.7),
-				rotation: 0.035,
+				position: new Vector3(-0.42, 4.14, -2.74),
+				rotation: 0.045,
 				details: {
 					title: "Trace the system",
-					label: ["TRACE THE", "SYSTEM"],
+					label: ["Trace the", "system"],
 					description:
 						"AI is not magic. The interesting work is understanding the data, decisions, failure modes, and safeguards behind the result.",
-					accent: "#5f9ea0",
-				} satisfies BoardNoteDetails,
+					accent: "#7fc4bd",
+				},
 			},
 			{
-				position: new Vector3(0.18, 4.24, -2.7),
-				rotation: -0.025,
+				position: new Vector3(0.2, 4.22, -2.74),
+				rotation: -0.03,
 				details: {
 					title: "404: Comfort zone",
-					label: ["404", "COMFORT ZONE"],
+					label: ["404:", "comfort zone"],
 					description:
 						"A small rule for ambitious builds: stay curious, question the obvious path, and keep moving toward work that feels slightly impossible.",
-					accent: "#b86d61",
-				} satisfies BoardNoteDetails,
+					accent: "#ef9a86",
+				},
+			},
+			{
+				position: new Vector3(-1.2, 3.6, -2.74),
+				rotation: 0.05,
+				details: {
+					title: "Never finished",
+					label: ["Never", "finished"],
+					description: "Unfinished ideas stay visible until they become real.",
+					accent: "#f3d66a",
+				},
+			},
+			{
+				position: new Vector3(-0.58, 3.55, -2.74),
+				rotation: -0.07,
+				details: {
+					title: "Reserved",
+					label: ["Reserved", "for next"],
+					description: "Reserved for the next ambitious system.",
+					accent: "#c3b1ea",
+				},
+			},
+			{
+				position: new Vector3(0.05, 3.62, -2.74),
+				rotation: 0.035,
+				details: {
+					title: "Look closer",
+					label: ["Look", "closer"],
+					description: "Some details only appear when you explore.",
+					accent: "#9fd08c",
+				},
 			},
 		];
 
-		for (const note of notes) {
+		const geometry = new PlaneGeometry(0.46, 0.46);
+		this._boardNoteGeometries.push(geometry);
+
+		notes.forEach((note, index) => {
 			const canvas = document.createElement("canvas");
-			canvas.width = 384;
-			canvas.height = 320;
+			canvas.width = 512;
+			canvas.height = 512;
 			const context = canvas.getContext("2d");
-			if (!context) continue;
+			if (!context) return;
+
+			// Paper: the note's colour, a little darker toward the curl at the bottom.
+			context.fillStyle = note.details.accent;
+			context.fillRect(0, 0, 512, 512);
+			const shade = context.createLinearGradient(0, 0, 512, 512);
+			shade.addColorStop(0, "rgba(255,255,255,0.16)");
+			shade.addColorStop(0.55, "rgba(255,255,255,0)");
+			shade.addColorStop(1, "rgba(0,0,0,0.2)");
+			context.fillStyle = shade;
+			context.fillRect(0, 0, 512, 512);
+			// The lifted corner.
+			context.fillStyle = "rgba(0,0,0,0.16)";
+			context.beginPath();
+			context.moveTo(512, 400);
+			context.lineTo(512, 512);
+			context.lineTo(400, 512);
+			context.closePath();
+			context.fill();
+			context.fillStyle = "rgba(255,255,255,0.28)";
+			context.beginPath();
+			context.moveTo(512, 400);
+			context.lineTo(416, 416);
+			context.lineTo(400, 512);
+			context.closePath();
+			context.fill();
+			// A strip of tape across the top.
+			context.save();
+			context.translate(256, 26);
+			context.rotate(index % 2 ? 0.05 : -0.04);
+			context.fillStyle = "rgba(255,255,255,0.5)";
+			context.fillRect(-92, -24, 184, 48);
+			context.restore();
+			// The words, by hand.
+			context.fillStyle = "#1c1c1c";
+			context.textAlign = "left";
+			context.textBaseline = "alphabetic";
+			context.font = "700 70px 'Segoe Print', 'Bradley Hand', 'Comic Sans MS', cursive";
+			context.fillText(note.details.label[0], 44, 196);
+			context.fillText(note.details.label[1], 44, 286);
+			context.strokeStyle = "rgba(28,28,28,0.75)";
+			context.lineWidth = 5;
+			context.lineCap = "round";
+			context.beginPath();
+			context.moveTo(46, 318);
+			context.quadraticCurveTo(150, 340, 250 + index * 14, 314);
+			context.stroke();
+			context.fillStyle = "rgba(28,28,28,0.5)";
+			context.font = "600 26px 'Segoe Print', 'Bradley Hand', 'Comic Sans MS', cursive";
+			context.fillText("read me", 46, 446);
 
 			const texture = new CanvasTexture(canvas);
 			texture.colorSpace = SRGBColorSpace;
-			const material = new MeshBasicMaterial({ map: texture });
-			const geometry = new PlaneGeometry(0.42, 0.34);
+			texture.anisotropy = 8;
+			// The room is lit for night, so the paper is toned down to sit in it.
+			const material = new MeshBasicMaterial({ map: texture, color: new Color(0.8, 0.78, 0.76) });
 			const mesh = new Mesh(geometry, material);
-
-			const draw = () => {
-				context.fillStyle = note.details.accent;
-				context.fillRect(0, 0, canvas.width, canvas.height);
-				context.fillStyle = "rgba(255,255,255,0.12)";
-				context.fillRect(0, 0, canvas.width, 8);
-				context.fillStyle = "#151515";
-				context.font = "700 28px Arial, sans-serif";
-				context.textAlign = "center";
-				context.textBaseline = "middle";
-
-				context.fillText(note.details.label[0], canvas.width / 2, 132);
-				context.fillText(note.details.label[1], canvas.width / 2, 182);
-				context.fillStyle = "rgba(21,21,21,0.55)";
-				context.font = "600 16px Arial, sans-serif";
-				context.fillText("OPEN NOTE", canvas.width / 2, 274);
-				texture.needsUpdate = true;
-			};
-
-			draw();
 			mesh.position.copy(note.position);
 			mesh.rotation.z = note.rotation;
 			mesh.name = "interactive_board_note";
 			mesh.userData.onSelect = () => {
-				useState<BoardNoteDetails | null>("activeBoardNote", () => null).value =
-					note.details;
-				gsap.fromTo(
-					mesh.scale,
-					{ x: 0.94, y: 0.94 },
-					{ x: 1, y: 1, duration: 0.32, ease: "back.out(2)" }
-				);
+				useState<BoardNoteDetails | null>("activeBoardNote", () => null).value = note.details;
+				gsap.fromTo(mesh.scale, { x: 0.92, y: 0.92 }, { x: 1, y: 1, duration: 0.36, ease: "back.out(2.4)" });
+			};
+			// Under the pointer a note straightens and comes off the board a little.
+			mesh.userData.onHover = (hovered: boolean) => {
+				gsap.to(mesh.rotation, { z: hovered ? 0 : note.rotation, duration: 0.3, ease: "power2.out" });
+				gsap.to(mesh.position, { z: note.position.z + (hovered ? 0.06 : 0), duration: 0.3, ease: "power2.out" });
+				gsap.to(material.color, { r: hovered ? 1 : 0.8, g: hovered ? 0.98 : 0.78, b: hovered ? 0.96 : 0.76, duration: 0.3 });
 			};
 
 			this._boardNotes.push(mesh);
 			this._boardNoteTextures.push(texture);
 			this._boardNoteMaterials.push(material);
-			this._boardNoteGeometries.push(geometry);
-			this.modelScene.add(mesh);
-		}
+			this.modelScene?.add(mesh);
+		});
 	}
 
 	public destruct() {
+		window.removeEventListener("pointermove", this._onGuidedMove);
+		window.removeEventListener("pointerdown", this._onGuidedDown);
+		window.removeEventListener("pointerup", this._onGuidedUp);
+		document.documentElement.style.cursor = "";
+
 		if (!this.modelScene) return;
 
 		gsap.to((this.modelScene.children[0] as Mesh).material as Material, {
@@ -452,6 +658,10 @@ export class Scene1Component extends SceneComponentBlueprint {
 				for (const texture of this._boardNoteTextures) texture.dispose();
 				for (const material of this._boardNoteMaterials) material.dispose();
 				for (const geometry of this._boardNoteGeometries) geometry.dispose();
+				this._deskProps?.dispose();
+				this._deskProps = undefined;
+				this._lightSwitch?.dispose();
+				this._lightSwitch = undefined;
 				this._boardNotes.length = 0;
 				this._boardNoteTextures.length = 0;
 				this._boardNoteMaterials.length = 0;
@@ -482,7 +692,10 @@ export class Scene1Component extends SceneComponentBlueprint {
 			...this._boardNotes.map((object) => ({
 				object,
 				onSelect: () => object.userData.onSelect?.(),
+				onHover: (hovered: boolean) => object.userData.onHover?.(hovered),
 			})),
+			...(this._deskProps?.selectables ?? []),
+			...(this._lightSwitch?.selectables ?? []),
 			...(this.pcScreen && nextPage
 				? [
 						{
@@ -492,7 +705,13 @@ export class Scene1Component extends SceneComponentBlueprint {
 					  ]
 				: []),
 			...(this.monitorAScreen
-				? [{ object: this.monitorAScreen, link: "/projects" }]
+				? [
+						{
+							object: this.monitorAScreen,
+							// Projects open over the room, so coming back needs no reload.
+							onSelect: () => (useState<boolean>("isProjectsOpen", () => false).value = true),
+						},
+					  ]
 				: []),
 			...(this.monitorBScreen
 				? [{ object: this.monitorBScreen, externalLink: Config.GITHUB_LINK }]

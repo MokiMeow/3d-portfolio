@@ -166,6 +166,7 @@ onBeforeRouteUpdate((route) => {
 		</LazyGContainer>
 
 		<LazyHomeBoardNoteDialog />
+		<LazyHomeProjectsPanel />
 	</main>
 </template>
 

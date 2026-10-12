@@ -11,7 +11,7 @@ useServerSeoMeta({
 	ogImage: "/imgs/screenshot.png",
 	ogType: "website",
 	twitterCard: "summary_large_image",
-	twitterCreator: "@mohith50478695",
+	twitterCreator: "@smohiths",
 	twitterImage: "/imgs/screenshot.png",
 	twitterDescription: "Step inside Mohith's interactive 3D workroom and explore how he builds.",
 	robots: "index, follow",

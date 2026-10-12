@@ -74,7 +74,7 @@ const layoutState = useContentLayout();
                         </a>
 
                         <a
-                            href="https://twitter.com/mohith50478695/"
+                            href="https://x.com/smohiths"
                             target="_blank"
                             class="flex items-center justify-center transition-[background] bg-white rounded-full cursor-pointer w-8 h-8 bg-opacity-10 hover:bg-opacity-25 opacity-60 hover:opacity-100"
                         >

@@ -27,7 +27,7 @@ export default defineNuxtConfig({
 				{ name: "og:image", content: "/imgs/screenshot.png" },
 				{ name: "twitter:card", content: "summary_large_image" },
 				{ name: "twitter:title", content: "Mohith Lab | Interactive 3D Portfolio" },
-				{ name: "twitter:creator", content: "@mohith50478695" },
+				{ name: "twitter:creator", content: "@smohiths" },
 				{ name: "twitter:image", content: "/imgs/screenshot.png" },
 				{
 					name: "twitter:description",
@@ -58,7 +58,7 @@ export default defineNuxtConfig({
 			MODE: process.env.MODE,
 			GITHUB_LINK: process.env.GITHUB_LINK || "https://github.com/MokiMeow",
 			LINKEDIN_LINK: process.env.LINKEDIN_LINK || "https://www.linkedin.com/in/smohiths",
-			TWITTER_LINK: process.env.TWITTER_LINK || "https://x.com/mohith50478695",
+			TWITTER_LINK: process.env.TWITTER_LINK || "https://x.com/smohiths",
 			PORTFOLIO_LINK: process.env.PORTFOLIO_LINK || "https://smohith.vercel.app",
 			EMAIL_LINK: process.env.EMAIL_LINK || "mailto:smohith.sm@gmail.com",
 			GITHUB_CONTENT_LINK: process.env.GITHUB_REPO_NAME,
