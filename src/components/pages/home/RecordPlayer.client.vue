@@ -376,7 +376,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .record-panel {
   position: fixed;
-  z-index: 45;
+  z-index: 70;
   right: clamp(16px, 4vw, 64px);
   bottom: 90px;
   width: min(370px, calc(100vw - 32px));
