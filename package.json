@@ -19,7 +19,7 @@
 		"generate": "nuxt generate",
 		"preview": "nuxt preview",
 		"postinstall": "nuxt prepare",
-		"test": "node --test scripts/camera-damping.test.cjs scripts/mesh-parts.test.cjs scripts/music-link.test.cjs scripts/loader.test.cjs scripts/room-mechanics.test.cjs scripts/music-motion.test.cjs scripts/screen-focus.test.cjs scripts/glasses-player.test.cjs scripts/room-quality.test.cjs scripts/newspaper-crossword.test.cjs",
+		"test": "node --test scripts/camera-damping.test.cjs scripts/mesh-parts.test.cjs scripts/music-link.test.cjs scripts/loader.test.cjs scripts/room-mechanics.test.cjs scripts/music-motion.test.cjs scripts/screen-focus.test.cjs scripts/glasses-player.test.cjs scripts/room-quality.test.cjs scripts/newspaper-crossword.test.cjs scripts/mobile-layout.test.cjs",
 		"typecheck": "nuxi typecheck"
 	},
 	"devDependencies": {

@@ -30,6 +30,9 @@ export default defineNuxtPlugin((nuxtApp) => {
 			document.documentElement.style.setProperty("--vs", `${vs}px`);
 			document.documentElement.style.setProperty("--vh", `${vh}px`);
 			document.documentElement.style.setProperty("--vw", `${vw}px`);
+			const viewport = window.visualViewport;
+			document.documentElement.style.setProperty("--visual-height", `${viewport?.height ?? window.innerHeight}px`);
+			document.documentElement.style.setProperty("--visual-top", `${viewport?.offsetTop ?? 0}px`);
 		} catch (error) {
 			new ErrorFactory(error);
 		}
@@ -43,6 +46,8 @@ export default defineNuxtPlugin((nuxtApp) => {
 		onResize();
 		window.removeEventListener("resize", onResize);
 		window.addEventListener("resize", onResize);
+		window.visualViewport?.addEventListener("resize", onResize);
+		window.visualViewport?.addEventListener("scroll", onResize);
 	};
 
 	nuxtApp.vueApp.use(init);

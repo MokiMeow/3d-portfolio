@@ -45,6 +45,15 @@ export class World extends ExperienceBasedBlueprint {
 	} = {};
 	private _projectedSceneContainer?: Group;
 
+	private readonly _homeRenderGroup = new Group();
+	private readonly _projectedRenderGroup = new Group();
+
+	/** Portal scenes share the world, but must never leak into the room camera. */
+	public prepareRender(projected: boolean) {
+		this._homeRenderGroup.visible = !projected;
+		this._projectedRenderGroup.visible = projected;
+	}
+
 	public readonly mainSceneKey = pages.HOME_PAGE;
 
 	public sceneContainer?: SceneContainerComponent;
@@ -169,14 +178,13 @@ export class World extends ExperienceBasedBlueprint {
 		this._projectedSceneContainer = this.sceneContainer.modelScene.clone();
 		this._projectedSceneContainer.position.copy(projectedScenePosition);
 
-		this.group?.add(
-			this.sceneContainer.modelScene,
-			this._projectedSceneContainer
-		);
+		this._homeRenderGroup.add(this.sceneContainer.modelScene);
+		this._projectedRenderGroup.add(this._projectedSceneContainer);
+		this.group.add(this._homeRenderGroup, this._projectedRenderGroup);
 
 		if (this.scene1?.modelScene) {
 			this._availablePageScenes[pages.HOME_PAGE] = this.scene1;
-			this.group?.add(this.scene1.modelScene);
+			this._homeRenderGroup.add(this.scene1.modelScene);
 		}
 
 		if (this.scene2?.modelScene) {
@@ -185,7 +193,7 @@ export class World extends ExperienceBasedBlueprint {
 			this._correctCameraPath(this.scene2.cameraPath, projectedScenePosition);
 			this._correctMarkersPosition(this.scene2.markers, projectedScenePosition);
 			this._availablePageScenes[pages.SKILL_PAGE] = this.scene2;
-			this.group?.add(this.scene2.modelScene);
+			this._projectedRenderGroup.add(this.scene2.modelScene);
 		}
 
 		if (this.scene3?.modelScene) {
@@ -194,7 +202,7 @@ export class World extends ExperienceBasedBlueprint {
 			this._correctCameraPath(this.scene3.cameraPath, projectedScenePosition);
 			this._correctMarkersPosition(this.scene3.markers, projectedScenePosition);
 			this._availablePageScenes[pages.CONTACT_PAGE] = this.scene3;
-			this.group?.add(this.scene3.modelScene);
+			this._projectedRenderGroup.add(this.scene3.modelScene);
 		}
 
 		this._experience.app.scene.add(this.group);

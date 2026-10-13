@@ -152,4 +152,9 @@ button:focus-visible {
 		bottom: 42px;
 	}
 }
+
+@media(max-width:639px),(max-height:500px) and (max-width:1023px){
+ .desk-object-menu{position:fixed;left:max(12px,env(safe-area-inset-left));right:auto;bottom:calc(82px + env(safe-area-inset-bottom));width:min(280px,calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)));max-height:calc(var(--visual-height,100dvh) - 105px - env(safe-area-inset-bottom));overflow:auto;overscroll-behavior:contain;}
+}
+@media(max-height:500px) and (min-width:640px) and (max-width:1023px){.desk-object-menu{bottom:calc(64px + env(safe-area-inset-bottom));}}
 </style>

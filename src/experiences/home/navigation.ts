@@ -1,3 +1,4 @@
+import { portraitFramingScale } from "~/utils/viewport-framing";
 import { events as sizeEvents } from "quick-threejs/lib/static";
 import { Spherical, Vector3 } from "three";
 import normalizeWheel from "normalize-wheel";
@@ -105,7 +106,24 @@ export class Navigation extends ExperienceBasedBlueprint {
 		onStartParams: [this._timelinePrevStates],
 		onCompleteParams: [this._timelinePrevStates],
 	});
-	private readonly _onResize = () => this._setConfig();
+	private _framingScale = 1;
+	private _framingCoverage = .87;
+	public get framingScale() { return this._framingScale; }
+	public setFramingCoverage(coverage: number) {
+		this._framingCoverage = coverage;
+		this._framingScale = portraitFramingScale(this._appSizes.width, this._appSizes.height, coverage);
+	}
+	private readonly _onResize = () => {
+		this._setConfig();
+		const next = portraitFramingScale(this._appSizes.width, this._appSizes.height, this._framingCoverage);
+		const ratio = next / this._framingScale;
+		this._framingScale = next;
+		// Retain the visitor's orbit and relative zoom when rotating the phone.
+		if (this._experience.interactions?.focusedObject) return;
+		if (this._timeline.isActive()) this._timeline.progress(1);
+		this._view.spherical.value.radius *= ratio;
+		this._view.spherical.smoothed.radius *= ratio;
+	};
 
 	private _initialPinchDistance = 0;
 
@@ -136,6 +154,7 @@ export class Navigation extends ExperienceBasedBlueprint {
 
 		this._setConfig();
 
+		this._framingScale = portraitFramingScale(this._appSizes.width, this._appSizes.height);
 		// Init view
 		this._view.spherical.value = new Spherical().setFromVector3(
 			this._camera?.instance.position ?? new Vector3()
@@ -486,7 +505,7 @@ export class Navigation extends ExperienceBasedBlueprint {
 						this._view.spherical.value.radius,
 						this._view.spherical.limits.radius.min
 					),
-					this._view.spherical.limits.radius.max
+					this._view.spherical.limits.radius.max * this._framingScale
 				);
 			}
 

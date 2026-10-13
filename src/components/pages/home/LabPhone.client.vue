@@ -561,8 +561,10 @@ onBeforeUnmount(() => {
 }
 .phone-shell {
   width: min(342px, calc(100vw - 34px));
-  height: min(682px, calc(100dvh - 100px));
-  min-height: 440px;
+  height: min(682px, calc(var(--visual-height,100dvh) - 92px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+  min-height: 0;
+  flex-shrink:1;
+  container-type:size;
   border: 2px solid #696c70;
   border-radius: 46px;
   padding: 9px;
@@ -1070,8 +1072,8 @@ input:focus-visible {
 }
 @media (max-height: 600px) {
   .phone-shell {
-    height: calc(100dvh - 60px);
-    min-height: 340px;
+    height: calc(var(--visual-height,100dvh) - 72px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    min-height: 0;
     border-radius: 30px;
   }
   .phone-display {
@@ -1119,5 +1121,44 @@ input:focus-visible {
   .phone-shell input {
     font-size: 16px;
   }
+}
+
+.phone-home,.phone-lock {min-height:0;overflow:auto;overscroll-behavior:contain;}
+.phone-home {flex-shrink:1;}
+.phone-shell {max-width:100%;}
+.phone-shell :is(input,textarea){user-select:text;}
+.phone-app-header>button,.browser-app form button,.chat-compose button{min-width:44px;min-height:44px;}
+.phone-status{padding-inline:14px;}
+.status-icons{gap:4px;}
+@container (max-height:430px){
+ .phone-status{height:34px;}
+ .phone-island{top:4px;width:64px;}
+ .phone-home{padding:8px 16px 0;}
+ .phone-clock{font-size:36px;letter-spacing:-2px;}
+ .phone-greeting{margin:10px 0;}
+ .phone-greeting p{font-size:18px;margin-top:4px;}
+ .phone-owner{margin-top:10px;padding-bottom:8px;}
+ .phone-apps{gap:22px;}
+ .app-icon{width:46px;height:46px;}
+ .phone-lock{top:34px;padding-top:12px;}
+ .phone-lock .lock-glyph{display:none;}
+ .lock-notice{margin-top:16px;padding:10px 0;}
+ .phone-unlock{min-height:48px;}
+ .chat-person{display:none;}
+ .chat-prompts{display:none;}
+ .camera-view{min-height:60px;}
+ .camera-actions{height:44px;flex-shrink:0;}
+ .camera-caption{padding:3px 12px;}
+}
+@container(max-height:280px){.phone-greeting,.phone-owner,.lock-notice{display:none;}.phone-apps{margin-top:8px;}.phone-clock{font-size:30px;}.phone-home-bar{height:26px;}}
+@media(max-width:350px){.status-battery>span{display:none;}.phone-island{width:60px;}.phone-apps{gap:20px;}.phone-greeting p{font-size:24px;}}
+
+@container(max-height:430px){
+ .camera-empty{padding:4px 8px;gap:4px;overflow:auto;justify-content:flex-start;}
+ .camera-empty svg{display:none;}
+ .camera-empty p{font-size:11px;line-height:1.3;}
+ .camera-empty button{min-height:44px;flex-shrink:0;padding:6px 12px;}
+ .camera-caption{margin:2px 8px;}
+ .shutter{width:42px;height:42px;}
 }
 </style>

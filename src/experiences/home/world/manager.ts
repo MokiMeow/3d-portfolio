@@ -211,7 +211,9 @@ export class WorldManager extends ExperienceBasedBlueprint {
 
 			return this._navigation
 				?.updateCameraPosition(
-					this._currentScene.cameraPath?.getPoint(0),
+					this._currentScene === this._world?.scene1
+                        ? this._currentScene.cameraPath.getPoint(0)
+                        : this._currentScene.cameraPath.getPoint(0).sub(this._currentScene.center).multiplyScalar(this._navigation?.framingScale ?? 1).add(this._currentScene.center),
 					this._currentScene.center,
 					fast ? 0.84 : undefined
 				)
@@ -231,6 +233,7 @@ export class WorldManager extends ExperienceBasedBlueprint {
 			}
 		}
 
+		this._navigation.setFramingCoverage(this._router.currentRouteKey === pages.CONTACT_PAGE ? 1.12 : .87);
 		this._navigation.setLimits(this._currentScene.navigationLimits);
 		this._navigation.setViewCenter(this._currentScene.center);
 		this._cameraAnimation.cameraPath = this._currentScene.cameraPath;

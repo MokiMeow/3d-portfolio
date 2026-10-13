@@ -143,7 +143,7 @@ onBeforeRouteUpdate((route) => {
 
 <template>
 	<main
-		class="relative overflow-hidden group-data-[device=pc]:h-screen w-safe h-safe bg-dark"
+		class="lab-experience relative overflow-hidden w-full bg-dark"
 	>
 		<LazyHomeLoader />
 
@@ -153,13 +153,13 @@ onBeforeRouteUpdate((route) => {
 		/>
 
 		<LazyGContainer
-			:class="`relative flex flex-col justify-between h-full sm:py-8 md:py-12 ${
+			:class="`lab-chrome relative flex flex-col justify-between h-full sm:py-8 md:py-12 ${
 				isFreeCamera || isFocusMode ? 'pointer-events-none' : ''
 			}`"
 		>
 			<LazyGHeader class="lab-heading px-4 pt-5 sm:pt-0 sm:px-0" />
 
-			<section class="flex flex-col flex-1 sm:flex-row">
+			<section class="lab-route-area flex flex-col flex-1 min-h-0 sm:flex-row">
 				<LazyHomeNav />
 				<LazyNuxtPage class="w-full h-full" />
 			</section>
@@ -178,8 +178,40 @@ onBeforeRouteUpdate((route) => {
 
 <style lang="scss" scoped>
 main {
+	height: 100dvh;
+	overscroll-behavior: none;
 	* {
 		user-select: none;
 	}
+}
+</style>
+
+<style>
+/* The room occupies one viewport; browser bars and notches are real space. */
+@media (max-width: 639px), (max-height: 500px) and (max-width: 1023px) {
+  .lab-experience .lab-chrome { width:100%; padding:0; }
+  .lab-experience .lab-heading { padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); }
+  .lab-experience .lab-heading .brand-mark { width:28px;height:28px; }
+  .lab-experience .lab-heading a { font-size:15px;min-height:36px; }
+  .lab-experience .lab-route-area { flex-direction:column; }
+  .lab-experience .lab-nav { margin:6px 0 0;flex:none; }
+  .lab-experience .lab-nav ul { flex-direction:row;width:100%;gap:0; }
+  .lab-experience .lab-nav li { transform:none;rotate:none;width:100%;margin:0; }
+  .lab-experience .lab-nav a { display:flex;min-height:44px;align-items:center;font-size:12px; }
+  .lab-experience .lab-nav a::before { bottom:7px; }
+  .lab-footer { position:fixed!important;left:0;right:0;bottom:0;padding:6px max(12px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))!important;background:#1b1b1be8!important;display:flex!important;flex-direction:column!important;gap:2px; }
+  .lab-footer .lab-toolbar { margin:0!important;gap:8px!important;justify-content:center;width:100%; }
+  .lab-footer .lab-toolbar > * { margin-left:0!important; }
+  .lab-footer .lab-toolbar > button,.lab-footer .lab-toolbar > label,.lab-footer summary { width:44px!important;height:44px!important;display:grid;place-items:center;flex-shrink:0; }
+  .lab-footer .lab-toolbar svg { width:23px!important;height:23px!important; }
+  .lab-footer .lab-credit { margin:0!important;font-size:10px;line-height:16px; }
+  .lab-footer .lab-camera-copy { display:none; }
+}
+@media (max-height:500px) and (min-width:640px) and (max-width:1023px) {
+  .lab-experience .lab-heading { position:absolute;left:0;top:0;width:auto; }
+  .lab-experience .lab-nav { margin:8px 16px 0 auto;max-width:300px;width:50%; }
+  .lab-footer { flex-direction:row!important;justify-content:space-between!important; }
+  .lab-footer .lab-toolbar { width:auto; }
+  .lab-footer .lab-credit { width:auto;order:-1; }
 }
 </style>

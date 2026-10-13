@@ -144,6 +144,7 @@ export class CameraAnimation extends ExperienceBasedBlueprint {
 
 		if (this._navigation?.view) this._navigation.view.controls = false;
 		this.cameraPath.getPointAt(this.progressCurrent % 1, this.positionOnCurve);
+		this._fitProjectedView();
 
 		return this._navigation
 			?.updateCameraPosition(
@@ -175,6 +176,12 @@ export class CameraAnimation extends ExperienceBasedBlueprint {
 			.add(() => {
 				this.emit(events.ENDED, this);
 			});
+	}
+
+	private _fitProjectedView() {
+		const navigation = this._navigation;
+		if (this._experience.camera?.currentCameraIndex !== 1 || !navigation) return;
+		this.positionOnCurve.sub(navigation.view.center).multiplyScalar(navigation.framingScale).add(navigation.view.center);
 	}
 
 	public update(): void {
@@ -212,6 +219,7 @@ export class CameraAnimation extends ExperienceBasedBlueprint {
 			this.progressCurrent = this.progressTarget;
 
 		this.cameraPath.getPointAt(this.progressCurrent, this.positionOnCurve);
+		this._fitProjectedView();
 		this._navigation?.setPositionInSphere(this.positionOnCurve);
 		this.emit(events.UPDATED);
 	}

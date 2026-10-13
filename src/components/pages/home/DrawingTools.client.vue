@@ -69,4 +69,9 @@ button:disabled { opacity: .5; cursor: wait; }
 .hint { display: block; font-size: 9px; line-height: 1.5; color: #a09a95; margin-top: 13px; }
 summary:focus-visible, button:focus-visible { outline: 2px solid #c9b3a2; outline-offset: 4px; border-radius: 3px; }
 @media (max-width: 480px) { .drawing-tools-menu { right: -98px; bottom: 42px; } }
+
+@media(max-width:639px),(max-height:500px) and (max-width:1023px){
+ .drawing-tools-menu{position:fixed;left:max(12px,env(safe-area-inset-left));right:auto;bottom:calc(82px + env(safe-area-inset-bottom));width:min(280px,calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)));max-height:calc(var(--visual-height,100dvh) - 105px - env(safe-area-inset-bottom));overflow:auto;overscroll-behavior:contain;}
+}
+@media(max-height:500px) and (min-width:640px) and (max-width:1023px){.drawing-tools-menu{bottom:calc(64px + env(safe-area-inset-bottom));}}
 </style>

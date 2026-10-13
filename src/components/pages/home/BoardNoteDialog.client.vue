@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useLabDialog } from "~/composables/useLabDialog";
 import type { BoardNoteDetails } from "~/common/models/board-note.model";
 
 const activeNote = useState<BoardNoteDetails | null>("activeBoardNote", () => null);
@@ -8,33 +9,24 @@ const close = () => {
 	activeNote.value = null;
 };
 
-const onKeyDown = (event: KeyboardEvent) => {
-	if (activeNote.value && event.key === "Escape") close();
-};
-
-watch(activeNote, async (note) => {
-	if (!note) return;
-	await nextTick();
-	closeButton.value?.focus();
-});
-
-onMounted(() => window.addEventListener("keydown", onKeyDown));
-onBeforeUnmount(() => window.removeEventListener("keydown", onKeyDown));
+const dialog = ref<HTMLDialogElement>();
+useLabDialog(dialog, computed(() => !!activeNote.value));
+const route = useRoute();
+watch(() => route.path, close);
 </script>
 
 <template>
 	<Teleport to="body">
 		<Transition name="board-note-dialog">
-			<div
+			<dialog
+				ref="dialog"
 				v-if="activeNote"
-				class="fixed inset-0 z-[100] flex items-center justify-center p-5 bg-black/55 backdrop-blur-sm"
+				class="lab-modal board-modal" aria-labelledby="board-note-title" @cancel.prevent="close" @close="close"
 				@click.self="close"
 			>
 				<section
 					class="relative w-full max-w-md text-left note-paper"
 					:style="{ '--paper': activeNote.accent }"
-					role="dialog"
-					aria-modal="true"
 					aria-labelledby="board-note-title"
 				>
 					<span class="note-tape" aria-hidden="true" />
@@ -53,20 +45,21 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeyDown));
 					<button
 						ref="closeButton"
 						type="button"
-						class="absolute flex items-center justify-center border rounded-full top-4 right-4 w-9 h-9 border-black/25 text-black/60 transition-colors hover:text-black hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+						class="absolute flex items-center justify-center border rounded-full top-3 right-3 w-11 h-11 border-black/25 text-black/60 transition-colors hover:text-black hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
 						aria-label="Close board note"
 						@click="close"
 					>
 						<span aria-hidden="true" class="text-xl leading-none">×</span>
 					</button>
 				</section>
-			</div>
+			</dialog>
 		</Transition>
 	</Teleport>
 </template>
 
 <style scoped>
 .note-paper {
+	display:flex;flex-direction:column;max-height:100%;
 	color: #1c1c1c;
 	background:
 		linear-gradient(135deg, rgb(255 255 255 / 0.22), transparent 55%, rgb(0 0 0 / 0.12)),
@@ -75,7 +68,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeyDown));
 	box-shadow:
 		0 28px 60px rgb(0 0 0 / 0.55),
 		0 3px 8px rgb(0 0 0 / 0.3);
-	rotate: -1.4deg;
+	rotate: 0deg;
 }
 
 .note-tape {
@@ -89,6 +82,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeyDown));
 	translate: -50% 0;
 	rotate: 2.5deg;
 }
+.note-paper > div { min-height:0;overflow:auto;overscroll-behavior:contain; }
 
 .note-hand {
 	font-family: "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
@@ -113,5 +107,10 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeyDown));
 .board-note-dialog-enter-from section,
 .board-note-dialog-leave-to section {
 	transform: translate3d(0, 1rem, 0) scale(0.92) rotate(4deg);
+}
+@media(max-width:480px), (max-height:500px){
+ .note-paper > div {padding:44px 22px 24px;}
+ .note-paper h2 {font-size:28px;}
+ .note-paper p {line-height:1.65;}
 }
 </style>

@@ -32,7 +32,7 @@ const onToggleFreeCamera = () => {
 <template>
 	<button
 		class="camera-control"
-		:class="{ 'camera-control--hinted': isCameraHintVisible && !isFocusMode }"
+		:class="{ 'camera-control--hinted': isCameraHintVisible && !isFocusMode, 'camera-control--focused': isFocusMode }"
 		@click="() => (isFocusMode ? onLeaveFocusMode() : onToggleFreeCamera())"
 		:aria-label="
 			isFocusMode
@@ -92,12 +92,17 @@ const onToggleFreeCamera = () => {
 				stroke-width="1.5"
 			/>
 		</svg>
+		<span v-if="isFocusMode" class="camera-return-label">Back to desk</span>
 	</button>
 </template>
 
 <style scoped>
 .camera-control {
 	position: relative;
+}
+.camera-return-label { display: none; }
+@media (max-width:900px), (max-height:500px) and (max-width:1023px) {
+  .camera-return-label { display:inline; font-size:13px; white-space:nowrap; }
 }
 
 .camera-control::after {

@@ -380,7 +380,7 @@ onBeforeUnmount(() => {
   right: clamp(16px, 4vw, 64px);
   bottom: 90px;
   width: min(370px, calc(100vw - 32px));
-  max-height: calc(100dvh - 130px);
+  max-height: calc(var(--visual-height,100dvh) - 130px);
   overflow: auto;
   padding: 20px;
   color: #e0e2e5;
@@ -812,7 +812,7 @@ footer button {
 @media (max-width: 480px) {
   .record-panel {
     bottom: 98px;
-    max-height: calc(100dvh - 122px);
+    max-height: calc(var(--visual-height,100dvh) - 106px - env(safe-area-inset-bottom));
     padding: 17px;
   }
   header > button {
@@ -835,10 +835,24 @@ footer button {
 @media (max-height: 620px) {
   .record-panel {
     bottom: 62px;
-    max-height: calc(100dvh - 80px);
+    max-height: calc(var(--visual-height,100dvh) - 80px - env(safe-area-inset-bottom));
   }
   .turntable {
     display: none;
   }
 }
+
+.record-panel {overscroll-behavior:contain;--keyboard-inset:max(0px,calc(100dvh - var(--visual-height,100dvh) - var(--visual-top,0px)));}
+.record-panel input{font-size:16px;}
+.record-panel header {position:sticky;top:-20px;padding:10px 0;background:#232426;z-index:2;}
+@media(max-width:639px){
+ .record-panel {left:max(12px,env(safe-area-inset-left));right:auto;bottom:calc(82px + env(safe-area-inset-bottom) + var(--keyboard-inset));width:calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right));padding:16px;}
+ .record-panel header {top:-16px;}
+ .record-panel header>button {width:44px;height:44px;flex-shrink:0;}
+ .turntable {height:190px;}
+ .platter {width:160px;height:160px;left:8%;top:19px;}
+ .tonearm {left:auto;right:12%;}
+ .record-label {transform:scale(.9);}
+}
+@media(max-height:500px) and (min-width:640px){.record-panel{bottom:calc(64px + env(safe-area-inset-bottom) + var(--keyboard-inset));max-height:calc(var(--visual-height,100dvh) - 82px - env(safe-area-inset-bottom));}.turntable{display:none;}}
 </style>

@@ -6,7 +6,7 @@ const isFocusMode = useState<boolean>("isFocusMode");
 
 <template>
 	<nav
-		:class="`flex justify-center transition-opacity mt-5 sm:mt-0 ${
+		:class="`lab-nav flex justify-center transition-opacity mt-5 sm:mt-0 ${
 			isFocusMode ? 'opacity-40' : ''
 		}`"
 	>

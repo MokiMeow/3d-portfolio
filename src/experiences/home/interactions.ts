@@ -54,6 +54,7 @@ export class Interactions extends ExperienceBasedBlueprint {
 	private _pointerDownMoved = false;
 	private _lastCameraPosition?: Vector3;
 	private _lastCameraTarget?: Vector3;
+	private _lastCameraFramingScale = 1;
 	private _enabled = false;
 
 	public readonly passName = `${Interactions.name}_pass`;
@@ -68,6 +69,13 @@ export class Interactions extends ExperienceBasedBlueprint {
 	private _hoveredUuid?: string;
 	public outlinePass?: OutlinePass;
 	public controls = true;
+	private readonly _onResize = () => {
+		const object = this.focusedObject;
+		if (!object?.resolveFocus || !object.focusFitsViewport) return;
+		object.resolveFocus();
+		if (object.focusPoint) this._camera?.setCameraPosition(object.focusPoint);
+		if (object.focusTarget) this._camera?.setCameraLookAt(object.focusTarget);
+	};
 
 	private readonly _onTouchMove = (
 		e: PointerEvent | IframeMouseDispatcherEvent
@@ -165,6 +173,7 @@ export class Interactions extends ExperienceBasedBlueprint {
 			const duration = Config.GSAP_ANIMATION_DURATION - 0.5;
 			this._lastCameraPosition = this._camera.instance.position.clone();
 			this._lastCameraTarget = this._camera.lookAtPosition.clone();
+			this._lastCameraFramingScale = this._navigation.framingScale;
 
 			if (this.outlinePass) this.outlinePass.edgeStrength = 0;
 			if (this._ui?.targetElement)
@@ -436,6 +445,11 @@ export class Interactions extends ExperienceBasedBlueprint {
 		if (this._ui?.targetElement)
 			this._ui.targetElement.style.pointerEvents = "auto";
 		if (!this._lastCameraPosition) return;
+		if (this._lastCameraTarget) {
+			this._lastCameraPosition.sub(this._lastCameraTarget)
+				.multiplyScalar((this._navigation?.framingScale ?? 1) / this._lastCameraFramingScale)
+				.add(this._lastCameraTarget);
+		}
 
 		const duration = Config.GSAP_ANIMATION_DURATION - 0.5;
 		this._navigation
@@ -456,6 +470,7 @@ export class Interactions extends ExperienceBasedBlueprint {
 	}
 
 	public construct() {
+		window.addEventListener("resize", this._onResize);
 		this._ui?.on(events.TOUCH_MOVE, this._onTouchMove);
 		this._ui?.on(events.POINTER_MOVE, this._onPointerMove);
 		this._ui?.on(events.POINTER_DOWN, this._onPointerDown);
@@ -464,6 +479,7 @@ export class Interactions extends ExperienceBasedBlueprint {
 	}
 
 	public destruct() {
+		window.removeEventListener("resize", this._onResize);
 		this.emit(events.DESTRUCTED);
 		this.removeAllListeners();
 	}

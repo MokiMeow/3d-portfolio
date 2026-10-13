@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useLabDialog } from "~/composables/useLabDialog";
 import { PROJECTS } from "~/static/projects.static";
 
 /**
@@ -12,28 +13,18 @@ const close = () => {
 	isOpen.value = false;
 };
 
-const onKeyDown = (event: KeyboardEvent) => {
-	if (isOpen.value && event.key === "Escape") close();
-};
-
-watch(isOpen, async (open) => {
-	if (!open) return;
-	await nextTick();
-	closeButton.value?.focus();
-});
-
-onMounted(() => window.addEventListener("keydown", onKeyDown));
-onBeforeUnmount(() => window.removeEventListener("keydown", onKeyDown));
+const dialog = ref<HTMLDialogElement>();
+useLabDialog(dialog, isOpen);
+const route = useRoute();
+watch(() => route.path, close);
 </script>
 
 <template>
 	<Teleport to="body">
 		<Transition name="projects-panel">
-			<div v-if="isOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm sm:p-8" @click.self="close">
+			<dialog ref="dialog" v-if="isOpen" class="lab-modal projects-modal" aria-labelledby="projects-panel-title" @click.self="close" @cancel.prevent="close" @close="close">
 				<section
 					class="relative flex flex-col w-full max-w-2xl max-h-full overflow-hidden text-left border shadow-2xl rounded-2xl border-white/15 bg-[#121315] text-light shadow-black/60"
-					role="dialog"
-					aria-modal="true"
 					aria-labelledby="projects-panel-title"
 				>
 					<header class="flex items-center justify-between gap-4 px-6 pt-6 sm:px-8 sm:pt-7">
@@ -45,16 +36,16 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeyDown));
 							ref="closeButton"
 							type="button"
 							class="flex items-center gap-2 px-4 text-xs font-medium tracking-[0.14em] uppercase transition-colors border rounded-full h-10 border-white/20 text-light/80 hover:text-light hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-							@click="close"
+							@click="close" aria-label="Back to the room"
 						>
 							<span aria-hidden="true">←</span>
-							Back to the room
+							<span class="project-back-label">Back to the room</span>
 						</button>
 					</header>
 
 					<p class="px-6 mt-3 text-sm text-light/55 sm:px-8">Selected systems, experiments, and shipped products.</p>
 
-					<ul class="px-6 pb-6 mt-4 overflow-y-auto sm:px-8 sm:pb-8">
+					<ul class="min-h-0 px-6 pb-6 mt-4 overflow-y-auto overscroll-contain sm:px-8 sm:pb-8">
 						<li v-for="(project, index) in PROJECTS" :key="project.title" class="projects-panel-row" :style="{ '--i': index }">
 							<a
 								:href="project.url"
@@ -71,7 +62,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeyDown));
 						</li>
 					</ul>
 				</section>
-			</div>
+			</dialog>
 		</Transition>
 	</Teleport>
 </template>
@@ -114,5 +105,14 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeyDown));
 	.projects-panel-row {
 		animation: none;
 	}
+}
+@media(max-width:480px),(max-height:500px){
+ header {padding:16px 18px 0;flex-shrink:0;}
+ header button {flex-shrink:0;width:44px;height:44px;padding:0;justify-content:center;}
+ header button::after {content:'×';font-size:22px;}
+ header button>span {display:none;}
+ header button {font-size:0;}
+ section>p {padding-inline:18px;font-size:13px;}
+ ul {padding-inline:18px;}
 }
 </style>

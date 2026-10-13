@@ -24,6 +24,7 @@ export class UI extends ExperienceBasedBlueprint {
 		this.emit(events.POINTER_MOVE, e, this._getNormalizePointerCoord(e));
 	};
 	private readonly _onPointerDown = (e: PointerEvent) => {
+		if (e.target !== this.targetElement) return;
 		this._pointerCount++;
 		this.emit(
 			events.POINTER_DOWN,
@@ -33,7 +34,7 @@ export class UI extends ExperienceBasedBlueprint {
 		);
 	};
 	private readonly _onPointerUp = (e: PointerEvent) => {
-		this._pointerCount--;
+		this._pointerCount = Math.max(0, this._pointerCount - 1);
 		this.emit(
 			events.POINTER_UP,
 			e,
@@ -46,6 +47,7 @@ export class UI extends ExperienceBasedBlueprint {
 	private readonly _onPointerLeave = (e: PointerEvent) =>
 		this.emit(events.POINTER_LEAVE, e, this._getNormalizePointerCoord(e));
 	private readonly _onMouseDown = (e: MouseEvent) => {
+		if (e.target !== this.targetElement) return;
 		this.emit(events.MOUSE_DOWN, e, this._getNormalizePointerCoord(e));
 	};
 	private readonly _onMouseMove = (e: MouseEvent) =>
@@ -56,17 +58,21 @@ export class UI extends ExperienceBasedBlueprint {
 		this.emit(events.MOUSE_ENTER, e, this._getNormalizePointerCoord(e));
 	private readonly _onMouseLeave = (e: MouseEvent) =>
 		this.emit(events.MOUSE_LEAVE, e, this._getNormalizePointerCoord(e));
-	private readonly _onTouchStart = (e: TouchEvent) =>
-		this.emit(events.TOUCH_START, e);
-	private readonly _onTouchMove = (e: TouchEvent) =>
-		this.emit(events.TOUCH_MOVE, e);
+	private readonly _onTouchStart = (e: TouchEvent) => {
+		if (e.target === this.targetElement) this.emit(events.TOUCH_START, e);
+	};
+	private readonly _onTouchMove = (e: TouchEvent) => {
+		if (e.target === this.targetElement) this.emit(events.TOUCH_MOVE, e);
+	};
 	private readonly _onTouchEnd = (e: TouchEvent) =>
 		this.emit(events.TOUCH_END, e);
 	private readonly _onContextMenu = (e: MouseEvent) => {
+		if (e.target !== this.targetElement) return;
 		e.preventDefault();
 		this.emit(events.CONTEXT_MENU, e);
 	};
 	private readonly _onWheel = (e: WheelEvent) => {
+		if (e.target !== this.targetElement) return;
 		e.preventDefault();
 		this.emit(events.WHEEL, e);
 	};
@@ -261,13 +267,21 @@ export class UI extends ExperienceBasedBlueprint {
 		this._isMarkersAnimating = true;
 		this._activeMarkers = [];
 		this.markers.map((marker, index) => {
-			const markerElement = document.createElement(marker.onSelect ? "button" : "div");
-			if (marker.onSelect) {
-				markerElement.setAttribute("aria-label", marker.content);
-				markerElement.addEventListener("click", event => { event.stopPropagation(); marker.onSelect?.(); });
-				for (const name of ["pointerdown", "pointerup", "mousedown", "touchstart"])
-					markerElement.addEventListener(name, event => event.stopPropagation());
-			}
+			const markerElement = document.createElement("button");
+			markerElement.type = "button";
+			markerElement.setAttribute("aria-label", marker.content);
+			if (!marker.onSelect) markerElement.setAttribute("aria-expanded", "false");
+			markerElement.addEventListener("click", event => {
+				event.stopPropagation();
+				if (marker.onSelect) marker.onSelect();
+				else {
+					const expanded = markerElement.getAttribute("aria-expanded") !== "true";
+					this._activeMarkers.forEach(item => item.element.setAttribute("aria-expanded", "false"));
+					markerElement.setAttribute("aria-expanded", String(expanded));
+				}
+			});
+			for (const name of ["pointerdown", "pointerup", "mousedown", "touchstart"])
+				markerElement.addEventListener(name, event => event.stopPropagation());
 			const icon = document.createElement("span");
 			const contentElement = document.createElement("span");
 
@@ -339,6 +353,11 @@ export class UI extends ExperienceBasedBlueprint {
 			);
 
 			marker.element.style.transform = `translate(${translateX}px, ${translateY}px)`;
+			const { width, height } = this._appSizes;
+			const x = width * .5 + translateX, y = height * .5 + translateY;
+			marker.element.style.visibility = position.z > 1 || x < 0 || x > width || y < 0 || y > height ? "hidden" : "visible";
+			marker.element.style.setProperty("--note-left", `${Math.max(34-x, Math.min(22, width-x-170))}px`);
+			marker.element.style.setProperty("--note-top", y > height-200 ? "-110px" : "22px");
 		}
 	}
 }

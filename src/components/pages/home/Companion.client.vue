@@ -12,6 +12,10 @@ const close = () => {
   state.value.panel = false;
 };
 watch(() => route.path, close);
+function togglePanel(){
+ document.querySelectorAll<HTMLDetailsElement>('.lab-footer details[open]').forEach(menu=>menu.open=false);
+ state.value.panel=!state.value.panel;
+}
 </script>
 <template>
   <div
@@ -51,7 +55,7 @@ watch(() => route.path, close);
     </nav>
     <button
       class="robot-toggle"
-      @click="state.panel = !state.panel"
+      @click="togglePanel"
       :aria-expanded="state.panel"
       aria-label="WALL-E companion"
       title="WALL-E companion"
@@ -172,4 +176,14 @@ button:disabled {
     transition: none;
   }
 }
+
+@media(max-width:639px),(max-height:500px) and (max-width:1023px){
+ .companion-ui{bottom:calc(82px + env(safe-area-inset-bottom));left:max(16px,env(safe-area-inset-left));right:max(16px,env(safe-area-inset-right));pointer-events:none;}
+ .robot-toggle,.robot-menu{pointer-events:auto;}
+ .robot-toggle{min-height:44px;}
+ .robot-menu{width:100%;gap:4px 18px;padding:6px 12px;background:#191b1bea;border-top:1px solid #d2bd9440;max-height:calc(var(--visual-height,100dvh) - 180px);overflow:auto;}
+ .robot-menu button{font-size:12px;}
+ .robot-caption{max-width:calc(100vw - 48px);font-size:16px;}
+}
+@media(max-height:500px) and (min-width:640px){.companion-ui{bottom:calc(64px + env(safe-area-inset-bottom));}.robot-menu{width:max-content;max-width:100%;}}
 </style>

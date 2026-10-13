@@ -55,7 +55,7 @@ onBeforeUnmount(() => {
 <template>
 	<div
 		ref="landingContainerRef"
-		class="flex flex-col justify-center transition-all duration-1000 translate-x-0 opacity-0 sm:flex-row sm:items-center text-light group"
+		class="home-landing flex flex-col justify-center transition-all duration-1000 translate-x-0 opacity-0 sm:flex-row sm:items-center text-light group"
 	>
 		<h2
 			class="font-medium transition-[inherit] duration-[inherit] leading-tight uppercase text-[10vw] sm:text-[8vw] lg:text-8xl sm:mr-3 md:mr-5"
@@ -80,3 +80,7 @@ onBeforeUnmount(() => {
 		</div>
 	</div>
 </template>
+
+<style scoped>
+@media(max-width:639px){.home-landing{width:100%;padding-inline:20px;}.home-landing h2{font-size:clamp(26px,8vw,38px);}}
+</style>

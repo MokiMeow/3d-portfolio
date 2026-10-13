@@ -109,6 +109,7 @@ export class Composer extends ExperienceBasedBlueprint {
 			this._appRender.enabled = false;
 			return;
 		}
+		this._experience.world?.prepareRender(this._experience.camera?.currentCameraIndex === 1);
 		if (!this._effect?.passes.length || !Object.values(this._passes).some(pass => pass.enabled)) {
 			// Render directly here so the scene and post-processing paths share the
 			// same frame, camera and viewport without a second wrapper render.

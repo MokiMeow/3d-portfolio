@@ -303,8 +303,8 @@ header i {
 .lens-film :deep(iframe) {
   width: 100%;
   height: 100%;
-  min-width: 200px;
-  min-height: 200px;
+  min-width: 0;
+  min-height: 0;
   border: 0;
 }
 .lens-id {
@@ -397,7 +397,8 @@ footer a {
   }
   .lens {
     width: calc(50% - 7px);
-    height: 210px;
+    height: auto;
+    aspect-ratio: 1.25;
   }
   .lens-id > span {
     font-size: 7px;
@@ -422,7 +423,7 @@ footer a {
     padding: 10px 0;
   }
   .lens {
-    height: 200px;
+    height: clamp(100px, 32dvh, 160px);
   }
   header,
   footer {
@@ -441,4 +442,7 @@ footer a {
     transition: none;
   }
 }
+
+.glasses-player{max-width:100%;min-height:0;overflow:auto;overscroll-behavior:contain;}
+@media(max-width:550px){.optics{padding-top:20px;}.lens-id>span{margin-bottom:12px;}.lens-id strong,.lens-id i{font-size:20px;}.cinema-controls{gap:18px;flex-wrap:wrap;}.cinema-status{padding:0 8px;}header{letter-spacing:.04em;}}
 </style>

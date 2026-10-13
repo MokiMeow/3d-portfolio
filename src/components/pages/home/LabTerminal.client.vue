@@ -204,4 +204,13 @@ button:focus-visible {
 		font-size: 16px;
 	}
 }
+
+.terminal-body{max-width:100%;max-height:calc(var(--visual-height,100dvh) - 80px - env(safe-area-inset-top) - env(safe-area-inset-bottom));display:flex;flex-direction:column;min-height:0;}
+.terminal-screen{min-height:0;flex:1 1 340px;}
+.terminal-title,.terminal-body form,.terminal-quick{flex-shrink:0;}
+.terminal-body form{padding:6px 16px;align-items:center;}
+.terminal-body form button{width:44px;height:44px;flex-shrink:0;}
+.terminal-quick button{min-height:44px;}
+@media(max-width:360px){.terminal-title{gap:8px;padding:0 12px;font-size:9px;}.terminal-screen{padding:16px;}}
+@media(max-height:500px){.terminal-quick{display:none;}.terminal-title{height:32px;}}
 </style>

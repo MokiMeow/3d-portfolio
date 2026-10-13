@@ -117,9 +117,11 @@ button.exp-marker {
 	border: 0;
 	padding: 0;
 	.icon { top: 7px; left: 7px; }
-	.content { left: 22px; top: 22px; pointer-events: none; }
+	.content { left: var(--note-left,22px); top: var(--note-top,22px); pointer-events: none; }
 	&:focus-visible { z-index: 11; border-radius: 50%; }
 	&:focus-visible .content { transform: scale(1); }
+	&[aria-expanded="true"] { z-index:11; }
+	&[aria-expanded="true"] .content { transform:scale(1); background:rgba(var(--dark),.95); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -158,4 +160,56 @@ button.exp-marker {
 .lab-laptop-focused iframe {
   transform: var(--lab-screen-transform) !important;
   transform-origin: 0 0 !important;
+}
+
+// A desktop document scaled into a phone-sized 3D laptop has unreadable text.
+// Keep the same live document, but give it a native-width reading surface.
+@media (max-width: 900px), (max-height: 500px) and (max-width: 1023px) {
+  .lab-laptop-focused {
+    z-index: 18;
+    background: #1b1b1b;
+  }
+  .lab-laptop-focused > div,
+  .lab-laptop-focused > div > div {
+    transform: none !important;
+    perspective: none !important;
+    transform-style: flat !important;
+  }
+  .lab-laptop-focused iframe {
+    position: fixed !important;
+    inset: max(92px, env(safe-area-inset-top)) 12px auto !important;
+    width: calc(100% - 24px) !important;
+    height: calc(100dvh - 176px - env(safe-area-inset-bottom)) !important;
+    transform: none !important;
+    border: 0;
+  }
+  .lab-footer .lab-toolbar > button.camera-control--focused {
+    width: auto !important;
+    display: flex !important;
+    gap: 10px;
+    padding: 0 12px;
+    min-height: 44px;
+  }
+  .lab-toolbar:has(.camera-control--focused) > :not(.camera-control--focused) { display: none !important; }
+}
+@media (max-height: 500px) and (min-width: 640px) and (max-width: 1023px) {
+  .lab-laptop-focused iframe {
+    top: 58px !important;
+    height: calc(100dvh - 124px - env(safe-area-inset-bottom)) !important;
+  }
+}
+
+/* All modal surfaces fit the visual viewport, including an open phone keyboard. */
+.lab-modal {
+ position:fixed; inset:var(--visual-top,0px) 0 auto; width:100%;
+ height:var(--visual-height,100dvh); max-width:none; max-height:none; margin:0;
+ padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+ border:0;background:transparent;color:inherit;overflow:hidden;
+}
+.lab-modal[open] {display:flex;align-items:center;justify-content:center;}
+.lab-modal::backdrop {background:#070909bd;}
+.lab-modal > section {min-height:0;max-height:100%;}
+@media(pointer:coarse){
+  button,a,input,summary{touch-action:manipulation;}
+  .lab-toolbar button,.lab-toolbar summary {min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;}
 }

@@ -77,7 +77,7 @@ onBeforeUnmount(() => {
 			"
 		>
 			<div v-if="active" ref="body" class="device-stage">
-				<button ref="closeButton" class="device-close" @click="close">
+				<button ref="closeButton" class="device-close" aria-label="Put it back" @click="close">
 					<span aria-hidden="true">×</span> Put it back <kbd>ESC</kbd></button
 				>
 				<NuxtErrorBoundary :key="active">
@@ -97,13 +97,13 @@ onBeforeUnmount(() => {
 <style scoped>
 .lab-device-dialog {
 	position: fixed;
-	inset: 0;
+	inset: var(--visual-top, 0px) 0 auto;
 	width: 100vw;
-	height: 100dvh;
+	height: var(--visual-height, 100dvh);
 	max-width: none;
 	max-height: none;
 	border: 0;
-	padding: 20px;
+	padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
 	margin: 0;
 	color: #fff;
 	background: transparent;
@@ -117,7 +117,7 @@ onBeforeUnmount(() => {
 }
 .lab-device-dialog::backdrop {
 	background: #070c10c4;
-	backdrop-filter: blur(8px);
+
 }
 .device-stage {
 	position: relative;
@@ -126,10 +126,16 @@ onBeforeUnmount(() => {
 	flex-direction: column;
 	gap: 13px;
 	margin: auto;
+	max-width:100%;
+	max-height:100%;
+	min-height:0;
 }
 .device-recovery { padding: 36px; border: 1px solid #ffffff30; border-radius: 18px; background: #122127; }
 .device-recovery button { margin-top: 20px; padding: 12px 18px; border: 1px solid #a8c5c5; border-radius: 24px; }
 .device-close {
+	flex-shrink:0;
+	min-height:44px;
+	position:sticky;top:0;z-index:5;
 	display: flex;
 	align-items: center;
 	align-self: flex-end;
@@ -173,5 +179,11 @@ onBeforeUnmount(() => {
 	.device-close {
 		padding: 3px;
 	}
+}
+
+@media(max-width:639px),(max-height:500px){
+ .device-stage{gap:4px;}
+ .device-close{font-size:12px;min-height:44px;}
+ .device-close kbd{display:none;}
 }
 </style>

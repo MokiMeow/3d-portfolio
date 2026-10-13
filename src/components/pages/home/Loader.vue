@@ -10,7 +10,6 @@ import { events } from "~/static";
 
 // CONFIG
 import { Config } from "~/config";
-import { DeviceConfig } from "~/config/device.config";
 
 const isExperienceConstructed = useState("isExperienceConstructed");
 const timeline = gsap.timeline({
@@ -28,6 +27,9 @@ const loadingProgress = ref(0);
 const loadedResources = ref<string[]>([]);
 const isButtonPressable = ref(true);
 const isSoundMuted = useState<boolean>("isSoundMuted", () => true);
+let boundLoader: HomeExperience['loader'];
+let completionTimer: ReturnType<typeof setTimeout> | undefined;
+let introTimer: ReturnType<typeof setTimeout> | undefined;
 
 const initLaunchedTimes = () => {
 	try {
@@ -56,7 +58,8 @@ const onLoaderProgress = (progress: number, url: string) => {
 };
 
 const onLoaderCompleted = () => {
-	setTimeout(() => {
+	clearTimeout(completionTimer);
+	completionTimer = setTimeout(() => {
 		loadingProgress.value = 100;
 		isLoadingCompleted.value = true;
 	}, 180);
@@ -65,7 +68,8 @@ const onLoaderCompleted = () => {
 const initUI = () => {
 	const _exp = new HomeExperience();
 
-	if (!_exp.loader) return;
+	if (!_exp.loader || boundLoader) return;
+	boundLoader = _exp.loader;
 
 	// EVENTS
 	onLoadStart();
@@ -88,7 +92,7 @@ const intro = () => {
 		ease: Config.GSAP_ANIMATION_EASE,
 		opacity: 0,
 		onComplete: () => {
-			loaderContainer.value?.remove();
+			isLoadingEnded.value = true;
 			_exp?.ui?.emit(events.READY);
 		},
 	});
@@ -101,7 +105,7 @@ const onPressStart = () => {
 	void new HomeExperience().sound?.startFromGesture().then(() => {
 		isSoundMuted.value = false;
 	});
-	setTimeout(intro, 200);
+	introTimer = setTimeout(intro, 200);
 };
 
 const onKeypress = (e: KeyboardEvent) => {
@@ -109,22 +113,24 @@ const onKeypress = (e: KeyboardEvent) => {
 	onPressStart();
 };
 
-const watchStopHandle = watchEffect(
-	() => {
-		if (!isExperienceConstructed.value) return;
-
-		watchStopHandle();
+watch(
+	isExperienceConstructed,
+	constructed => {
+		if (!constructed || boundLoader) return;
 		initUI();
 		initLaunchedTimes();
-
-		if (DeviceConfig.DEVICE !== "pc") return;
-
 		window?.addEventListener("keypress", onKeypress);
 	},
-	{
-		flush: "post",
-	}
+	{ immediate: true, flush: "post" }
 );
+onBeforeUnmount(() => {
+	boundLoader?.off(events.PROGRESSED, onLoaderProgress);
+	boundLoader?.off(events.LOADED, onLoaderCompleted);
+	clearTimeout(completionTimer);
+	clearTimeout(introTimer);
+	window.removeEventListener('keypress', onKeypress);
+	timeline.kill();
+});
 </script>
 
 <template>

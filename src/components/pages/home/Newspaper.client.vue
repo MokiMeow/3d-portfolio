@@ -35,14 +35,24 @@ watch(opened, async value => {
     sheet.value?.scrollTo({ top: 0, left: 0 });
   } else dialog.value?.close();
 });
-onBeforeUnmount(() => { dialog.value?.close(); opened.value = false; });
+let resizeFrame = 0;
+function keepAnswerVisible() {
+  cancelAnimationFrame(resizeFrame);
+  resizeFrame = requestAnimationFrame(() => {
+    const active = document.activeElement;
+    if (opened.value && active instanceof HTMLInputElement && sheet.value?.contains(active))
+      active.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});
+  });
+}
+onMounted(() => { window.addEventListener('resize',keepAnswerVisible); window.visualViewport?.addEventListener('resize',keepAnswerVisible); });
+onBeforeUnmount(() => { cancelAnimationFrame(resizeFrame); window.removeEventListener('resize',keepAnswerVisible); window.visualViewport?.removeEventListener('resize',keepAnswerVisible); dialog.value?.close(); opened.value = false; });
 </script>
 
 <template>
   <Teleport to="body">
     <dialog ref="dialog" class="newspaper-reader" aria-label="The fictional fun edition newspaper"
       @cancel.prevent="close" @close="close" @click.self="close"
-      @pointerdown.stop @pointerup.stop @mousedown.stop @mouseup.stop @wheel.stop
+      @pointerdown.stop @pointerup.stop @mousedown.stop @mouseup.stop @wheel.stop @touchstart.stop @touchmove.stop @touchend.stop
       @keydown.stop="key">
       <div class="reader-frame">
         <header class="reader-tools">
@@ -54,7 +64,7 @@ onBeforeUnmount(() => { dialog.value?.close(); opened.value = false; });
         </header>
         <nav class="edition-index" aria-label="Newspaper sections">
           <button v-for="(item, index) in NEWSPAPER_PAGES" :key="item.kind" :aria-current="page === index ? 'page' : undefined"
-            @click="go(index)"><span>{{ String(index + 1).padStart(2, '0') }}</span> {{ item.short }}</button>
+            @click="go(index)"><span>{{ String(index + 1).padStart(2, '0') }}</span> <span class="edition-full">{{ item.short }}</span><span class="edition-compact">{{ item.kind === 'cover' ? 'Front' : item.kind === 'back' ? 'Back' : item.short }}</span></button>
         </nav>
         <div ref="sheet" class="sheet-scroll" tabindex="0" aria-label="Newspaper page, scroll to read">
           <article :key="page" class="news-sheet" :class="[{ backwards: direction < 0, 'cover-sheet': page === 0 }, current.kind]">
@@ -66,6 +76,10 @@ onBeforeUnmount(() => { dialog.value?.close(); opened.value = false; });
                 <div v-else class="cover-fallback"><h1>Two founders.<br>Zero knowledge.<br>$80 million.</h1><p>A fictional ZKAuth startup story, starring Mohith and his friend.</p><p>The cover image could not load. The five other pages are ready to read.</p></div>
                 <figcaption>Startup dreams special · Bengaluru <span>Parody · Created for fun</span></figcaption>
               </figure>
+              <details class="cover-transcript">
+                <summary>Read the front-page story</summary>
+                <div><p class="kicker">STARTUP DREAMS SPECIAL · FICTIONAL FUN EDITION</p><h1>Two founders. Zero knowledge. $80 million.</h1><p class="standfirst">ZKAuth creators land $80 million in their first seed round with a new zero-knowledge proof framework.</p><p><b>BENGALURU:</b> Two young founders have turned a bold idea into a headline-making startup dream. Their zero-knowledge proof framework lets users prove who they are without handing over their secrets.</p><p>In this fictional future, an $80 million first seed round puts ZKAuth on a global stage. Built by a small team out of Bengaluru, ZKAuth aims to reimagine digital identity for a more private and open internet.</p><h2>From late-night commits to a multimillion-dollar future</h2><p>The founders believe people should be able to prove information about themselves — such as age, eligibility or account access — without revealing sensitive personal data. Their framework uses zero-knowledge proofs to make this possible.</p><blockquote>“Zero knowledge. Maximum ambition.”</blockquote><h2>Founders promise funding will not fix their sleep schedule</h2><p>Despite the $80 million boost, the founders admit their sleep schedule is unlikely to change anytime soon. “More funding, more work, same late nights,” they say.</p><p class="kicker">PARODY · FICTIONAL STARTUP NEWS · CREATED FOR FUN</p></div>
+              </details>
             </template>
             <template v-else>
               <header class="paper-masthead">
@@ -99,7 +113,7 @@ onBeforeUnmount(() => { dialog.value?.close(); opened.value = false; });
               <template v-else-if="current.kind === 'puzzles'">
                 <div class="puzzle-heading">
                   <span class="puzzle-number" aria-hidden="true">05</span>
-                  <div><p class="kicker">THE CHAI-BREAK CROSSWORD · NO. 001</p><h1>A little square<br>of peace & quiet.</h1><p class="standfirst">Thirteen clues. A few familiar things. Absolutely no rush.</p></div>
+                  <div><p class="kicker">THE CHAI-BREAK CROSSWORD · NO. 001</p><h1>A little square <br>of peace & quiet.</h1><p class="standfirst">Thirteen clues. A few familiar things. Absolutely no rush.</p></div>
                 </div>
                 <LazyHomeNewspaperCrossword />
                 <div class="puzzle-extras">
@@ -205,4 +219,28 @@ h2{font-size:23px;line-height:1.08;font-weight:700;letter-spacing:-.03em;margin:
   .cover-sheet{padding:10px 8px}.cover-image img{max-height:calc(100dvh - 191px)}.cover-image.enlarged{margin-right:0;margin-left:0}.cover-sheet:has(.enlarged){justify-content:flex-start}.cover-image figcaption{font-size:8px}.reader-navigation>button{font-size:11px;min-width:80px}.reader-navigation b{font-size:10px}.reader-navigation>div>span{font-size:8px}
 }
 @media(prefers-reduced-motion:reduce){.news-sheet{animation:none}}
+
+.newspaper-reader{top:var(--visual-top,0px);bottom:auto;margin-block:12px;max-height:calc(var(--visual-height,100dvh) - 24px);}
+.reader-frame{height:min(1250px,calc(var(--visual-height,100dvh) - 24px));}
+.cover-sheet{flex-direction:column;align-items:center;justify-content:flex-start;}
+.cover-transcript{width:100%;max-width:650px;margin:16px auto 0;border-top:1px solid var(--rule);}
+.cover-transcript summary{font:italic 16px/1.4 Georgia,serif;min-height:48px;padding:14px 0;cursor:pointer;}
+.cover-transcript>div{padding:12px 12px 24px;}.cover-transcript p{font:16px/1.65 Georgia,serif;margin:16px 0;}.cover-transcript h1{font-size:34px;}.cover-transcript h2{margin-top:22px;}
+.reader-tools{flex-shrink:0;}.reader-tools button,.edition-index button{min-height:44px;}.close-paper{min-width:44px;justify-content:center;}
+.sheet-scroll{touch-action:pan-x pan-y pinch-zoom;}
+@media(max-width:650px){
+ .newspaper-reader{width:100%;max-height:none;margin:0;}
+ .reader-frame{height:var(--visual-height,100dvh);padding:max(0px,env(safe-area-inset-top)) max(0px,env(safe-area-inset-right)) max(0px,env(safe-area-inset-bottom)) max(0px,env(safe-area-inset-left));}
+ .reader-tools{padding:2px 12px;}.reader-tools>div{gap:4px;}.reader-label{font-size:9px;max-width:120px;}.reader-tools button{font-size:12px;}
+ .edition-index{gap:16px;justify-content:flex-start;padding:0 14px;scrollbar-width:none;}.edition-index button{font-size:12px;}
+ .news-sheet{padding:16px;}.news-sheet.cover-sheet{padding:8px 10px 16px;}.cover-image img{width:100%;max-height:none;}.cover-image.enlarged{width:854px;align-self:flex-start;}.cover-image.enlarged img{width:854px;}
+ .masthead-name{font-size:clamp(29px,8.6vw,45px);white-space:nowrap;}.lead-heading h1{font-size:clamp(30px,8vw,38px);}
+ .puzzle-heading{padding:14px 0 20px;}.puzzle-number{display:none;}.puzzle-heading h1{font-size:30px;}.puzzle-heading h1 br{display:none;}
+ .reader-navigation>button{min-width:70px;min-height:44px;}.reader-navigation{padding:2px 12px;}.reader-navigation>div>span{display:none;}
+ .classifieds{grid-template-columns:1fr;}.classifieds section{padding:16px 0!important;border-left:0!important;}.classifieds section:nth-child(2n){padding:16px 0!important;border-left:0!important;}.classifieds section+section{border-top:1px solid var(--rule)!important;}
+}
+@media(max-height:500px) and (min-width:651px){.newspaper-reader{margin:0 auto;width:100%;}.reader-frame{height:var(--visual-height,100dvh);}.reader-tools{padding-block:0;}.reader-navigation{padding-block:0;}}
+
+.edition-index button .edition-full{font:inherit;color:inherit;margin:0;}.edition-index button .edition-compact{display:none;}
+@media(max-width:650px){.edition-index{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;padding:0 10px;overflow:visible;}.edition-index button{min-width:0;font-size:11px;letter-spacing:0;padding-inline:0;}.edition-index button .edition-full{display:none;}.edition-index button .edition-compact{display:inline;font:inherit;color:inherit;margin:0;}}
 </style>

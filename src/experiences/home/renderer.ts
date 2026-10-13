@@ -17,7 +17,7 @@ import { HomeExperience } from ".";
 import { ExperienceBasedBlueprint } from "~/common/blueprints/experience-based.blueprint";
 
 // STATIC
-import { events } from "~/static";
+import { events, pages } from "~/static";
 import { DeviceConfig } from "~/config/device.config";
 import type { LabDevice } from "~/common/models/lab-device.model";
 import { screenCssTransform } from "~/utils/screen-focus";
@@ -72,6 +72,7 @@ export class Renderer extends ExperienceBasedBlueprint {
 		const focused = !!plane && this._experience.interactions?.focusedObject?.object === plane.object3d;
 		if (!root) return;
 		root.classList.toggle("lab-laptop-focused", focused);
+		root.style.visibility = this._camera?.currentCameraIndex === 1 && this._experience.router?.currentRouteKey === pages.CONTACT_PAGE ? "visible" : "hidden";
 		if (!focused || !plane || !camera) { this._focusedScreenKey = ""; return; }
 		const { width, height } = this._appSizes;
 		const key = `${plane.object3d.uuid}:${width}:${height}:${camera.fov}`;
@@ -97,7 +98,9 @@ export class Renderer extends ExperienceBasedBlueprint {
 
 		portalCamera.aspect = aspect;
 		portalCamera.updateProjectionMatrix();
+		this._experience.world?.prepareRender(true);
 		this._appRenderer.instance.render(this._experience.app.scene, portalCamera);
+		this._experience.world?.prepareRender(this._camera?.currentCameraIndex === 1);
 		mesh.visible = true;
 	}
 

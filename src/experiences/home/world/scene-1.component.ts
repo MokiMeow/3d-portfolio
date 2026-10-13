@@ -1,3 +1,4 @@
+import { portraitFramingScale } from "~/utils/viewport-framing";
 import {
 	Color,
 	Material,
@@ -133,7 +134,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 	private readonly _fitHomeCamera = () => {
 		// Fit the whole connected home in portrait; keep user-controlled zoom
 		// untouched in free mode. The guided path picks up these points on resize.
-		const scale = Math.max(1, .87 / (window.innerWidth / Math.max(1, window.innerHeight)));
+		const scale = portraitFramingScale(window.innerWidth, window.innerHeight);
 		this.cameraPath.points.forEach((point, index) =>
 			point.copy(this._homeCameraPoints[index]).sub(this.center).multiplyScalar(scale).add(this.center));
 		this.cameraPath.updateArcLengths();
