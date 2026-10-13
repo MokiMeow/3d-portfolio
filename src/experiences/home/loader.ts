@@ -227,7 +227,10 @@ export class Loader extends ExperienceBasedBlueprint {
 	/** Correct resource textures color and flip faces. */
 	public correctTextures(item: Texture) {
 		if (item instanceof Texture) {
-			if (!(item instanceof VideoTexture)) item.flipY = false;
+			if (!(item instanceof VideoTexture)) {
+				item.flipY = false;
+				item.anisotropy = Math.min(8, this._experience.app.renderer.instance.capabilities.getMaxAnisotropy());
+			}
 			item.colorSpace = LinearSRGBColorSpace;
 		}
 	}

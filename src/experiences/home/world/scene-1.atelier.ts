@@ -40,6 +40,7 @@ import type {
 import { ATELIER_PALETTES, drawAtelierArt } from "./atelier-art";
 import roomTile from "./room-tile.json";
 import { RECORD_ARM } from "~/utils/room-mechanics";
+import { createRecordCue } from "~/utils/record-cue";
 
 // Surveyed from the baked room, including its tile thickness.
 const FLOOR = 0.339813;
@@ -83,7 +84,6 @@ export function createAtelier(
   let recordOn = false;
   let printAnimation: { pause: () => unknown } | undefined;
   let pulseAnimation: { pause: () => unknown } | undefined;
-  let armAnimation: { pause: () => unknown } | undefined;
   let pillowAnimation: { pause: () => unknown } | undefined;
   let stoolAnimation: { pause: () => unknown } | undefined;
   let printedStudy = -1;
@@ -291,10 +291,10 @@ export function createAtelier(
   const linen = canvasTexture(512, 512, ctx => {
     ctx.fillStyle = "#c6c2b9"; ctx.fillRect(0, 0, 512, 512);
     for (let i = 0; i < 512; i += 4) {
-      ctx.fillStyle = i % 8 ? "#ece8dc88" : "#827c7255";
+      ctx.fillStyle = i % 8 ? "#ece8dc30" : "#827c7220";
       ctx.fillRect(i, 0, 1, 512); ctx.fillRect(0, i, 512, 1);
       for (let j = 0; j < 512; j += 8) {
-        ctx.fillStyle = (i + j) % 16 ? "#fffaed55" : "#625c5240";
+        ctx.fillStyle = (i + j) % 16 ? "#fffaed18" : "#625c5214";
         ctx.fillRect(i, j, 2, 2);
       }
     }
@@ -304,7 +304,7 @@ export function createAtelier(
   for (const color of ["#464748", "#686260", "#b6906c", "#8c8986", "#c0b6a0", "#cbb78f", "#b6ad98", "#9b9d85", "#687562"]) {
     const material = lightMaterial(new MeshStandardMaterial({
       color: new Color(color).convertLinearToSRGB(), map: linen, bumpMap: linen,
-      bumpScale: .004, roughness: .96, envMap: probe.texture, envMapIntensity: .12,
+      bumpScale: .0006, roughness: .96, envMap: probe.texture, envMapIntensity: .12,
       side: DoubleSide,
     }));
     materialCache.set(color + true, material);
@@ -417,7 +417,7 @@ export function createAtelier(
     let seed = 29;
     for (let i = 0; i < pixels.data.length; i += 4) {
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-      const grain = 226 + (seed >>> 28);
+      const grain = 233 + (seed >>> 30);
       pixels.data[i] = pixels.data[i + 1] = pixels.data[i + 2] = grain;
       pixels.data[i + 3] = 255;
     }
@@ -427,7 +427,7 @@ export function createAtelier(
   for (const color of ["#514d4a", "#484443", "#494645", "#55504e"]) {
     materialCache.set(color + true, lightMaterial(new MeshStandardMaterial({
       color: new Color(color).convertLinearToSRGB(), map: plaster, bumpMap: plaster,
-      bumpScale: .008, roughness: .96, envMap: probe.texture, envMapIntensity: .18,
+      bumpScale: .0004, roughness: .96, envMap: probe.texture, envMapIntensity: .18,
     })));
   }
   const tileMaterial = finishes.room ? textured(finishes.room) : mat("#625b59");
@@ -554,9 +554,10 @@ export function createAtelier(
   // One original composition becomes three physical things: the wall print,
   // the paper on the drawing desk, and the postcard coming out of the press.
   const artCanvas = document.createElement("canvas");
-  artCanvas.width = 1400;
-  artCanvas.height = 980;
+  artCanvas.width = 1960;
+  artCanvas.height = 1372;
   const artTexture = new CanvasTexture(artCanvas);
+  artTexture.anisotropy = Math.min(8, finishes.renderer.capabilities.getMaxAnisotropy());
   textures.add(artTexture);
   const artMat = textured(artTexture);
   artMat.color.setRGB(.84, .82, .8);
@@ -579,7 +580,7 @@ export function createAtelier(
     ctx.fillStyle = "#474645";
     ctx.fillRect(0, 0, 384, 384);
     for (let y = 0; y < 384; y += 3) {
-      ctx.strokeStyle = y % 9 ? "#8b858130" : "#191b1b45";
+      ctx.strokeStyle = y % 9 ? "#8b858112" : "#191b1b18";
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(384, y);
@@ -819,6 +820,7 @@ export function createAtelier(
   printCanvas.width = artCanvas.width;
   printCanvas.height = artCanvas.height;
   const printTexture = new CanvasTexture(printCanvas);
+  printTexture.anisotropy = artTexture.anisotropy;
   textures.add(printTexture);
   const printMat = textured(printTexture);
   printMat.color.copy(artMat.color);
@@ -875,16 +877,20 @@ export function createAtelier(
   platter.position.set(-0.25, 1.12, 0);
   console.add(platter);
   clickable(cylinder(platter, 0.307, 0.016, [0, 0, 0], "#191d1b"), "sound");
-  for (let i = 0; i < 24; i++) {
-    const r = .119 + i * .0075;
-    const groove = new Mesh(
-      geo(new TorusGeometry(r, 0.00085, 3, 64)),
-      mat("#3a3e38"),
-    );
-    groove.rotation.x = Math.PI / 2;
-    groove.position.y = 0.009;
-    platter.add(groove);
-  }
+  // Mipmapped grooves retain close-up detail without sub-pixel geometry shimmer.
+  const grooveMap = canvasTexture(512, 512, ctx => {
+    ctx.fillStyle = "#191d1b";
+    ctx.beginPath(); ctx.arc(256, 256, 255, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#343832"; ctx.lineWidth = 1;
+    for (let r = 101; r < 249; r += 5) {
+      ctx.beginPath(); ctx.arc(256, 256, r, 0, Math.PI * 2); ctx.stroke();
+    }
+  });
+  const grooveMat = textured(grooveMap);
+  grooveMat.transparent = true;
+  grooveMat.depthWrite = false;
+  const grooves = panel(platter, .614, .614, [0, .0085, 0], grooveMat);
+  grooves.rotation.x = -Math.PI / 2;
   const vinylLabel = cylinder(platter, 0.097, 0.003, [0, 0.011, 0], "#b96545");
   clickable(vinylLabel, "sound");
   box(platter, [0.12, 0.004, 0.018], [0, 0.014, 0], "#dcc8a2");
@@ -895,6 +901,7 @@ export function createAtelier(
   armPivot.name = 'record_tonearm';
   armPivot.position.set(RECORD_ARM.x, RECORD_ARM.liftedY, RECORD_ARM.z);
   console.add(armPivot);
+  const recordCue = createRecordCue(armPivot);
   cylinder(console, .065, .095, [RECORD_ARM.x, 1.145, RECORD_ARM.z], ink);
   cylinder(console, .022, .07, [RECORD_ARM.x, 1.21, RECORD_ARM.z], brass);
   tube(armPivot, [[0, 0, -.07], [0, .012, .1], [.05, .006, .3], [.14, 0, .48]], .013, brass);
@@ -1326,20 +1333,11 @@ export function createAtelier(
       }
     },
     setSound(on: boolean, immediate = false) {
-      if (recordOn === on && !immediate) return;
       recordOn = on;
-      armAnimation?.pause();
-      if (reduced.matches || immediate) {
-        armPivot.position.y = on ? RECORD_ARM.playingY : RECORD_ARM.liftedY;
-        armPivot.rotation.y = on ? RECORD_ARM.playingAngle : 0;
-        return;
-      }
-      armAnimation = createTimeline({ defaults: { ease: "inOut(3)" } })
-        .add(armPivot.position, { y: RECORD_ARM.liftedY + .035, duration: 160 }, 0)
-        .add(armPivot.rotation, { y: on ? RECORD_ARM.playingAngle : 0, duration: 520 }, 160)
-        .add(armPivot.position, { y: on ? RECORD_ARM.playingY : RECORD_ARM.liftedY, duration: 240 }, 680);
+      recordCue.setPlaying(on, reduced.matches || immediate);
     },
     update(delta: number) {
+      recordCue.update(delta);
       if (recordOn && !reduced.matches && !document.hidden)
         platter.rotation.y += Math.min(delta, 50) * 0.00349;
     },
@@ -1358,7 +1356,6 @@ export function createAtelier(
       disposed = true;
       printAnimation?.pause();
       pulseAnimation?.pause();
-      armAnimation?.pause();
       pillowAnimation?.pause();
       stoolAnimation?.pause();
       root.removeFromParent();

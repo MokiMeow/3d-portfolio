@@ -21,6 +21,7 @@ import { events } from "~/static";
 import { DeviceConfig } from "~/config/device.config";
 import type { LabDevice } from "~/common/models/lab-device.model";
 import { screenCssTransform } from "~/utils/screen-focus";
+import { roomPixelRatio } from "~/utils/render-quality";
 
 export interface PortalAssets {
 	mesh: THREE.Mesh;
@@ -53,11 +54,13 @@ export class Renderer extends ExperienceBasedBlueprint {
 	private _lastPortalRenderAt = 0;
 	private _lastCssFov = -1;
 	private _focusedScreenKey = "";
-	private _onResize = () =>
+	private _onResize = () => {
+		this._appRenderer.instance.setPixelRatio(roomPixelRatio(this._appSizes.width, this._appSizes.height, this._appSizes.pixelRatio));
 		this._mixerContext?.rendererCss?.setSize(
 			this._appSizes.width,
 			this._appSizes.height
 		);
+	};
 
 	public _mixerContext?: HtmlMixerContext;
 
@@ -120,7 +123,7 @@ export class Renderer extends ExperienceBasedBlueprint {
 			this._experience.app.sizes.height
 		);
 		this._appRenderer.instance.setPixelRatio(
-			Math.min(this._experience.app.sizes.pixelRatio, 1.5)
+			roomPixelRatio(this._appSizes.width, this._appSizes.height, this._appSizes.pixelRatio)
 		);
 		this._appRenderer.instance.localClippingEnabled = true;
 

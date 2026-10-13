@@ -62,7 +62,7 @@ test('the room becomes enterable even when every video and audio request is stal
       });
     },
   });
-  const experience = { app: { resources }, router: Object.assign(new EventEmitter(), { currentRouteKey: 'home' }) };
+  const experience = { app: { resources, renderer: { instance: { capabilities: { getMaxAnisotropy: () => 8 } } } }, router: Object.assign(new EventEmitter(), { currentRouteKey: 'home' }) };
   const { Loader } = loadTS('experiences/home/loader.ts', {
     '.': { HomeExperience: class { constructor() { return experience; } } },
     'quick-threejs/lib/static': { events: quickEvents },

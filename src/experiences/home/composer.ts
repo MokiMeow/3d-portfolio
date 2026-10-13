@@ -3,6 +3,8 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { Pass } from "three/examples/jsm/postprocessing/Pass.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+import { HalfFloatType, WebGLRenderTarget } from "three";
+import { roomPixelRatio } from "~/utils/render-quality";
 
 // EXPERIENCES
 import { HomeExperience } from ".";
@@ -38,12 +40,17 @@ export class Composer extends ExperienceBasedBlueprint {
 	}
 
 	public construct(): void {
-		this._effect = new EffectComposer(this._appRender.instance);
-		this._effect.setPixelRatio(Math.min(this._appSizes.pixelRatio, 1.5));
+		const renderer = this._appRender.instance;
+		const target = new WebGLRenderTarget(1, 1, {
+			type: HalfFloatType,
+			samples: renderer.capabilities.isWebGL2 ? Math.min(4, renderer.capabilities.maxSamples) : 0,
+		});
+		this._effect = new EffectComposer(renderer, target);
+		this._effect.setPixelRatio(roomPixelRatio(this._appSizes.width, this._appSizes.height, this._appSizes.pixelRatio));
 		this._effect.setSize(this._appSizes.width, this._appSizes.height);
 
 		this._onResize = () => {
-			this._effect?.setPixelRatio(Math.min(this._appSizes.pixelRatio, 1.5));
+			this._effect?.setPixelRatio(roomPixelRatio(this._appSizes.width, this._appSizes.height, this._appSizes.pixelRatio));
 			this._effect?.setSize(this._appSizes.width, this._appSizes.height);
 		};
 		this._appSizes.on(sizeEvents.RESIZED, this._onResize);
@@ -75,7 +82,8 @@ export class Composer extends ExperienceBasedBlueprint {
 			this.emit(events.STARTED);
 		}
 
-		this._effect?.addPass(this._passes[key]);
+		// Colour conversion is the final pass, after the interaction outline.
+		this._effect?.insertPass(this._passes[key], Math.max(0, (this._effect?.passes.length ?? 1) - 1));
 		this.emit(events.ADDED);
 	}
 
@@ -100,8 +108,13 @@ export class Composer extends ExperienceBasedBlueprint {
 			this._appRender.enabled = false;
 			return;
 		}
-		if (!this._effect?.passes.length) {
-			this._appRender.enabled = true;
+		if (!this._effect?.passes.length || !Object.values(this._passes).some(pass => pass.enabled)) {
+			// Render directly here so the scene and post-processing paths share the
+			// same frame, camera and viewport without a second wrapper render.
+			this._appRender.enabled = false;
+			this._appRender.instance.setRenderTarget(null);
+			this._appRender.instance.setViewport(0, 0, this._appSizes.width, this._appSizes.height);
+			if (this._appCamera.instance) this._appRender.instance.render(this._experience.app.scene, this._appCamera.instance);
 			return;
 		}
 		this._appRender.enabled = false;
