@@ -23,3 +23,34 @@ The model is loaded separately, its materials share the room environment, and it
 ## Couch
 
 The lounge sofa keeps its footprint with a slimmer walnut frame, raised legs, soft oat cushions with seam piping, sage armrests and a darker accent pillow. Existing lamp, side table, blanket and room materials remain.
+
+## Exterior charging bay and optical correction
+
+The source model was inspected in Blender 5.2. The dark pupil, optical baffles,
+bronze bezel, violet optical well and clear cover were already present. The
+previous runtime lifted the material factors and treated colour maps as linear,
+then placed a 20%-opaque white surface over the lens. This washed out its depth.
+The companion now preserves glTF PBR factors and texture colour-space tags and
+converts the **lit result** for this room's legacy linear-output renderer.
+A front-facing 5.5%-opacity clearcoat cover preserves highlights without adding
+a full-scene transmission render. The original GLB is unchanged.
+
+The dock is outside the original room at x=1.15, z=4.62, on a ground-level apron.
+Its 1.88 × 2.64 footprint has two recessed tread cradles, grip ribs, bronze guide
+rails, a sloped approach, rear contacts, replaceable service plates, recessed
+vents, cable boots/conduit, isolation key, voltage display, numbered tag and
+hex fasteners. WALL-E follows the ramp height on its short greeting route, then
+backs into the cradles. Static hardware is batched into six material meshes;
+labels and status strips stay separate. No new lights, shadows or dependencies.
+
+The record console uses warm paper, sage metal and charcoal vinyl. The main
+play/pause control is separate from the link form, and both the drawn record
+and physical deck follow playback. Closing stops playback; minimizing retains
+the provider video. Opening the console does not summon the phone keyboard.
+The panel scrolls within short screens and supports reduced motion.
+
+The compositor and camera gesture measurements now subscribe to the actual
+`quick-threejs` RESIZED event symbol. A previous string event left the
+postprocessing buffer at its old dimensions after a phone/desktop resize.
+This is checked by resizing the browser in both directions and inspecting
+close-up rendering and pointer interaction afterward.

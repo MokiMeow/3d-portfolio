@@ -1,7 +1,6 @@
 import {
   Box3,
   CanvasTexture,
-  Color,
   Group,
   Mesh,
   MeshBasicMaterial,
@@ -11,20 +10,20 @@ import {
   PlaneGeometry,
   Texture,
   Vector3,
-  LinearSRGBColorSpace,
+  FrontSide,
   type Camera,
   type BufferGeometry,
 } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
-import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
+import { createCompanionDock } from "./scene-1.dock";
 import gsap from "gsap";
 import type { SelectableObject } from "~/common/models/experience-interaction.model";
 import type { CompanionState } from "~/common/models/companion.model";
 
-const FLOOR = 0.339813,
-  DOCK = new Vector3(4.75, FLOOR + 0.088, 2.03),
-  VISIT = new Vector3(5.2, FLOOR + 0.002, 3.13);
+const GROUND = 0.035,
+  DOCK = new Vector3(1.15, 0.197, 4.62),
+  VISIT = new Vector3(1.15, GROUND, 5.82);
 /** One articulated visitor, on a short clear route, never chasing the camera. */
 export function createCompanion(
   scene: Group,
@@ -68,72 +67,17 @@ export function createCompanion(
         "uniform float uCompanionNight;\n" + shader.fragmentShader;
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <opaque_fragment>",
-        "outgoingLight *= mix(vec3(1.), vec3(.21,.26,.38), uCompanionNight);\n#include <opaque_fragment>",
+        "outgoingLight = sRGBTransferOETF(vec4(outgoingLight * mix(vec3(1.), vec3(.07,.1,.17), uCompanionNight), 1.)).rgb;\n#include <opaque_fragment>",
       );
     };
-    m.customProgramCacheKey = () => "wall-e-room-night";
+    m.customProgramCacheKey = () => "wall-e-pbr-display-v2";
     materials.add(m);
     return m;
   };
-  const surface = (color: string, metalness = 0) =>
-    tint(
-      new MeshStandardMaterial({
-        color: new Color(color).convertLinearToSRGB(),
-        roughness: 0.55,
-        metalness,
-        envMap: env,
-        envMapIntensity: 0.3,
-      }),
-    );
-  const dock = new Group();
-  dock.position.set(DOCK.x, FLOOR, DOCK.z);
+  const chargingBay = createCompanionDock(env, night);
+  const dock = chargingBay.root;
+  dock.position.set(DOCK.x, 0, DOCK.z);
   root.add(dock);
-  const shape = (
-    parent: Object3D,
-    size: number[],
-    position: number[],
-    mat: MeshStandardMaterial | MeshBasicMaterial,
-    r = 0.025,
-  ) => {
-    const g = new RoundedBoxGeometry(size[0], size[1], size[2], 2, r);
-    geometries.add(g);
-    const m = new Mesh(g, mat);
-    m.position.fromArray(position);
-    parent.add(m);
-    return m;
-  };
-  const graphite = surface("#363c37"),
-    walnut = surface("#79533b"),
-    brass = surface("#ae966c", 0.6);
-  const base = shape(dock, [1.24, 0.075, 1.12], [0, 0.038, 0], graphite);
-  shape(dock, [1.29, 0.025, 1.17], [0, 0.015, 0], walnut, 0.012);
-  for (const x of [-0.38, 0.38]) {
-    shape(dock, [0.12, 0.013, 0.77], [x, 0.083, 0.03], brass, 0.006);
-    shape(dock, [0.13, 0.17, 0.07], [x, 0.125, -0.47], graphite, 0.018);
-  }
-  const ledMat = new MeshBasicMaterial({ color: 0xd9b66f });
-  materials.add(ledMat);
-  shape(dock, [0.26, 0.018, 0.012], [0, 0.052, 0.568], ledMat, 0.005);
-  const labelCanvas = document.createElement("canvas");
-  labelCanvas.width = 512;
-  labelCanvas.height = 96;
-  const ctx = labelCanvas.getContext("2d")!;
-  ctx.fillStyle = "#282e29";
-  ctx.fillRect(0, 0, 512, 96);
-  ctx.fillStyle = "#c4b38c";
-  ctx.font = "28px monospace";
-  ctx.textAlign = "center";
-  ctx.fillText("WALL·E / HOME", 256, 58);
-  const labelTexture = new CanvasTexture(labelCanvas);
-  textures.add(labelTexture);
-  const labelGeo = new PlaneGeometry(0.58, 0.108);
-  geometries.add(labelGeo);
-  const labelMat = new MeshBasicMaterial({ map: labelTexture });
-  materials.add(labelMat);
-  const label = new Mesh(labelGeo, labelMat);
-  label.rotation.x = -Math.PI / 2;
-  label.position.set(0, 0.085, 0.42);
-  dock.add(label);
   // Soft contact shade, shared floor level, no realtime shadow pass.
   const c = document.createElement("canvas");
   c.width = c.height = 64;
@@ -182,7 +126,7 @@ export function createCompanion(
     if (!state.ready) return;
     motion?.kill();
     state.phase = "returning";
-    if (!silent) say("Back to my little corner.", false);
+    if (!silent) say("Heading back to my charging bay.", false);
     motion = gsap
       .timeline({
         onComplete: () => {
@@ -357,18 +301,20 @@ export function createCompanion(
             )
               continue;
             material.envMap = env;
-            material.envMapIntensity = 0.38;
-            material.color.convertLinearToSRGB();
-            if (material.map) material.map.colorSpace = LinearSRGBColorSpace;
-            if (material.emissiveMap)
-              material.emissiveMap.colorSpace = LinearSRGBColorSpace;
+            // Keep the GLTF's linear PBR factors and sRGB image tags intact.
+            // This legacy room outputs linear display values: convert the lit result,
+            // rather than lifting every dark material and texture before lighting.
+            material.envMapIntensity = 0.55;
             if (
               material instanceof MeshPhysicalMaterial &&
               material.transmission > 0
             ) {
               material.transmission = 0;
               material.transparent = true;
-              material.opacity = 0.2;
+              material.opacity = 0.055;
+              material.side = FrontSide;
+              material.clearcoat = 1;
+              material.clearcoatRoughness = 0.12;
               material.depthWrite = false;
             }
             for (const value of Object.values(material))
@@ -415,7 +361,13 @@ export function createCompanion(
       if (disposed || !state.ready || document.hidden) return;
       const dt = Math.min(delta, 50) / 1000;
       elapsed += dt;
-      shade.position.y = FLOOR + 0.005 - carriage.position.y;
+      // Follow the actual ramp, then the exterior apron; never float on the route.
+      const ramp = Math.max(
+        0,
+        Math.min(1, (carriage.position.z - DOCK.z - 0.58) / 0.59),
+      );
+      carriage.position.y = DOCK.y + (GROUND - DOCK.y) * ramp;
+      shade.position.y = 0.004;
       if (!reduced.matches && head && neck) {
         carriage.updateMatrixWorld();
         camera.getWorldPosition(cameraLocal);
@@ -439,7 +391,7 @@ export function createCompanion(
             (-leftEye.rotation.z - rightEye.rotation.z) * follow;
         }
       }
-      ledMat.color.setHex(
+      chargingBay.led.color.setHex(
         sleeping ? 0x58694c : state.phase === "docked" ? 0xa9c297 : 0xd9b66f,
       );
       if (
@@ -456,6 +408,7 @@ export function createCompanion(
       clearTimeout(captionTimer);
       if (utterance && "speechSynthesis" in window)
         window.speechSynthesis.cancel();
+      chargingBay.dispose();
       root.removeFromParent();
       geometries.forEach((g) => g.dispose());
       materials.forEach((m) => m.dispose());

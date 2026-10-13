@@ -1,3 +1,4 @@
+import { events as sizeEvents } from "quick-threejs/lib/static";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { Pass } from "three/examples/jsm/postprocessing/Pass.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
@@ -45,12 +46,12 @@ export class Composer extends ExperienceBasedBlueprint {
 			this._effect?.setPixelRatio(Math.min(this._appSizes.pixelRatio, 1.5));
 			this._effect?.setSize(this._appSizes.width, this._appSizes.height);
 		};
-		this._appSizes.on("resize", this._onResize);
+		this._appSizes.on(sizeEvents.RESIZED, this._onResize);
 		this.emit(events.CONSTRUCTED);
 	}
 
 	public destruct(): void {
-		this._onResize && this._appSizes.off("resize", this._onResize);
+		this._onResize && this._appSizes.off(sizeEvents.RESIZED, this._onResize);
 		this._effect?.dispose();
 		this._effect = undefined;
 		this.emit(events.DESTRUCTED);

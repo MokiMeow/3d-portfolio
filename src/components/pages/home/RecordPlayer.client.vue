@@ -207,7 +207,7 @@ watch(
     if (open) {
       compact.value = false;
       await nextTick();
-      linkInput.value?.focus();
+      // Do not open the phone keyboard until the listener chooses the link field.
     } else if (current.value) close();
   },
 );
@@ -249,44 +249,41 @@ onBeforeUnmount(() => {
     @keydown.esc="close"
   >
     <header>
-      <div>
-        <p>AFTER HOURS / 33⅓</p>
-        <h2>{{ title }}</h2>
+      <div class="wordmark">
+        <span class="signal" :class="{ live: music.playing }"></span>OFF THE
+        CLOCK<span class="edition">01</span>
       </div>
       <button
         @click="compact = !compact"
         :aria-label="
-          compact ? 'Show music link input' : 'Minimize music controls'
+          compact ? 'Expand record player' : 'Minimize music controls'
         "
       >
-        {{ compact ? "+" : "−" }}</button
-      ><button
-        @click="close"
-        aria-label="Close record player and stop playback"
-      >
+        {{ compact ? "+" : "−" }}
+      </button>
+      <button @click="close" aria-label="Close record player and stop playback">
         ×
       </button>
     </header>
-    <form v-show="!compact" @submit.prevent="submit">
-      <label for="music-link">Put something good on.</label>
-      <div class="link-row">
-        <input
-          ref="linkInput"
-          id="music-link"
-          v-model="input"
-          type="url"
-          placeholder="Paste a song or podcast link"
-          autocomplete="off"
-          spellcheck="false"
-          required
-          :aria-invalid="!!error"
-          aria-describedby="music-message"
-        /><button type="submit" :disabled="busy">
-          {{ busy ? "…" : "Play ↗" }}
-        </button>
+    <div
+      v-if="!current"
+      v-show="!compact"
+      class="turntable"
+      :class="{ running: music.playing }"
+      aria-hidden="true"
+    >
+      <span class="deck-mark">STEREO / HIGH FIDELITY</span>
+      <div class="platter">
+        <div class="vinyl">
+          <div class="record-label">
+            <small>MOHITH LAB</small><strong>After<br />hours.</strong
+            ><span>33⅓ &nbsp; / &nbsp; SIDE A</span><i></i>
+          </div>
+        </div>
       </div>
-      <p class="services">YouTube · Spotify · Audio files</p>
-    </form>
+      <div class="tonearm"><i></i></div>
+      <span class="deck-speed">33<span>●</span>45</span>
+    </div>
     <div
       v-if="current?.kind === 'youtube' || current?.kind === 'spotify'"
       ref="mount"
@@ -308,26 +305,68 @@ onBeforeUnmount(() => {
           'This audio link is unavailable or does not allow playback here.'
       "
     />
-    <div v-if="!current" class="radio-art" aria-hidden="true">
-      <div class="mini-record" :class="{ spinning: music.playing }">
-        <i></i>
+    <div class="transport">
+      <div class="track-copy">
+        <p>
+          {{
+            current
+              ? current.kind === "audio"
+                ? "YOUR AUDIO"
+                : current.kind.toUpperCase()
+              : "THE ROOM SELECTOR"
+          }}
+        </p>
+        <h2 :title="title">{{ title }}</h2>
+        <span>{{
+          current ? "Your soundtrack. Your pace." : "Warm beats. No hurry."
+        }}</span>
       </div>
-      <span>A little room<br />for good music.</span>
+      <button
+        class="play-button"
+        @click="music.playing ? pause() : play()"
+        :disabled="busy"
+        :aria-label="music.playing ? 'Pause music' : 'Play music'"
+      >
+        <svg v-if="music.playing" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 5h3v14H7zM14 5h3v14h-3z" />
+        </svg>
+        <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m9 5 11 7-11 7z" />
+        </svg>
+      </button>
     </div>
     <p id="music-message" class="message" :class="{ error }" role="status">
-      {{
+      <span class="level" :class="{ active: music.playing }" aria-hidden="true"
+        ><i></i><i></i><i></i><i></i></span
+      >{{
         error || status || (music.playing ? "Playing" : "Ready when you are.")
       }}
     </p>
-    <footer>
-      <button @click="music.playing ? pause() : play()" :disabled="busy">
-        {{ music.playing ? "Ⅱ Pause" : "▷ Play" }}</button
-      ><button v-if="current" @click="roomRadio">Room radio</button
-      ><a
-        v-if="current"
-        :href="current.url"
-        target="_blank"
-        rel="noopener noreferrer"
+    <form v-show="!compact" @submit.prevent="submit">
+      <label for="music-link"
+        >Make it your soundtrack.<span>PASTE A LINK</span></label
+      >
+      <div class="link-row">
+        <input
+          ref="linkInput"
+          id="music-link"
+          v-model="input"
+          type="url"
+          placeholder="Song, mix, or a good conversation…"
+          autocomplete="off"
+          spellcheck="false"
+          required
+          :aria-invalid="!!error"
+          aria-describedby="music-message"
+        /><button type="submit" :disabled="busy" aria-label="Play music link">
+          {{ busy ? "…" : "↗" }}
+        </button>
+      </div>
+      <p class="services">YouTube <i>·</i> Spotify <i>·</i> Audio files</p>
+    </form>
+    <footer v-if="current">
+      <button @click="roomRadio">↶ Room radio</button
+      ><a :href="current.url" target="_blank" rel="noopener noreferrer"
         >Open original ↗</a
       >
     </footer>
@@ -342,106 +381,385 @@ onBeforeUnmount(() => {
   z-index: 45;
   right: clamp(16px, 4vw, 64px);
   bottom: 90px;
-  width: min(360px, calc(100vw - 32px));
+  width: min(370px, calc(100vw - 32px));
+  max-height: calc(100dvh - 130px);
+  overflow: auto;
   padding: 20px;
-  color: #e9e3d6;
-  background: #242522;
-  border: 1px solid #aaa18b45;
+  color: #30352e;
+  background: #eee9df;
+  border: 1px solid #fff8;
   border-radius: 18px;
-  box-shadow: 0 18px 70px #0006;
+  box-shadow:
+    0 24px 75px #0005,
+    0 2px 5px #0002;
   font-family: inherit;
   pointer-events: auto;
+  scrollbar-width: thin;
 }
 header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 17px;
+}
+.wordmark {
+  display: flex;
+  align-items: center;
   gap: 8px;
-}
-header > div {
   flex: 1;
-  min-width: 0;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: 0.12em;
 }
-header p {
-  font: 9px monospace;
-  letter-spacing: 0.17em;
-  color: #c2a878;
-  margin-bottom: 7px;
+.edition {
+  font: 10px monospace;
+  color: #8c8b7b;
+  letter-spacing: 0;
+  margin-left: 4px;
 }
-h2 {
-  font-size: 17px;
-  font-weight: 500;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
+.signal {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #939589;
+}
+.signal.live {
+  background: #70894d;
+  box-shadow: 0 0 0 3px #70894d18;
 }
 button {
-  border-radius: 7px;
-  padding: 8px;
+  border-radius: 50%;
   transition:
-    background 0.16s,
-    transform 0.16s;
+    background 0.18s,
+    transform 0.18s;
+  cursor: pointer;
 }
 button:hover {
-  background: #ffffff12;
+  background: #343b3010;
 }
 button:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+header > button {
+  width: 32px;
+  height: 32px;
+  font-size: 22px;
+  line-height: 1;
+  background: #dfdbd2;
 }
 button:focus-visible,
 input:focus-visible,
 a:focus-visible {
-  outline: 2px solid #cdb282;
-  outline-offset: 3px;
+  outline: 2px solid #56684b;
+  outline-offset: 4px;
 }
-button:disabled {
-  opacity: 0.5;
+.turntable {
+  height: 212px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #b4b6a5;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #bac0ac, #d3d5c6 58%, #aab09e);
+  box-shadow:
+    inset 0 1px 0 #ffffff9c,
+    inset 0 -2px 4px #69725c26;
 }
-header > button {
-  font-size: 21px;
-  line-height: 1;
-  padding: 5px 7px;
+.deck-mark {
+  position: absolute;
+  left: 14px;
+  top: 12px;
+  font: 7px monospace;
+  letter-spacing: 0.14em;
+  color: #5b654f;
+}
+.platter {
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  left: 29px;
+  top: 23px;
+  background: #878e7f;
+  border: 3px solid #454b42;
+  border-radius: 50%;
+  box-shadow:
+    2px 5px 8px #3035265a,
+    inset 0 0 0 2px #c8c9b5;
+}
+.vinyl {
+  position: absolute;
+  inset: 3px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: repeating-radial-gradient(
+    circle,
+    #1c211c 0 1px,
+    #30372c 1.4px 2px,
+    #1d231d 2.8px 3.3px
+  );
+  animation: spin 4s linear infinite;
+  animation-play-state: paused;
+}
+.vinyl:before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 40deg,
+    transparent 0 10%,
+    #d2dac620 17%,
+    transparent 27% 60%,
+    #d2dac61c 67%,
+    transparent 79%
+  );
+}
+.running .vinyl {
+  animation-play-state: running;
+}
+.record-label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  color: #363e31;
+  background: #cbb68e;
+  border: 1px solid #f2dbae;
+  box-shadow: 0 0 0 5px #141b1680;
+}
+.record-label small {
+  font: 5px monospace;
+  letter-spacing: 0.12em;
+  margin-bottom: 4px;
+}
+.record-label strong {
+  font:
+    italic 20px/0.87 Georgia,
+    serif;
+  letter-spacing: -1px;
+  text-align: center;
+}
+.record-label span {
+  font: 5px monospace;
+  margin-top: 6px;
+}
+.record-label i {
+  position: absolute;
+  top: 37px;
+  left: 37px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #b7bbb1;
+  border: 1px solid #3a3e36;
+}
+.tonearm {
+  position: absolute;
+  left: 264px;
+  top: 34px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(#454c42 0 4px, #bdc2b6 5px 7px, #6b7565 8px);
+  box-shadow: 1px 2px 3px #0004;
+  transform: rotate(-9deg);
+  transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tonearm:before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 9px;
+  width: 5px;
+  height: 128px;
+  border: 1px solid #8c9787;
+  background: linear-gradient(90deg, #899681, #edf0df, #a9b3a0);
+  box-shadow: 2px 3px 3px #35432b40;
+}
+.tonearm i {
+  position: absolute;
+  left: 0;
+  top: 127px;
+  width: 16px;
+  height: 26px;
+  background: linear-gradient(90deg, #313a2d, #505c47);
+  border-radius: 2px;
+  box-shadow: 1px 2px 2px #0004;
+}
+.running .tonearm {
+  transform: rotate(36deg);
+}
+.deck-speed {
+  position: absolute;
+  right: 14px;
+  bottom: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 7px monospace;
+  color: #535f49;
+}
+.deck-speed span {
+  color: #6c814e;
+  font-size: 5px;
+}
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 0 10px;
+}
+.track-copy {
+  flex: 1;
+  min-width: 0;
+}
+.track-copy p {
+  font: 8px monospace;
+  letter-spacing: 0.14em;
+  color: #787d6e;
+  margin: 0 0 6px;
+}
+.track-copy h2 {
+  font-size: 23px;
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.track-copy > span {
+  display: block;
+  font-size: 11px;
+  color: #7e8175;
+  margin-top: 6px;
+}
+.play-button {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  background: #344331;
+  color: #edeedf;
+  box-shadow: 0 2px 4px #25332426;
+}
+.play-button:hover {
+  background: #536447;
+}
+.play-button svg {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+.message {
+  min-height: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: #777e6c;
+  margin: 3px 0 17px;
+}
+.message.error {
+  color: #9d452f;
+}
+.level {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 12px;
+}
+.level i {
+  width: 2px;
+  height: 3px;
+  background: #7d8c6a;
+}
+.level.active i {
+  animation: meter 1s ease-in-out infinite alternate;
+}
+.level.active i:nth-child(2) {
+  animation-delay: -0.3s;
+}
+.level.active i:nth-child(3) {
+  animation-delay: -0.8s;
+}
+.level.active i:nth-child(4) {
+  animation-delay: -0.5s;
 }
 form {
-  margin-top: 21px;
+  border-top: 1px solid #d6d5c8;
+  padding-top: 16px;
 }
 label {
-  display: block;
-  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 500;
   margin-bottom: 10px;
+}
+label > span {
+  font: 7px monospace;
+  letter-spacing: 0.1em;
+  color: #969888;
 }
 .link-row {
   display: flex;
-  background: #151713;
-  border: 1px solid #ffffff24;
+  background: #f8f5ef;
+  border: 1px solid #d6d6ca;
   border-radius: 9px;
   padding: 4px;
 }
 .link-row input {
   width: 0;
+  min-width: 0;
   flex: 1;
   padding: 8px;
   font-size: 12px;
   background: transparent;
-  outline: none;
+  color: #30392a;
+  user-select: text;
+}
+.link-row input::placeholder {
+  color: #79806f;
 }
 .link-row button {
-  background: #dbc8a5;
-  color: #282820;
-  font-size: 12px;
-  white-space: nowrap;
+  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  background: #dbdfcf;
+  font-size: 23px;
+  line-height: 1;
+  color: #48583c;
 }
-.services,
-.service-note {
-  font-size: 10px;
-  color: #b1afa4;
-  line-height: 1.55;
+.services {
+  font-size: 9px;
+  color: #8b9080;
   margin-top: 9px;
+  display: flex;
+  gap: 8px;
+}
+.services i {
+  font-style: normal;
+  color: #b4b8aa;
 }
 .provider-player {
-  margin-top: 16px;
   overflow: hidden;
-  border-radius: 9px;
+  border-radius: 10px;
   min-height: 152px;
+  background: #1c221b;
 }
 .provider-player.youtube {
   min-height: 202px;
@@ -453,89 +771,75 @@ label {
 }
 audio {
   width: 100%;
-  margin-top: 18px;
-}
-.message {
-  font-size: 11px;
-  color: #aaa99c;
-  margin-top: 13px;
-  line-height: 1.5;
-}
-.message.error {
-  color: #eeb493;
 }
 footer {
   display: flex;
   align-items: center;
-  gap: 5px;
-  border-top: 1px solid #ffffff16;
-  margin-top: 13px;
-  padding-top: 9px;
-  font-size: 11px;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  font-size: 10px;
 }
-footer a {
-  margin-left: auto;
-  color: #c7c0af;
+footer button {
+  padding: 4px 0;
+  border-radius: 4px;
 }
-.radio-art {
-  display: flex;
-  align-items: center;
-  gap: 22px;
-  padding: 22px 12px 8px;
+.service-note {
+  font-size: 9px;
+  color: #858a7d;
+  line-height: 1.6;
+  margin-top: 10px;
 }
-.radio-art span {
-  font:
-    italic 19px/1.3 Georgia,
-    serif;
-  color: #c8b897;
-}
-.mini-record {
-  width: 88px;
-  height: 88px;
-  border-radius: 50%;
-  background: repeating-radial-gradient(
-    #161713 0 2px,
-    #34362e 3px,
-    #161713 4px
-  );
-  display: grid;
-  place-items: center;
-  border: 2px solid #393c34;
-}
-.mini-record i {
-  display: block;
-  width: 25px;
-  height: 25px;
-  border: 9px solid #b96f4d;
-  border-radius: 50%;
-  background: #ddd4b7;
-}
-.spinning {
-  animation: record-spin 3s linear infinite;
-}
-@keyframes record-spin {
+@keyframes spin {
   to {
     transform: rotate(360deg);
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .spinning {
-    animation: none;
+@keyframes meter {
+  to {
+    height: 12px;
   }
 }
-@media (max-height: 620px) {
-  .record-panel {
-    bottom: 60px;
-    max-height: calc(100dvh - 80px);
-    overflow: auto;
+@media (prefers-reduced-motion: reduce) {
+  .vinyl,
+  .level.active i {
+    animation: none;
+  }
+  .tonearm,
+  button {
+    transition: none;
   }
 }
 @media (max-width: 480px) {
   .record-panel {
-    bottom: 100px;
+    bottom: 98px;
+    max-height: calc(100dvh - 122px);
+    padding: 17px;
+  }
+  header > button {
+    width: 40px;
+    height: 40px;
   }
   .link-row input {
     font-size: 16px;
+  }
+  .turntable {
+    height: 205px;
+  }
+  .platter {
+    left: 20px;
+  }
+  .tonearm {
+    left: 250px;
+  }
+}
+@media (max-height: 620px) {
+  .record-panel {
+    bottom: 62px;
+    max-height: calc(100dvh - 80px);
+  }
+  .turntable {
+    display: none;
   }
 }
 </style>

@@ -1,3 +1,4 @@
+import { events as sizeEvents } from "quick-threejs/lib/static";
 import { Spherical, Vector3 } from "three";
 import normalizeWheel from "normalize-wheel";
 import gsap from "gsap";
@@ -288,12 +289,12 @@ export class Navigation extends ExperienceBasedBlueprint {
 		this._ui?.on(events.WHEEL, this._view.onWheel);
 		this._ui?.on(events.POINTER_LEAVE, this._view.onLeave);
 		this._ui?.on(events.POINTER_ENTER, this._view.onLeave);
-		this._appSizes.on("resize", this._onResize);
+		this._appSizes.on(sizeEvents.RESIZED, this._onResize);
 		this.emit(events.CONSTRUCTED);
 	}
 
 	public destruct() {
-		this._appSizes.off("resize", this._onResize);
+		this._appSizes.off(sizeEvents.RESIZED, this._onResize);
 		this.emit(events.DESTRUCTED);
 		this.removeAllListeners();
 	}

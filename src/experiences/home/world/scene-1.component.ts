@@ -482,7 +482,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 	public focusCompanion() {
 		const position=this.companion?.root.children[0]?.position;
 		if (!position) return;
-		this._experience.navigation?.updateCameraPosition(new Vector3(position.x+2.1,2.4,position.z+3.5),new Vector3(position.x,1.05,position.z),.65);
+		this._experience.navigation?.updateCameraPosition(new Vector3(position.x+2.4,position.y+2.3,position.z+3.7),new Vector3(position.x,position.y+.6,position.z),.65);
 	}
 
 	private _createLightSwitch() {
