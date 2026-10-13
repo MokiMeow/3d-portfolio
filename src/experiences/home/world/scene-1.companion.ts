@@ -1,4 +1,8 @@
 import {
+  AnimationMixer,
+  AnimationClip,
+  LoopOnce,
+  type AnimationAction,
   Box3,
   CanvasTexture,
   Group,
@@ -18,12 +22,13 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { createCompanionDock } from "./scene-1.dock";
 import gsap from "gsap";
+import { dockTrackPose } from "~/utils/room-mechanics";
 import type { SelectableObject } from "~/common/models/experience-interaction.model";
 import type { CompanionState } from "~/common/models/companion.model";
 
 const GROUND = 0.035,
   DOCK = new Vector3(1.15, 0.197, 4.62),
-  VISIT = new Vector3(1.15, GROUND, 5.82);
+  VISIT = new Vector3(1.15, GROUND, 6.24);
 /** One articulated visitor, on a short clear route, never chasing the camera. */
 export function createCompanion(
   scene: Group,
@@ -53,11 +58,12 @@ export function createCompanion(
   let motion: gsap.core.Timeline | undefined,
     robot: Group | undefined,
     utterance: SpeechSynthesisUtterance | undefined;
+  let mixer: AnimationMixer | undefined, greeting: AnimationAction | undefined;
+  let returnAfterGreeting = false;
   let head: Object3D | undefined,
     neck: Object3D | undefined,
     leftEye: Object3D | undefined,
-    rightEye: Object3D | undefined,
-    leftArm: Object3D | undefined;
+    rightEye: Object3D | undefined;
   const neutral = new Map<Object3D, { x: number; y: number; z: number }>();
   const tint = (m: MeshStandardMaterial | MeshBasicMaterial) => {
     m.onBeforeCompile = (shader) => {
@@ -119,11 +125,14 @@ export function createCompanion(
     }
   };
   const resetPose = () => {
+    returnAfterGreeting = false;
+    greeting?.stop();
     for (const [node, v] of neutral) node.rotation.set(v.x, v.y, v.z);
   };
   function dockRobot(silent = false) {
     if (!state.ready) return;
     motion?.kill();
+    resetPose();
     state.phase = "returning";
     if (!silent) say("Heading back to my charging bay.", false);
     motion = gsap
@@ -138,12 +147,11 @@ export function createCompanion(
         carriage.position,
         {
           x: DOCK.x,
-          y: DOCK.y,
           z: DOCK.z,
           duration: reduced.matches ? 0 : 1.6,
           ease: "power2.inOut",
         },
-        0,
+        reduced.matches ? 0 : .45,
       )
       .to(
         carriage.rotation,
@@ -161,6 +169,7 @@ export function createCompanion(
     motion?.kill();
     resetPose();
     state.phase = "greeting";
+    returnAfterGreeting = first;
     say(
       first
         ? "Hello! Welcome to Mohith’s lab."
@@ -170,14 +179,13 @@ export function createCompanion(
       .timeline({
         onComplete: () => {
           if (disposed) return;
-          state.phase = "visiting";
+          if (state.phase === "greeting") state.phase = "visiting";
         },
       })
       .to(
         carriage.position,
         {
           x: VISIT.x,
-          y: VISIT.y,
           z: VISIT.z,
           duration: reduced.matches ? 0 : 1.5,
           ease: "power2.inOut",
@@ -187,35 +195,19 @@ export function createCompanion(
       .to(
         carriage.rotation,
         { y: -0.15, duration: reduced.matches ? 0 : 0.9, ease: "power2.out" },
-        0,
+        reduced.matches ? 0 : 1.5,
       );
-    if (!reduced.matches && leftArm) {
-      const r = neutral.get(leftArm)!;
-      motion
-        .to(
-          leftArm.rotation,
-          { x: r.x - 1.1, z: r.z - 0.25, duration: 0.55, ease: "power2.out" },
-          0.8,
-        )
-        .to(
-          leftArm.rotation,
-          {
-            z: r.z + 0.08,
-            duration: 0.25,
-            repeat: 3,
-            yoyo: true,
-            ease: "sine.inOut",
-          },
-          1.35,
-        )
-        .to(leftArm.rotation, { x: r.x, z: r.z, duration: 0.5 }, 2.5);
-    }
+    // Use the asset's authored telescoping arms, grippers and compactor-door sequence.
+    // The head remains free to notice the visitor rather than replaying a fixed gaze.
+    if (!reduced.matches && greeting)
+      motion.call(() => { greeting?.reset().setEffectiveTimeScale(1.35).play(); }, [], 1.6);
     if (!reduced.matches && leftEye && rightEye) {
       motion
         .to(leftEye.rotation, { z: 0.14, duration: 0.5 }, 0.5)
         .to(rightEye.rotation, { z: -0.14, duration: 0.5 }, 0.5);
     }
-    if (first)
+    // On slow devices, wait for the authored sequence to finish before returning.
+    if (first && (reduced.matches || !greeting))
       motion.call(() => dockRobot(true), [], reduced.matches ? 2 : 4.5);
   }
   function welcome() {
@@ -236,13 +228,9 @@ export function createCompanion(
   }
   const interact = () => {
     state.panel = true;
-    if (state.phase === "docked" || state.phase === "sleeping") greet();
-    else say("Just looking around with you.", false);
+    greet();
   };
-  dock.traverse((object) => {
-    if (object instanceof Mesh)
-      selectables.push({ object, onSelect: () => dockRobot() });
-  });
+  selectables.push({ object: dock, outline: false, onSelect: () => dockRobot() });
   new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load(
     "/models/wall-e-companion.glb",
     (gltf) => {
@@ -267,6 +255,12 @@ export function createCompanion(
         size = bounds.getSize(new Vector3()),
         center = bounds.getCenter(new Vector3());
       const scale = 1.17 / size.y;
+      const tracks = new Box3();
+      robot.traverse((object) => {
+        if (object instanceof Mesh && /track/i.test(object.name))
+          tracks.expandByObject(object);
+      });
+      if (!tracks.isEmpty()) tracks.getCenter(center);
       robot.scale.multiplyScalar(scale);
       robot.position.set(
         -center.x * scale,
@@ -274,13 +268,24 @@ export function createCompanion(
         -center.z * scale,
       );
       carriage.add(robot);
+      selectables.push({ object: robot, outline: false, onSelect: interact });
+      const mechanicalTracks = gltf.animations.flatMap(clip => clip.tracks)
+        .filter(track => /compactor|arm|finger|thumb/i.test(track.name));
+      if (mechanicalTracks.length) {
+        mixer = new AnimationMixer(robot);
+        greeting = mixer.clipAction(new AnimationClip("Hello, visitor", -1, mechanicalTracks));
+        greeting.setLoop(LoopOnce, 1);
+        greeting.clampWhenFinished = true;
+        mixer.addEventListener("finished", () => {
+          if (!disposed && returnAfterGreeting) dockRobot(true);
+        });
+      }
       robot.traverse((object) => {
         const key = object.name.toLowerCase().replace(/[^a-z0-9]/g, "");
         if (key === "controlheadpan") head = object;
         if (key === "controlneckpitch") neck = object;
         if (key === "controllefteyeroll") leftEye = object;
         if (key === "controlrighteyeroll") rightEye = object;
-        if (key === "controlleftarmlift") leftArm = object;
         if (key.startsWith("control"))
           neutral.set(object, {
             x: object.rotation.x,
@@ -289,7 +294,6 @@ export function createCompanion(
           });
         if (object instanceof Mesh) {
           geometries.add(object.geometry);
-          selectables.push({ object, onSelect: interact });
           for (const material of Array.isArray(object.material)
             ? object.material
             : [object.material]) {
@@ -360,11 +364,10 @@ export function createCompanion(
       const dt = Math.min(delta, 50) / 1000;
       elapsed += dt;
       // Follow the actual ramp, then the exterior apron; never float on the route.
-      const ramp = Math.max(
-        0,
-        Math.min(1, (carriage.position.z - DOCK.z - 0.58) / 0.59),
-      );
-      carriage.position.y = DOCK.y + (GROUND - DOCK.y) * ramp;
+      const support = dockTrackPose(carriage.position.z - DOCK.z);
+      carriage.position.y = support.y;
+      carriage.rotation.x = support.pitch;
+      mixer?.update(Math.min(delta, 100) / 1000);
       shade.position.y = 0.004;
       if (!reduced.matches && head && neck) {
         carriage.updateMatrixWorld();
@@ -403,6 +406,8 @@ export function createCompanion(
     dispose() {
       disposed = true;
       motion?.kill();
+      mixer?.stopAllAction();
+      if (robot) mixer?.uncacheRoot(robot);
       clearTimeout(captionTimer);
       if (utterance && "speechSynthesis" in window)
         window.speechSynthesis.cancel();

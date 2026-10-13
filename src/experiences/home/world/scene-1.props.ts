@@ -185,11 +185,10 @@ export function createDeskProps(scene: Group) {
 	const unseen = new MeshBasicMaterial({ visible: false });
 	const hitBox = geo(new BoxGeometry(1, 1, 1));
 
-	// ── A Newton's cradle on the open front corner of the desk, beside the mug.
+	// ── A Newton's cradle beside the pencil cup, clear of the headphone band.
 	const cradle = new Group();
-	// Turned end-on to the visitor, so it stands clear of the mouse, the mug and the cube stand.
-	cradle.position.set(0.3, DESK_Y, -1.47);
-	cradle.rotation.y = Math.PI / 2;
+	cradle.position.set(-2.45, DESK_Y, 1.17);
+	cradle.rotation.y = 0;
 	cradle.scale.setScalar(0.42);
 	const steel = mat("#d9dde3", { roughness: 0.22, metalness: 0.5 });
 	const post = geo(new BoxGeometry(0.03, 0.66, 0.03));

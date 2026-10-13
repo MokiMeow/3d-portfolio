@@ -96,7 +96,7 @@ export class Interactions extends ExperienceBasedBlueprint {
 		// under the initial contact instead of relying on an earlier pointermove.
 		this._updatePointerCoordinates(e);
 		this._checkIntersection();
-		if (!this.outlinePass?.selectedObjects.length || !this._selectedObject?.uuid)
+		if (!this._selectedObject?.uuid)
 			return;
 
 		this._pointerDownSelectedObject = this._selectedObject;
@@ -143,7 +143,6 @@ export class Interactions extends ExperienceBasedBlueprint {
 			!e.isPrimary ||
 			!this.controls ||
 			moved ||
-			!this.outlinePass?.selectedObjects.length ||
 			!this._camera?.instance ||
 			!this._navigation?.view ||
 			!this._selectedObject?.uuid ||
@@ -289,11 +288,9 @@ export class Interactions extends ExperienceBasedBlueprint {
 			while (object) { if (!object.visible) return false; object = object.parent; }
 			return true;
 		});
-		const selectedObj =
-			intersects[0]?.object.uuid &&
-			this._selectableUuids.indexOf(intersects[0].object.uuid) !== -1
-				? intersects[0]?.object
-				: undefined;
+		let selectedObj: Object3D | undefined = intersects[0]?.object;
+		while (selectedObj && !this._selectableObjects?.[selectedObj.uuid])
+			selectedObj = selectedObj.parent ?? undefined;
 
 		if (selectedObj?.uuid !== this._hoveredUuid) {
 			if (this._hoveredUuid) this._selectableObjects?.[this._hoveredUuid]?.onHover?.(false);
@@ -301,11 +298,11 @@ export class Interactions extends ExperienceBasedBlueprint {
 			this._hoveredUuid = selectedObj?.uuid;
 		}
 
-		this.outlinePass.enabled = !!selectedObj;
+		this.outlinePass.enabled = !!selectedObj && this._selectableObjects?.[selectedObj.uuid]?.outline !== false;
 		if (!selectedObj) return;
 
 		this._selectedObject = selectedObj;
-		this.outlinePass.selectedObjects = [selectedObj];
+		this.outlinePass.selectedObjects = this.outlinePass.enabled ? [selectedObj] : [];
 		if (this._ui?.targetElement)
 			this._ui.targetElement.style.cursor = "pointer";
 	}

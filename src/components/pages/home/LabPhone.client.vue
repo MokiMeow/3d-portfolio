@@ -184,11 +184,13 @@ onBeforeUnmount(() => {
 	<div class="phone-shell">
 		<div class="phone-display" :class="`phone-display--${app}`">
 			<div class="phone-status">
-				<span>{{ clock }}</span
-				><span class="phone-island" aria-hidden="true" /><span
-					aria-label="Full battery"
-					>▂▄▆ ▰</span
-				>
+				<span class="status-clock">{{ clock }}</span>
+				<span class="phone-island" aria-hidden="true"><i /></span>
+				<span class="status-icons" aria-label="Full signal, Wi-Fi connected, simulated battery 100 percent">
+					<svg class="status-signal" viewBox="0 0 18 14" fill="currentColor" aria-hidden="true"><rect x="0" y="10" width="3" height="4" rx=".8"/><rect x="5" y="7" width="3" height="7" rx=".8"/><rect x="10" y="3.5" width="3" height="10.5" rx=".8"/><rect x="15" width="3" height="14" rx=".8"/></svg>
+					<svg class="status-wifi" viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 4a13 13 0 0 1 16 0M5 7.5a8 8 0 0 1 10 0M8 11a3 3 0 0 1 4 0"/><circle cx="10" cy="14" r="1" fill="currentColor" stroke="none"/></svg>
+					<span class="status-battery"><span>100</span><svg viewBox="0 0 29 14" fill="none" aria-hidden="true"><rect x=".7" y=".7" width="24" height="12.6" rx="3" stroke="currentColor" stroke-width="1.4"/><rect x="3" y="3" width="19.4" height="8" rx="1.2" fill="currentColor"/><path d="M27 4.5v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+				</span>
 			</div>
 			<div v-if="app === 'home'" class="phone-home">
 				<div class="phone-date">{{ today }}</div>
@@ -427,26 +429,37 @@ onBeforeUnmount(() => {
 	color: #fff;
 }
 .phone-status {
-	height: 43px;
+	height: 50px;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 0 20px;
+	padding: 0 19px;
 	flex-shrink: 0;
-	font-size: 11px;
+	font-size: 12px;
 	font-weight: 700;
 	position: relative;
 }
+.phone-display--home .phone-status {
+	color: #17333d;
+}
 .phone-island {
 	position: absolute;
-	width: 88px;
-	height: 24px;
+	width: 76px;
+	height: 23px;
 	background: #080a0c;
 	border-radius: 20px;
 	left: 50%;
-	top: 6px;
+	top: 10px;
 	transform: translateX(-50%);
 }
+.phone-island i { position:absolute; width:7px; height:7px; border-radius:50%; background:#11212d; box-shadow:inset 0 0 0 2px #15222f; right:9px; top:8px; }
+.status-clock { font-variant-numeric:tabular-nums; min-width:38px; letter-spacing:-.3px; }
+.status-icons { display:flex; align-items:center; gap:5px; height:16px; }
+.status-signal { width:15px; height:12px; }
+.status-wifi { width:15px; height:12px; }
+.status-battery { display:flex; align-items:center; gap:3px; }
+.status-battery>span { font-size:9px; font-weight:600; letter-spacing:-.2px; }
+.status-battery svg { width:25px; height:13px; }
 .phone-home {
 	display: flex;
 	flex: 1;

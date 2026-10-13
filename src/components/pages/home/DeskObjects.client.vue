@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import { HomeExperience } from "~/experiences/home";
 import type { LabDevice } from "~/common/models/lab-device.model";
 const route = useRoute();
 const menu = ref<HTMLDetailsElement>();
-const announcement = ref("");
 const isContact = computed(() => route.path === "/contact");
-const isHome = computed(() => route.path === "/");
 const active = useState<LabDevice>("activeLabDevice", () => null);
 const closeMenu = () => {
 	if (menu.value) menu.value.open = false;
@@ -13,10 +10,6 @@ const closeMenu = () => {
 const pickUp = (device: LabDevice) => {
 	closeMenu();
 	active.value = device;
-};
-const toggleDrawer = (index: number, label: string) => {
-	const open = new HomeExperience().world?.scene1?.toggleDrawer(index);
-	announcement.value = `${label} drawer ${open ? "opened" : "closed"}.`;
 };
 const outside = (event: PointerEvent) => {
 	if (event.target instanceof Node && !menu.value?.contains(event.target)) closeMenu();
@@ -34,7 +27,7 @@ watch(() => route.path, closeMenu);
 
 <template>
 	<details
-		v-if="isHome || isContact"
+		v-if="isContact"
 		ref="menu"
 		class="desk-objects"
 		@toggle="toggled"
@@ -54,12 +47,12 @@ watch(() => route.path, closeMenu);
 				stroke-width="1.3"
 				aria-hidden="true"
 			>
-				<rect x="3.5" y="4" width="17" height="16" rx="3" />
-				<path d="M3.5 11.5h17M10 8h4m-4 7.5h4" />
+				<rect x="6" y="2" width="12" height="20" rx="3" />
+				<path d="M10 5h4m-4 14h4" />
 			</svg>
 		</summary>
 		<div class="desk-object-menu">
-			<p>{{ isContact ? "PICK SOMETHING UP" : "A LITTLE EXPLORING" }}</p>
+			<p>PICK SOMETHING UP</p>
 			<template v-if="isContact">
 				<button @click="pickUp('phone')">
 					<span>Phone</span><small>03 apps ↗</small>
@@ -71,20 +64,8 @@ watch(() => route.path, closeMenu);
 					<span>Pocket terminal</span><small>⌘ Local</small>
 				</button>
 			</template>
-			<template v-else>
-				<button @click="toggleDrawer(2, 'Top')">
-					<span>Top drawer</span><small>Open / close</small>
-				</button>
-				<button @click="toggleDrawer(1, 'Middle')">
-					<span>Middle drawer</span><small>Open / close</small>
-				</button>
-				<button @click="toggleDrawer(0, 'Bottom')">
-					<span>Bottom drawer</span><small>Open / close</small>
-				</button>
-			</template>
 			<span class="desk-object-hint">You can also tap them in the room.</span>
 		</div>
-		<span class="sr-only" role="status">{{ announcement }}</span>
 	</details>
 </template>
 

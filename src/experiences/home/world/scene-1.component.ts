@@ -108,9 +108,9 @@ export class Scene1Component extends SceneComponentBlueprint {
 			enabledTheta: false,
 		},
 		target: {
-			x: { min: -5, max: 5 },
-			y: { min: -1.5, max: 2.5 },
-			z: { min: -4, max: 5 },
+			x: { min: -5, max: 10 },
+			y: { min: -1.5, max: 5 },
+			z: { min: -4, max: 9 },
 			enabled: true,
 		},
 	};
@@ -213,9 +213,13 @@ export class Scene1Component extends SceneComponentBlueprint {
 				while (object) { if (!object.visible) return false; object = object.parent; }
 				return true;
 			})?.object;
-		return hit
-			? this.selectableObjects.find((item) => item.object === hit)
-			: undefined;
+		let candidate: Object3D | null | undefined = hit;
+		while (candidate) {
+			const selectable = this.selectableObjects.find(item => item.object === candidate);
+			if (selectable) return selectable;
+			candidate = candidate.parent;
+		}
+		return undefined;
 	}
 
 	private readonly _onGuidedMove = (e: PointerEvent) => {
@@ -322,7 +326,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 				{
 					icon: "💡",
 					content: t("newtonsCradle"),
-					position: new Vector3(0.3, 2.3, -1.47),
+					position: new Vector3(-2.45, 2.25, 1.17),
 				},
 				{
 					icon: "🌙",
@@ -480,6 +484,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 		});
 		if (this.modelScene) {
 			this._drawers = createInteractiveDrawers(this.modelScene);
+			this.markers.push(...this._drawers.markers);
 			this._atelier = createAtelier(this.modelScene, action => this.actAtelier(action), {
 				room: this._loader?.availableTextures.scene_1_no_lights_baked_texture,
 				wood: this._loader?.availableTextures.scene_1_woods_no_lights_baked_texture,
@@ -845,12 +850,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 				this._experience.sound.empty_room_audio.play();
 			}
 
-			if (this._experience.sound?.lofi_audio && this.fixedComputer) {
-				this.fixedComputer.add(this._experience.sound.lofi_audio);
-				if (this._experience.sound.lofi_audio.isPlaying === false) {
-					this._experience.sound.lofi_audio.play();
-				}
-			}
+			// Music playback is owned by Sound, including pause and external sources.
 
 
 			gsap.fromTo(

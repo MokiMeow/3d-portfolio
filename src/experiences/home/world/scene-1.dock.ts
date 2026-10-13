@@ -15,6 +15,7 @@ import {
 } from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { DOCK_SURFACE, dockSurfaceHeight } from "~/utils/room-mechanics";
 
 /** A small outdoor service bay. Static hardware is batched by finish (not one draw per bolt). */
 export function createCompanionDock(env: Texture, night: { value: number }) {
@@ -84,12 +85,12 @@ export function createCompanionDock(env: Texture, night: { value: number }) {
     box([0.021, 0.002, 0.003], [x, y + 0.004, z], rubber, 0.001);
   };
   // The paver reaches the ground. A separate front apron makes the ramp legible in every view.
-  box([1.88, 0.035, 2.64], [0, 0.0175, 0.28], concrete, 0.035);
+  box([1.88, 0.035, 3.04], [0, 0.0175, 0.48], concrete, 0.035);
   box([1.62, 0.09, 1.58], [0, 0.08, 0], graphite, 0.035);
   box([1.65, 0.018, 1.62], [0, 0.128, 0], shell, 0.017);
   box([1.54, 0.034, 1.48], [0, 0.153, 0], rubber, 0.017);
   // Two independent tread cradles, with ribbed grip and metallic retention lips.
-  for (const x of [-0.41, 0.41]) {
+  for (const x of [-0.358, 0.358]) {
     box([0.42, 0.018, 1.16], [x, 0.178, 0.06], graphite, 0.014);
     for (let i = 0; i < 15; i++)
       box([0.36, 0.01, 0.013], [x, 0.192, -0.43 + i * 0.071], rubber, 0.003);
@@ -97,14 +98,19 @@ export function createCompanionDock(env: Texture, night: { value: number }) {
       box([0.018, 0.035, 1.21], [x + edge, 0.19, 0.06], brass, 0.006);
     box([0.44, 0.105, 0.075], [x, 0.22, -0.54], rubber, 0.015);
     // The inclined shoe continues down to the apron instead of floating above it.
-    box([0.43, 0.024, 0.59], [x, 0.11, 0.88], graphite, 0.008, [0.255, 0, 0]);
+    const rise = DOCK_SURFACE.deck - DOCK_SURFACE.ground;
+    const run = DOCK_SURFACE.end - DOCK_SURFACE.start;
+    const incline = Math.atan2(rise, run);
+    box([0.43, 0.018, Math.hypot(run, rise)],
+      [x, (DOCK_SURFACE.deck + DOCK_SURFACE.ground) / 2 - .017, (DOCK_SURFACE.start + DOCK_SURFACE.end) / 2],
+      graphite, 0.008, [incline, 0, 0]);
     for (let i = 0; i < 7; i++)
       box(
         [0.36, 0.009, 0.017],
-        [x, 0.173 - i * 0.021, 0.64 + i * 0.078],
+        [x, dockSurfaceHeight(.64 + i * .09) - .004, .64 + i * .09],
         steel,
         0.003,
-        [0.255, 0, 0],
+        [incline, 0, 0],
       );
   }
   for (const x of [-0.72, 0.72])

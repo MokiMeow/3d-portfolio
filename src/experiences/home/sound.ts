@@ -18,7 +18,11 @@ export class Sound extends ExperienceBasedBlueprint {
 	protected _experience = new HomeExperience();
 	private _muted = true;
 	private readonly _music = useState<MusicState>('labMusic', initialMusicState);
-	public get musicPlaying() { return !this.isMuted && this._music.value.playing; }
+	public get musicPlaying() {
+		return !this.isMuted && (this._music.value.source === 'room'
+			? !!this._lofi_audio?.isPlaying && this.listener.context.state === 'running'
+			: this._music.value.playing);
+	}
 	public pauseMusic() {
 		this._shouldPlayLofi = false;
 		if (this._lofi_audio?.isPlaying) this._lofi_audio.pause();
@@ -104,7 +108,10 @@ export class Sound extends ExperienceBasedBlueprint {
 				const anchor = this._experience.world?.scene1?.fixedComputer;
 				(anchor ?? this._camera?.instance)?.add(audio);
 				this.lofi_audio = audio;
-				if (this._shouldPlayLofi && !audio.isPlaying) audio.play();
+				if (this._shouldPlayLofi && this._music.value.source === 'room' && !audio.isPlaying) {
+					audio.play();
+					this._music.value.playing = true;
+				}
 				return audio;
 			})
 			.catch(() => {

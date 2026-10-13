@@ -33,41 +33,19 @@ watch(() => route.path, close);
         <span>WALL·E</span>{{ state.caption }}
       </p></Transition
     >
-    <div
+    <nav
       v-if="state.panel"
       class="robot-menu"
       aria-label="WALL-E companion controls"
     >
-      <p>
-        A LITTLE COMPANY<button
-          @click="close"
-          aria-label="Close WALL-E controls"
-        >
-          ×
-        </button>
-      </p>
-      <div>
-        <button :disabled="!state.ready" @click="robot()?.greet()">
-          Say hello ↗</button
-        ><button :disabled="!state.ready" @click="robot()?.dock()">
-          Back to dock ⤓</button
-        ><button
-          :disabled="!state.ready"
-          @click="new HomeExperience().world?.scene1?.focusCompanion()"
-        >
-          Look closer ⌕
-        </button>
-      </div>
-      <small>{{
-        state.failed
-          ? "Could not load the robot. Reload to try again."
-          : !state.ready
-            ? "Arriving…"
-            : state.phase === "docked"
-              ? "Charging. Keeping you company."
-              : "Your room. Your pace."
-      }}</small>
-    </div>
+      <button :disabled="!state.ready" @click="robot()?.greet()">
+        Say hello <span aria-hidden="true">↗</span>
+      </button>
+      <button :disabled="!state.ready" @click="robot()?.dock()">
+        Back to dock <span aria-hidden="true">↙</span>
+      </button>
+      <button @click="close" aria-label="Close WALL-E controls">×</button>
+    </nav>
     <button
       class="robot-toggle"
       @click="state.panel = !state.panel"
@@ -97,14 +75,49 @@ watch(() => route.path, close);
   z-index: 32;
   left: clamp(18px, 4vw, 64px);
   bottom: 84px;
-  color: #ded8c9;
+  color: #fff6de;
   pointer-events: auto;
+  text-shadow:
+    0 1px 4px #000,
+    0 2px 16px #000b;
+}
+.robot-caption {
+  max-width: 300px;
+  font-size: clamp(16px, 2vw, 20px);
+  line-height: 1.45;
+  margin: 0 0 12px;
+  letter-spacing: -0.025em;
+}
+.robot-caption span {
+  display: block;
+  color: #d2bd94;
+  font: 9px/2 monospace;
+  letter-spacing: 0.16em;
+}
+.robot-menu {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.robot-menu button {
+  font-size: 12px;
+  min-height: 44px;
+  border-bottom: 1px solid #d2bd9466;
+}
+.robot-menu button span {
+  padding-left: 3px;
+  color: #d2bd94;
+}
+.robot-menu button:last-child {
+  border: 0;
+  font-size: 22px;
+  padding: 0 10px;
 }
 .robot-toggle {
   display: flex;
   gap: 9px;
   align-items: center;
-  color: #c8b899;
+  color: #d2bd94;
   font: 10px monospace;
   letter-spacing: 0.12em;
   padding: 10px 0;
@@ -113,73 +126,14 @@ watch(() => route.path, close);
   width: 30px;
   height: 23px;
 }
-.robot-caption {
-  max-width: 280px;
-  font-size: 13px;
-  line-height: 1.5;
-  padding: 13px 17px;
-  background: #23261fed;
-  border: 1px solid #c8b89940;
-  border-radius: 14px 14px 14px 3px;
-  box-shadow: 0 5px 26px #0003;
-  margin-bottom: 8px;
-}
-.robot-caption span {
-  display: block;
-  color: #baa77e;
-  font: 9px monospace;
-  letter-spacing: 0.12em;
-  margin-bottom: 5px;
-}
-.robot-menu {
-  width: min(290px, calc(100vw - 36px));
-  padding: 16px;
-  background: #252721;
-  border: 1px solid #c8b89940;
-  border-radius: 14px;
-}
-.robot-menu p {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font: 9px monospace;
-  letter-spacing: 0.13em;
-  color: #bda982;
-}
-.robot-menu p button {
-  font-size: 21px;
-  padding: 0 5px;
-}
-.robot-menu > div {
-  display: flex;
-  flex-direction: column;
-  margin-top: 9px;
-}
-.robot-menu > div button {
-  text-align: left;
-  font-size: 13px;
-  padding: 10px 0;
-  border-bottom: 1px solid #ffffff12;
-}
-.robot-menu small {
-  display: block;
-  font-size: 10px;
-  color: #a5a697;
-  margin-top: 13px;
-}
 button {
-  transition:
-    transform 0.16s,
-    opacity 0.16s;
+  transition: opacity 0.16s;
 }
 button:hover {
   color: #fff;
 }
-button:active {
-  transform: scale(0.97);
-}
 button:focus-visible {
-  outline: 2px solid #cdb282;
+  outline: 2px solid #d2bd94;
   outline-offset: 4px;
 }
 button:disabled {
@@ -202,13 +156,10 @@ button:disabled {
     left: 17px;
   }
   .robot-caption {
-    max-width: 240px;
+    max-width: 260px;
   }
-  .robot-toggle {
-    padding: 4px 0;
-  }
-  .robot-toggle span {
-    font-size: 9px;
+  .robot-menu {
+    gap: 14px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

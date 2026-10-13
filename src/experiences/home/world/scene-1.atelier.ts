@@ -39,6 +39,7 @@ import type {
 } from "~/common/models/atelier.model";
 import { ATELIER_PALETTES, drawAtelierArt } from "./atelier-art";
 import roomTile from "./room-tile.json";
+import { RECORD_ARM } from "~/utils/room-mechanics";
 
 // Surveyed from the baked room, including its tile thickness.
 const FLOOR = 0.339813;
@@ -82,6 +83,10 @@ export function createAtelier(
   let recordOn = false;
   let printAnimation: { pause: () => unknown } | undefined;
   let pulseAnimation: { pause: () => unknown } | undefined;
+  let armAnimation: { pause: () => unknown } | undefined;
+  let pillowAnimation: { pause: () => unknown } | undefined;
+  let stoolAnimation: { pause: () => unknown } | undefined;
+  let printedStudy = -1;
   const ink = "#292d2c",
     walnut = "#895d44",
     brass = "#b19969";
@@ -715,7 +720,14 @@ export function createAtelier(
   );
   clickable(pressBody, "print");
   label(press, "FORM / PRESS", 0.74, 0.1, [0, 1.017, 0.471], "#43483e", 28);
-  const printPaper = panel(press, 0.67, 0.47, [0, 0.892, 0.68], artMat);
+  const printCanvas = document.createElement("canvas");
+  printCanvas.width = artCanvas.width;
+  printCanvas.height = artCanvas.height;
+  const printTexture = new CanvasTexture(printCanvas);
+  textures.add(printTexture);
+  const printMat = textured(printTexture);
+  printMat.color.copy(artMat.color);
+  const printPaper = panel(press, 0.67, 0.47, [0, 0.892, 0.68], printMat);
   printPaper.rotation.x = -Math.PI / 2;
   printPaper.visible = false;
   clickable(printPaper, "print");
@@ -784,14 +796,21 @@ export function createAtelier(
   lathe(console, [[.28, 0], [.317, 0], [.32, .012], [.317, .032], [.28, .035]], [-.25, 1.075, 0], brass);
   for (const x of [-.68, .68]) for (const z of [-.29, .29]) screw(console, [x, 1.103, z]);
   const armPivot = new Group();
-  armPivot.position.set(0.53, 1.16, -0.23);
+  armPivot.position.set(RECORD_ARM.x, RECORD_ARM.liftedY, RECORD_ARM.z);
   console.add(armPivot);
-  cylinder(armPivot, 0.065, 0.075, [0, -0.025, 0], ink);
+  cylinder(console, .065, .095, [RECORD_ARM.x, 1.145, RECORD_ARM.z], ink);
+  cylinder(console, .022, .07, [RECORD_ARM.x, 1.21, RECORD_ARM.z], brass);
   tube(armPivot, [[0, 0, -.07], [0, .012, .1], [.05, .006, .3], [.14, 0, .48]], .013, brass);
   cylinder(armPivot, .05, .085, [0, 0, -.075], "#72746d").rotation.x = Math.PI / 2;
   box(armPivot, [0.08, 0.04, 0.11], [0.14, -0.009, 0.48], ink, 0.007);
   tube(armPivot, [[.14, -.018, .48], [.14, -.058, .5]], .0025, brass);
   tube(armPivot, [[.18, .01, .5], [.23, .02, .5], [.25, .038, .48]], .005, brass);
+  // A fixed cueing rest supports the arm while the stylus hangs clear of the deck.
+  cylinder(console, .022, .118, [RECORD_ARM.x + .087, 1.161, RECORD_ARM.z + .37], ink);
+  tube(console, [[RECORD_ARM.x + .06, 1.242, RECORD_ARM.z + .37],
+    [RECORD_ARM.x + .06, 1.224, RECORD_ARM.z + .37],
+    [RECORD_ARM.x + .113, 1.224, RECORD_ARM.z + .37],
+    [RECORD_ARM.x + .113, 1.242, RECORD_ARM.z + .37]], .004, brass);
   for (const x of [-.17, 0, .17]) {
     const dial = cylinder(console, .027, .016, [x, .69, .532], brass);
     dial.rotation.x = Math.PI / 2;
@@ -880,6 +899,21 @@ export function createAtelier(
   }
   const accentPillow=box(sofa,[.25,.44,.48],[.08,.89,-.77],"#687562",.105);
   accentPillow.rotation.set(.17,-.1,.13);
+  let pillowTurned = false, stoolTurned = false;
+  selectables.push({ object: accentPillow, onSelect: () => {
+    pillowTurned = !pillowTurned;
+    pillowAnimation?.pause();
+    pillowAnimation = createTimeline({ defaults: { duration: reduced.matches ? 0 : 650, ease: "out(3)" } })
+      .add(accentPillow.position, { x: pillowTurned ? .23 : .08, y: pillowTurned ? .83 : .89, z: pillowTurned ? -.64 : -.77 }, 0)
+      .add(accentPillow.rotation, { x: pillowTurned ? .36 : .17, z: pillowTurned ? -.16 : .13 }, 0);
+  }});
+  selectables.push({ object: stool, outline: false, onSelect: () => {
+    stoolTurned = !stoolTurned;
+    stoolAnimation?.pause();
+    stoolAnimation = createTimeline({ defaults: { duration: reduced.matches ? 0 : 800, ease: "inOut(3)" } })
+      .add(stool.position, { z: stoolTurned ? 2.55 : 2.18 }, 0)
+      .add(stool.rotation, { y: stoolTurned ? .35 : 0 }, 0);
+  }});
   // A continuous draped surface, with soft folds over the seat edge.
   const blanketGeo = geo(new PlaneGeometry(1, 1, 28, 20));
   const blanketPos = blanketGeo.getAttribute("position");
@@ -1064,6 +1098,7 @@ export function createAtelier(
     tabletop,
     platter,
     armPivot,
+    stool,
   ]);
   const independent = new Set<Object3D>([
     ...selectables.map((s) => s.object),
@@ -1145,6 +1180,11 @@ export function createAtelier(
     reflectionTexture: probe.texture,
     print(onComplete: () => void) {
       printAnimation?.pause();
+      const context = printCanvas.getContext("2d")!;
+      context.clearRect(0, 0, printCanvas.width, printCanvas.height);
+      context.drawImage(artCanvas, 0, 0);
+      printTexture.needsUpdate = true;
+      printedStudy = lastStudy;
       printPaper.visible = true;
       printPaper.position.z = 0.36;
       printPaper.scale.y = 0.01;
@@ -1183,20 +1223,30 @@ export function createAtelier(
       }
     },
     setSound(on: boolean) {
+      if (recordOn === on) return;
       recordOn = on;
-      armPivot.rotation.y = on ? 0.29 : 0;
+      armAnimation?.pause();
+      if (reduced.matches) {
+        armPivot.position.y = on ? RECORD_ARM.playingY : RECORD_ARM.liftedY;
+        armPivot.rotation.y = on ? RECORD_ARM.playingAngle : 0;
+        return;
+      }
+      armAnimation = createTimeline({ defaults: { ease: "inOut(3)" } })
+        .add(armPivot.position, { y: RECORD_ARM.liftedY + .035, duration: 160 }, 0)
+        .add(armPivot.rotation, { y: on ? RECORD_ARM.playingAngle : 0, duration: 520 }, 160)
+        .add(armPivot.position, { y: on ? RECORD_ARM.playingY : RECORD_ARM.liftedY, duration: 240 }, 680);
     },
     update(delta: number) {
       if (recordOn && !reduced.matches && !document.hidden)
         platter.rotation.y += Math.min(delta, 50) * 0.00349;
     },
     save() {
-      artCanvas.toBlob((blob) => {
+      (printedStudy >= 0 ? printCanvas : artCanvas).toBlob((blob) => {
         if (!blob || disposed) return;
         const url = URL.createObjectURL(blob),
           link = document.createElement("a");
         link.href = url;
-        link.download = `mohith-form-study-${lastStudy + 1}.png`;
+        link.download = `mohith-form-study-${(printedStudy >= 0 ? printedStudy : lastStudy) + 1}.png`;
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }, "image/png");
@@ -1205,6 +1255,9 @@ export function createAtelier(
       disposed = true;
       printAnimation?.pause();
       pulseAnimation?.pause();
+      armAnimation?.pause();
+      pillowAnimation?.pause();
+      stoolAnimation?.pause();
       root.removeFromParent();
       geometries.forEach((g) => g.dispose());
       materials.forEach((m) => m.dispose());

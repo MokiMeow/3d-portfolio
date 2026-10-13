@@ -3,6 +3,7 @@ import { Spherical, Vector3 } from "three";
 import normalizeWheel from "normalize-wheel";
 import gsap from "gsap";
 import { cameraDamping } from "~/utils/camera-damping";
+import { zoomRadius, panUnitsPerPixel } from "~/utils/room-mechanics";
 
 // EXPERIENCE
 import { HomeExperience } from "./";
@@ -230,6 +231,8 @@ export class Navigation extends ExperienceBasedBlueprint {
 			this._view.down(e.touches.length===2 ? (e.touches[0].clientX+e.touches[1].clientX)/2 : e.touches[0].clientX,
 				e.touches.length===2 ? (e.touches[0].clientY+e.touches[1].clientY)/2 : e.touches[0].clientY);
 
+			this._ui?.off(events.TOUCH_END, this._view.onTouchEnd);
+			this._ui?.off(events.TOUCH_MOVE, this._view.onTouchMove);
 			this._ui?.on(events.TOUCH_END, this._view.onTouchEnd);
 			this._ui?.on(events.TOUCH_MOVE, this._view.onTouchMove);
 		};
@@ -254,9 +257,14 @@ export class Navigation extends ExperienceBasedBlueprint {
 
 			this._view.move(e.touches[0].clientX, e.touches[0].clientY);
 		};
-		this._view.onTouchEnd = () => {
+		this._view.onTouchEnd = (e) => {
 			if (!this._view.up || !this._view.onTouchEnd || !this._view.onTouchMove)
 				return;
+			if (e.touches.length) {
+				this._view.drag.delta.x = this._view.drag.delta.y = 0;
+				this._view.onTouchStart?.(e);
+				return;
+			}
 
 			this._view.up();
 
@@ -445,8 +453,7 @@ export class Navigation extends ExperienceBasedBlueprint {
 			return;
 
 		// Zoom
-		this._view.spherical.value.radius +=
-			Number(this._view.zoom.delta) * Number(this._view.zoom.sensitivity);
+		this._view.spherical.value.radius = zoomRadius(this._view.spherical.value.radius, this._view.zoom.delta);
 
 		// Drag
 		if (this._view.drag.alternative) {
@@ -456,17 +463,18 @@ export class Navigation extends ExperienceBasedBlueprint {
 			up.applyQuaternion(this._camera.instance.quaternion);
 			right.applyQuaternion(this._camera.instance.quaternion);
 
-			up.multiplyScalar(Number(this._view.drag.delta?.y) * 0.01);
-			right.multiplyScalar(Number(this._view.drag.delta?.x) * 0.01);
+			const scale = panUnitsPerPixel(this._view.spherical.smoothed.radius, this._camera.instance.fov, this._appSizes.height);
+			up.multiplyScalar(this._view.drag.delta.y * scale);
+			right.multiplyScalar(this._view.drag.delta.x * scale);
 
 			this._view.target.value?.add(up);
 			this._view.target.value?.add(right);
 		} else {
 			this._view.spherical.value.theta -=
-				(this._view.drag.delta.x * this._view.drag.sensitivity) /
+				(this._view.drag.delta.x * this._view.drag.sensitivity * Math.PI) /
 				this._config.smallestSide;
 			this._view.spherical.value.phi -=
-				(this._view.drag.delta.y * this._view.drag.sensitivity) /
+				(this._view.drag.delta.y * this._view.drag.sensitivity * Math.PI) /
 				this._config.smallestSide;
 		}
 

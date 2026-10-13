@@ -109,6 +109,19 @@ input:focus-visible {
 	outline-offset: 4px;
 }
 
+button.exp-marker {
+	width: 44px;
+	height: 44px;
+	margin: -22px 0 0 -22px;
+	background: transparent;
+	border: 0;
+	padding: 0;
+	.icon { top: 7px; left: 7px; }
+	.content { left: 22px; top: 22px; pointer-events: none; }
+	&:focus-visible { z-index: 11; border-radius: 50%; }
+	&:focus-visible .content { transform: scale(1); }
+}
+
 @media (prefers-reduced-motion: reduce) {
 	* {
 		scroll-behavior: auto !important;

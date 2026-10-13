@@ -258,7 +258,13 @@ export class UI extends ExperienceBasedBlueprint {
 		this._isMarkersAnimating = true;
 		this._activeMarkers = [];
 		this.markers.map((marker, index) => {
-			const markerElement = document.createElement("div");
+			const markerElement = document.createElement(marker.onSelect ? "button" : "div");
+			if (marker.onSelect) {
+				markerElement.setAttribute("aria-label", marker.content);
+				markerElement.addEventListener("click", event => { event.stopPropagation(); marker.onSelect?.(); });
+				for (const name of ["pointerdown", "pointerup", "mousedown", "touchstart"])
+					markerElement.addEventListener(name, event => event.stopPropagation());
+			}
 			const icon = document.createElement("span");
 			const contentElement = document.createElement("span");
 
