@@ -196,7 +196,7 @@ main {
   .lab-experience .lab-route-area { flex-direction:column; }
   .lab-experience .lab-nav { margin:6px 0 0;flex:none; }
   .lab-experience .lab-nav ul { flex-direction:row;width:100%;gap:0; }
-  .lab-experience .lab-nav li { transform:none;rotate:none;width:100%;margin:0; }
+  .lab-experience .lab-nav li { transform:none;rotate:none;width:100%;margin:0!important; }
   .lab-experience .lab-nav a { display:flex;min-height:44px;align-items:center;font-size:12px; }
   .lab-experience .lab-nav a::before { bottom:7px; }
   .lab-footer { position:fixed!important;left:0;right:0;bottom:0;padding:6px max(12px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))!important;background:#1b1b1be8!important;display:flex!important;flex-direction:column!important;gap:2px; }

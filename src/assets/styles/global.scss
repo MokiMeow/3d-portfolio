@@ -213,3 +213,6 @@ button.exp-marker {
   button,a,input,summary{touch-action:manipulation;}
   .lab-toolbar button,.lab-toolbar summary {min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;}
 }
+@media (hover:none) {
+  button.exp-marker[aria-expanded="false"]:hover .content { transform:scale(0); }
+}
