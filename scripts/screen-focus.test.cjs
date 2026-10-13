@@ -20,7 +20,7 @@ compiled._compile(
   }).outputText,
   file,
 );
-const { screenFocusPose } = compiled.exports;
+const { screenFocusPose, screenCssTransform } = compiled.exports;
 test("focus follows a hinged screen after it opens without moving the screen mesh", () => {
   const hinge = new Group(),
     screen = new Mesh(new PlaneGeometry(1.5, 1));
@@ -63,5 +63,23 @@ test("the full laptop display fits portrait and landscape viewports", () => {
           `${aspect}: ${corner.toArray()}`,
         );
       }
+  }
+});
+
+test("focused DOM click coordinates match all display corners in distant rooms", () => {
+  for (const [width, height] of [[1536, 872], [390, 844]]) {
+    const screen = new Mesh(new PlaneGeometry(1.5, 1));
+    screen.position.set(-.5, 65, 1.5);
+    screen.rotation.set(-.15, .6, 0);
+    const camera = new PerspectiveCamera(35, width / height, .01, 100);
+    const pose = screenFocusPose(screen, width / height, 35);
+    camera.position.copy(pose.position); camera.lookAt(pose.target);
+    camera.updateMatrixWorld(true);
+    const [a,b,c,d,e,f] = screenCssTransform(screen, camera, width, height, 1129, 753);
+    for (const [x,y] of [[0,0],[1129,0],[0,753],[1129,753]]) {
+      const corner = screen.localToWorld(new Vector3(x / 1129 * 1.5 - .75, .5 - y / 753, 0)).project(camera);
+      assert.ok(Math.abs(a*x+c*y+e - (corner.x+1)*width/2) < .001);
+      assert.ok(Math.abs(b*x+d*y+f - (1-corner.y)*height/2) < .001);
+    }
   }
 });

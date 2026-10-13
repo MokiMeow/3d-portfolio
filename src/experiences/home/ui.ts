@@ -127,6 +127,9 @@ export class UI extends ExperienceBasedBlueprint {
 		}
 
 		this._cssTargetElement = cssTargetElement;
+		// Only the transformed laptop iframe should receive input. The full
+		// viewport CSS renderer otherwise intercepts clicks ahead of its screen.
+		this._cssTargetElement.style.pointerEvents = "none";
 		this._cssTargetElement.classList.add(
 			"fixed",
 			"top-0",

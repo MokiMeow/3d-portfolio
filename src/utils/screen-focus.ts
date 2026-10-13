@@ -1,4 +1,28 @@
-import { Mesh, Vector3 } from "three";
+import { Mesh, PerspectiveCamera, Vector3 } from "three";
+
+/** The focused camera faces the display head-on, so its DOM surface can use
+ * an equivalent 2D transform. This avoids Chromium's hit-testing failures
+ * on the very large CSS3D camera translations used by the distant rooms. */
+export function screenCssTransform(
+  screen: Mesh, camera: PerspectiveCamera, width: number, height: number,
+  elementWidth: number, elementHeight: number,
+) {
+  screen.updateWorldMatrix(true, false);
+  camera.updateMatrixWorld(true);
+  if (!screen.geometry.boundingBox) screen.geometry.computeBoundingBox();
+  const bounds = screen.geometry.boundingBox!;
+  const project = (x: number, y: number) => {
+    const p = screen.localToWorld(new Vector3(x, y, 0)).project(camera);
+    return { x: (p.x + 1) * width / 2, y: (1 - p.y) * height / 2 };
+  };
+  const tl = project(bounds.min.x, bounds.max.y);
+  const tr = project(bounds.max.x, bounds.max.y);
+  const bl = project(bounds.min.x, bounds.min.y);
+  return [
+    (tr.x - tl.x) / elementWidth, (tr.y - tl.y) / elementWidth,
+    (bl.x - tl.x) / elementHeight, (bl.y - tl.y) / elementHeight, tl.x, tl.y,
+  ];
+}
 
 /** Frame the current screen plane from its front, including its parent's hinge. */
 export function screenFocusPose(screen: Mesh, aspect: number, fov: number) {

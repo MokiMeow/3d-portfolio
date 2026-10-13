@@ -325,21 +325,75 @@ export function createAtelier(
     }
   });
   const bookSpineMat = textured(bookSpines);
+  const pageEdges = canvasTexture(512, 256, ctx => {
+    ctx.fillStyle = '#d2c9b4'; ctx.fillRect(0,0,512,256);
+    for(let x=0;x<512;x+=2){
+      ctx.fillStyle=x%14===0?'#9c917c':x%6?'#ded5bf':'#bcb39e';
+      ctx.fillRect(x,0,1,256);
+    }
+    const shade=ctx.createLinearGradient(0,0,0,256);
+    shade.addColorStop(0,'#5a493227');shade.addColorStop(.18,'#fff5df11');shade.addColorStop(.8,'#fff5df00');shade.addColorStop(1,'#5a493230');
+    ctx.fillStyle=shade;ctx.fillRect(0,0,512,256);
+  });
+  const pageMat = lightMaterial(new MeshStandardMaterial({map:pageEdges,roughness:.94,bumpMap:pageEdges,bumpScale:.0006,envMap:probe.texture,envMapIntensity:.1,side:DoubleSide}));
+  pageMat.color.setRGB(.59,.57,.53);
+  const bookCovers = canvasTexture(1024,1024,ctx=>{
+    const titles=[['WAYS OF','SEEING'],['FORM','& FIELD'],['GRID','SYSTEMS'],['DESIGN','NOTES'],['TYPE','/ SPACE'],['COLOUR','STUDIES'],['THE','CREATIVE ACT'],['OBJECTS','& IDEAS']];
+    const colors=['#81513c','#b6a589','#354c56','#3a3939','#887a65'];
+    for(let i=0;i<8;i++){
+      ctx.save();ctx.translate((i%4)*256,Math.floor(i/4)*512);
+      ctx.fillStyle=colors[i%5];ctx.fillRect(0,0,256,512);
+      ctx.fillStyle='#ece0c4';ctx.font='11px monospace';ctx.fillText('MOHITH / STUDIO LIBRARY',22,35);
+      ctx.font='bold 29px Georgia';titles[i].forEach((line,row)=>ctx.fillText(line,22,97+row*36));
+      ctx.strokeStyle='#e2d4b27a';ctx.lineWidth=1;
+      for(let k=0;k<7;k++){ctx.beginPath();ctx.arc(128,298,25+k*11,(i%3)*.4,Math.PI*1.75);ctx.stroke()}
+      ctx.fillStyle='#c5b284';ctx.fillRect(21,438,214,1);
+      ctx.font='11px monospace';ctx.fillText('NOTES ON THE WAY WE SEE',22,465);
+      ctx.fillText('ED. '+String(i+1).padStart(2,'0'),22,490);
+      const hinge=ctx.createLinearGradient(0,0,20,0);hinge.addColorStop(0,'#0005');hinge.addColorStop(.6,'#0000');hinge.addColorStop(1,'#fff1');
+      ctx.fillStyle=hinge;ctx.fillRect(0,0,20,512);
+      ctx.restore();
+    }
+  });
+  const coverMat=lightMaterial(new MeshStandardMaterial({map:bookCovers,roughness:.83,envMap:probe.texture,envMapIntensity:.13,side:DoubleSide}));
   const book = (parent: Object3D, w: number, h: number, d: number, position: number[], index: number) => {
     const group = new Group(); group.position.fromArray(position); parent.add(group);
     const color = ["#81513c", "#b6a589", "#354c56", "#3a3939", "#887a65"][index % 5];
     for (const x of [-w / 2 + .003, w / 2 - .003])
       box(group, [.006, h, d], [x, 0, 0], color, .002);
-    box(group, [w, h, .012], [0, 0, d / 2 - .006], color, .003);
-    box(group, [w - .012, h - .018, d - .025], [0, 0, -.008], "#ad9f85", .001);
-    for (let i = 0; i < 6; i++)
-      box(group, [w - .013, .001, d - .028], [0, h * .47 - i * .003, -.009], "#81765f");
+    box(group, [w, h, .017], [0, 0, d / 2 - .008], color, .006);
+    box(group, [w - .014, h - .017, d - .028], [0, 0, -.005], "#c4baa3", .002);
+    const foreedge=panel(group,w-.015,h-.019,[0,0,-d/2+.009],pageMat);foreedge.rotation.y=Math.PI;
+    for(const side of [-1,1]){
+      const pages=panel(group,w-.015,d-.032,[0,side*(h/2-.008),-.006],pageMat);pages.rotation.x=side*-Math.PI/2;
+      const coverGeo=geo(new PlaneGeometry(d,h));
+      const coverUv=coverGeo.getAttribute('uv');
+      for(let j=0;j<coverUv.count;j++)coverUv.setXY(j,(index%4+coverUv.getX(j))/4,(1-Math.floor(index%8/4)+coverUv.getY(j))/2);
+      const cover=new Mesh(coverGeo,coverMat);cover.position.x=side*(w/2+.0005);cover.rotation.y=side*Math.PI/2;group.add(cover);
+      // Cloth hinges and an inset headband make the book read as bound pages.
+      tube(group,[[side*(w/2-.007),-h/2+.014,d/2-.022],[side*(w/2-.007),h/2-.014,d/2-.022]],.0015,'#514435');
+      box(group,[w-.013,.003,.008],[0,side*(h/2-.007),d/2-.021],'#a49778',.001);
+    }
+    if(index%3===0){
+      const ribbon=box(group,[.007,h*.15,.0015],[w*.2,-h*.49,-d/2+.021],'#a2553c');
+      ribbon.rotation.z=.09;
+    }
     const geometry = geo(new PlaneGeometry(w, h));
     const uv = geometry.getAttribute("uv");
     for (let i = 0; i < uv.count; i++) uv.setX(i, (index % 8 + uv.getX(i)) / 8);
     const spine = new Mesh(geometry, bookSpineMat); spine.position.z = d / 2 + .001; group.add(spine);
     return group;
   };
+
+  // Replace the three baked shelf books in exactly their original footprints.
+  const originalBooks = new Group(); originalBooks.position.x = -root.position.x;
+  originalBooks.name='original_shelf_books'; root.add(originalBooks);
+  const oldShelfBookA=book(originalBooks,.052,.65,.725,[-2.876,4.295,2.739],0);
+  oldShelfBookA.rotation.z=Math.PI/2;
+  const oldShelfBookB=book(originalBooks,.052,.59,.55,[-2.895,3.956,-.139],3);
+  oldShelfBookB.rotation.set(0,-.06,Math.PI/2);
+  const oldShelfBookC=book(originalBooks,.13,.54,.52,[-2.858,4.047,.027],2);
+  oldShelfBookC.rotation.set(0,.12,Math.PI/2);
 
   // Keep the atlas at its native texel density; never enlarge a tiny crop.
   const sample = (source: Texture | undefined, crop: number[], fallback: string) =>
@@ -677,49 +731,90 @@ export function createAtelier(
     );
     box(press, [0.25, 0.014, 0.038], [0, 0.23 + i * 0.2, 0.47], ink);
   }
-  box(press, [1.09, 0.37, 0.92], [0, 0.96, 0], "#aaa39b", 0.06);
-  box(press, [0.84, 0.035, 0.16], [0, 1.115, -0.12], "#444b44", 0.008);
-  box(press, [0.86, 0.052, 0.035], [0, 0.905, 0.467], "#272b29");
-  box(press, [0.88, 0.025, 0.52], [0, 0.865, 0.58], "#73786b", 0.018);
-  // Split case, scanner glass, paper guides, rollers and service fasteners.
-  box(press, [1.035, .012, .872], [0, 1.052, 0], "#4a4741", .018);
-  box(press, [.77, .014, .37], [-.07, 1.223, -.12], "#4b5552", .012);
-  box(press, [.71, .002, .31], [-.07, 1.232, -.12], "#717d79", .009);
-  box(press, [.20, .012, .14], [.15, 1.15, .28], "#333d39", .008);
-  const display = canvasTexture(256, 160, ctx => {
-    ctx.fillStyle = "#697b70"; ctx.fillRect(0, 0, 256, 160);
-    ctx.fillStyle = "#d7dfb9"; ctx.font = "22px monospace";
-    ctx.fillText("FORM PRESS", 18, 34); ctx.fillText("READY  /  A6", 18, 76);
-    ctx.fillRect(18, 113, 164, 3); ctx.font = "16px monospace"; ctx.fillText("600 DPI", 18, 145);
+  // A fabricated desktop photo printer: the exit is a real opening between
+  // two shells, with a recessed roller bank and an articulated output tray.
+  const shell = '#c1c0bb', chassis = '#303335', trim = '#747a7b';
+  for (const x of [-.43, .43]) for (const z of [-.34, .34])
+    cylinder(press, .046, .026, [x, .8, z], '#202325');
+  box(press, [1.095, .079, .94], [0, .84, 0], chassis, .027);
+  box(press, [1.05, .026, .88], [0, .81, 0], '#15191b', .012);
+  for (const x of [-.501, .501])
+    box(press, [.09, .275, .92], [x, .975, 0], shell, .025);
+  box(press, [.95, .255, .085], [0, .977, -.414], chassis, .02);
+  box(press, [.925, .029, .80], [0, .889, -.03], '#171b1d', .008);
+  box(press, [.955, .115, .102], [0, 1.023, .39], shell, .014);
+  // Lip, dark cavity and separable paper cassette below the mouth.
+  box(press, [.922, .016, .072], [0, .963, .405], trim, .006);
+  box(press, [.907, .014, .07], [0, .88, .413], '#83898a', .006);
+  for (const x of [-.34, -.17, 0, .17, .34]) {
+    const roller = cylinder(press, .027, .095, [x, .922, .347], '#292c2d');
+    roller.rotation.z = Math.PI / 2;
+    for (const dx of [-.03, -.015, 0, .015, .03])
+      cylinder(press, .028, .003, [x + dx, .922, .347], '#414648').rotation.z = Math.PI / 2;
+  }
+  const tray = box(press, [.887, .023, .49], [0, .86, .622], chassis, .014);
+  clickable(tray, 'print');
+  box(press, [.80, .012, .18], [0, .85, .88], '#484d4e', .009);
+  box(press, [.80, .031, .018], [0, .869, .968], '#555b5c', .007);
+  for (const x of [-.40, .40]) {
+    box(press, [.015, .032, .44], [x, .884, .63], trim, .004);
+    cylinder(press, .017, .015, [x, .87, .849], '#a2a6a4').rotation.z = Math.PI / 2;
+  }
+  for (let i = -3; i <= 3; i++)
+    box(press, [.005, .002, .42], [i * .095, .873, .62], '#5c6263', .001);
+
+  box(press, [1.037, .012, .875], [0, 1.103, -.008], '#272b2d', .009);
+  const lid = box(press, [1.052, .064, .88], [0, 1.142, -.008], shell, .026);
+  clickable(lid, 'print');
+  // Recessed rear feeder, paper stock, guide rails and fine registration marks.
+  box(press, [.79, .016, .27], [-.045, 1.177, -.196], chassis, .011);
+  const feeder = new Group(); feeder.position.set(-.045, 1.185, -.32);
+  feeder.rotation.x = -.23; press.add(feeder);
+  box(feeder, [.735, .256, .026], [0, .115, 0], trim, .012);
+  for (let i = 0; i < 5; i++)
+    box(feeder, [.61, .232, .0015], [0, .116 + i * .001, .018 + i * .0018], i % 2 ? '#cfcdc5' : '#e2e0d8');
+  for (const x of [-.325, .325]) box(feeder, [.024, .09, .04], [x, .021, .02], '#272c2e', .005);
+  for (let i = 0; i < 23; i++)
+    box(press, [.0018, .001, i % 5 ? .013 : .025], [-.355 + i * .027, 1.177, -.018], '#747a79');
+
+  const controls = new Group(); controls.position.set(.15, 1.18, .225);
+  controls.rotation.x = -.16; press.add(controls);
+  box(controls, [.55, .018, .192], [0, 0, 0], '#343a3c', .016);
+  const display = canvasTexture(640, 320, ctx => {
+    ctx.fillStyle = '#18262e'; ctx.fillRect(0, 0, 640, 320);
+    ctx.fillStyle = '#9abfce'; ctx.font = '500 28px monospace'; ctx.fillText('FORM PRESS  /  01', 28, 44);
+    ctx.fillStyle = '#edf2ec'; ctx.font = '500 56px sans-serif'; ctx.fillText('Ready to print', 28, 130);
+    ctx.fillStyle = '#8aabb8'; ctx.font = '25px monospace'; ctx.fillText('A6  ·  MATTE  ·  600 DPI', 28, 182);
+    ctx.fillStyle = '#38545e'; ctx.fillRect(28, 215, 584, 2);
+    for(let i=0;i<4;i++){ctx.fillStyle=['#65a9c1','#b16f83','#c5ad68','#7d8989'][i];ctx.fillRect(30+i*143,250,112,12)}
   });
-  panel(press, .175, .11, [.15, 1.157, .28], textured(display)).rotation.x = -Math.PI / 2;
-  for (const x of [-.34, .34]) {
-    box(press, [.02, .05, .45], [x, .889, .6], "#949486", .005);
-    cylinder(press, .022, .058, [x, .909, .44], "#282c29").rotation.z = Math.PI / 2;
+  const printerStatus = (message: string) => {
+    const ctx = (display.image as HTMLCanvasElement).getContext('2d')!;
+    ctx.fillStyle='#18262e';ctx.fillRect(20,70,600,76);
+    ctx.fillStyle='#edf2ec';ctx.font='500 56px sans-serif';ctx.fillText(message,28,130);
+    display.needsUpdate=true;
+  };
+  panel(controls, .32, .16, [-.086, .0105, 0], textured(display)).rotation.x = -Math.PI/2;
+  const printButton = cylinder(controls, .044, .009, [.204, .017, .027], '#a4b7b9');
+  clickable(printButton, 'print');
+  const powerIcon = label(controls, '↥', .04, .04, [.204, .023, .027], '#263237', 95);
+  powerIcon.rotation.x = -Math.PI/2;
+  clickable(powerIcon, 'print');
+  cylinder(controls, .009, .005, [.204, .015, -.051], '#8abbc9');
+  label(press, 'FORM  /  01', .29, .04, [-.276, 1.025, .442], '#434c4d', 36);
+  label(press, 'PIGMENT INK  ·  A6', .32, .028, [.26, 1.025, .442], '#687071', 23);
+  // Recessed side vents and screw heads on both sides, including the rear.
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 17; i++)
+      box(press, [.0025, .076, .007], [side * .548, .989, -.295 + i * .023], '#515759', .001);
+    const service = panel(press, .20, .072, [side * .548, .883, -.02], textured(canvasTexture(256,96,ctx=>{
+      ctx.fillStyle='#888b86';ctx.font='15px monospace';ctx.fillText('FP—01 / SERVICE',10,23);
+      for(let i=0;i<55;i++){ctx.fillRect(10+i*4,38,i%3?1:2,35)}
+    }),true)); service.rotation.y=side*Math.PI/2;
   }
-  for (let i = 0; i < 12; i++) {
-    box(press, [.004, .10, .013], [.546, .95, -.30 + i * .031], "#494b45", .002);
-    box(press, [.004, .10, .013], [-.546, .95, -.30 + i * .031], "#494b45", .002);
-  }
-  for (const x of [-.48, .48]) screw(press, [x, .979, .463], true);
-  for (const x of [-.29, .29]) box(press, [.12, .037, .036], [x, 1.17, -.37], "#727367", .008);
-  const printButton = cylinder(
-    press,
-    0.06,
-    0.016,
-    [0.42, 1.158, 0.21],
-    "#b96749",
-  );
-  clickable(printButton, "print");
-  const pressBody = box(
-    press,
-    [0.97, 0.09, 0.46],
-    [0, 1.172, -0.12],
-    "#bfb4a4",
-    0.02,
-  );
-  clickable(pressBody, "print");
-  label(press, "FORM / PRESS", 0.74, 0.1, [0, 1.017, 0.471], "#43483e", 28);
+  box(press, [.12, .053, .008], [.31, .951, -.462], '#111719', .006);
+  tube(press, [[.31,.95,-.469],[.32,.9,-.48],[.34,.66,-.48],[.43,.35,-.47]], .009, '#252a2c');
+  for(const x of [-.46,.46]) screw(press,[x,1.08,-.465],true);
   const printCanvas = document.createElement("canvas");
   printCanvas.width = artCanvas.width;
   printCanvas.height = artCanvas.height;
@@ -776,6 +871,7 @@ export function createAtelier(
   );
   clickable(recordDeck, "sound");
   const platter = new Group();
+  platter.name = 'record_platter';
   platter.position.set(-0.25, 1.12, 0);
   console.add(platter);
   clickable(cylinder(platter, 0.307, 0.016, [0, 0, 0], "#191d1b"), "sound");
@@ -796,6 +892,7 @@ export function createAtelier(
   lathe(console, [[.28, 0], [.317, 0], [.32, .012], [.317, .032], [.28, .035]], [-.25, 1.075, 0], brass);
   for (const x of [-.68, .68]) for (const z of [-.29, .29]) screw(console, [x, 1.103, z]);
   const armPivot = new Group();
+  armPivot.name = 'record_tonearm';
   armPivot.position.set(RECORD_ARM.x, RECORD_ARM.liftedY, RECORD_ARM.z);
   console.add(armPivot);
   cylinder(console, .065, .095, [RECORD_ARM.x, 1.145, RECORD_ARM.z], ink);
@@ -1099,6 +1196,7 @@ export function createAtelier(
     platter,
     armPivot,
     stool,
+    originalBooks,
   ]);
   const independent = new Set<Object3D>([
     ...selectables.map((s) => s.object),
@@ -1185,20 +1283,25 @@ export function createAtelier(
       context.drawImage(artCanvas, 0, 0);
       printTexture.needsUpdate = true;
       printedStudy = lastStudy;
+      printerStatus('Printing…');
       printPaper.visible = true;
       printPaper.position.z = 0.36;
+      printPaper.position.y = .905;
       printPaper.scale.y = 0.01;
       if (reduced.matches) {
-        printPaper.position.z = 0.77;
-        printPaper.scale.y = 1;
+        printPaper.position.z = 0.70;
+        printPaper.position.y = .876;
+        printPaper.scale.y = .47;
+        printerStatus('Print ready');
         onComplete();
         return;
       }
       printAnimation = createTimeline({ defaults: { ease: "inOut(2)" } })
-        .add(printPaper.scale, { y: 1, duration: 900 }, 0)
-        .add(printPaper.position, { z: 0.77, duration: 900 }, 0)
+        .add(printPaper.scale, { y: .47, duration: 900 }, 0)
+        .add(printPaper.position, { z: 0.70, duration: 900 }, 0)
+        .add(printPaper.position, { y: .876, duration: 180 }, 880)
         .call(() => {
-          if (!disposed) onComplete();
+          if (!disposed) { printerStatus('Print ready'); onComplete(); }
         });
     },
     pulse(action: AtelierAction) {

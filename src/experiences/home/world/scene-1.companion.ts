@@ -219,8 +219,10 @@ export function createCompanion(
       );
     if (!reduced.matches && leftEye && rightEye) {
       motion
-        .to(leftEye.rotation, { z: 0.14, duration: 0.5 }, 0.5)
-        .to(rightEye.rotation, { z: -0.14, duration: 0.5 }, 0.5);
+        .to(leftEye.rotation, { z: -0.18, duration: 0.45 }, 0.5)
+        .to(rightEye.rotation, { z: 0.18, duration: 0.45 }, 0.5)
+        .to(leftEye.rotation, { z: -0.1, duration: 0.6 }, 1.25)
+        .to(rightEye.rotation, { z: 0.1, duration: 0.6 }, 1.25);
     }
     // On slow devices, wait for the authored sequence to finish before returning.
     if (first && (reduced.matches || !greeting))
@@ -460,7 +462,7 @@ export function createCompanion(
           upperNeck.rotation.x += (pitch * 0.4 - upperNeck.rotation.x) * follow;
         if (leftEye && rightEye && state.phase !== "greeting") {
           leftEye.rotation.z +=
-            ((sleeping ? -0.12 : 0.035 + Math.sin(elapsed * 0.8) * 0.018) -
+            ((sleeping ? 0.12 : -0.1 + Math.sin(elapsed * 0.8) * 0.012) -
               leftEye.rotation.z) *
             follow;
           rightEye.rotation.z +=

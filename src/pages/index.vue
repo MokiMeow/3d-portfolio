@@ -154,7 +154,7 @@ onBeforeRouteUpdate((route) => {
 
 		<LazyGContainer
 			:class="`relative flex flex-col justify-between h-full sm:py-8 md:py-12 ${
-				isFreeCamera ? 'pointer-events-none' : ''
+				isFreeCamera || isFocusMode ? 'pointer-events-none' : ''
 			}`"
 		>
 			<LazyGHeader class="lab-heading px-4 pt-5 sm:pt-0 sm:px-0" />

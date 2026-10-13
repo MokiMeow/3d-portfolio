@@ -48,3 +48,43 @@ test('a suspended audio context or paused room track cannot keep the record runn
   assert.equal(room.musicPlaying, false);
   assert.equal(room._shouldPlayLofi, false);
 });
+
+test('entry playback and both transports reach the deck before a room is selected', () => {
+  function load(relative) {
+    const exports = {};
+    const code = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, relative), 'utf8'), {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+    vm.runInNewContext(code, { exports, require: () => ({
+      ExperienceBasedBlueprint: class {}, SceneComponentBlueprint: class {},
+    }) });
+    return exports;
+  }
+  const { World } = load('../src/experiences/home/world/index.ts');
+  const { Scene1Component } = load('../src/experiences/home/world/scene-1.component.ts');
+  const room = Object.create(Scene1Component.prototype);
+  const playback = sound('room', true, false);
+  const frames = [];
+  const anchor = {};
+  playback._lofi_audio.parent = anchor;
+  room._experience = { sound: playback };
+  room._ready = { value: false };
+  room._appTime = { delta: 16 };
+  room._atelier = { root: { visible: true }, recordAnchor: anchor,
+    setSound: (on, immediate) => frames.push([on, immediate]), update() {} };
+  const world = Object.create(World.prototype);
+  world.scene1 = room;
+  // No manager/current room exists yet: this was the entry animation gap.
+  world.update();
+  assert.deepEqual(frames.pop(), [true, true]);
+  room._ready.value = true;
+  playback.pauseMusic(); world.update();
+  assert.deepEqual(frames.pop(), [false, false]);
+  playback._lofi_audio.isPlaying = true; world.update();
+  assert.deepEqual(frames.pop(), [true, false]);
+  playback._music.value.source = 'external';
+  playback._music.value.playing = true; world.update();
+  assert.deepEqual(frames.pop(), [true, false]);
+  playback.pauseMusic(); world.update();
+  assert.deepEqual(frames.pop(), [false, false]);
+});

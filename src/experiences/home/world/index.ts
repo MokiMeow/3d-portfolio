@@ -204,6 +204,7 @@ export class World extends ExperienceBasedBlueprint {
 	}
 
 	public update() {
+		this.scene1?.updateMusic();
 		this._manager?.update();
 	}
 }

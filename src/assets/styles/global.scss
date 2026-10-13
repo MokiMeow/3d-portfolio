@@ -150,3 +150,12 @@ button.exp-marker {
 		height: 100%;
 	}
 }
+// Preserve the laptop's in-world position while making its focused document
+// a normal, clickable surface. The iframe stays mounted, including its scroll.
+.lab-laptop-focused > div > div {
+  transform: none !important;
+}
+.lab-laptop-focused iframe {
+  transform: var(--lab-screen-transform) !important;
+  transform-origin: 0 0 !important;
+}

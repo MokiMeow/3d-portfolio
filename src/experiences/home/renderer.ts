@@ -20,6 +20,7 @@ import { ExperienceBasedBlueprint } from "~/common/blueprints/experience-based.b
 import { events } from "~/static";
 import { DeviceConfig } from "~/config/device.config";
 import type { LabDevice } from "~/common/models/lab-device.model";
+import { screenCssTransform } from "~/utils/screen-focus";
 
 export interface PortalAssets {
 	mesh: THREE.Mesh;
@@ -51,6 +52,7 @@ export class Renderer extends ExperienceBasedBlueprint {
 		this._appRenderer.instance.shadowMap.autoUpdate;
 	private _lastPortalRenderAt = 0;
 	private _lastCssFov = -1;
+	private _focusedScreenKey = "";
 	private _onResize = () =>
 		this._mixerContext?.rendererCss?.setSize(
 			this._appSizes.width,
@@ -58,6 +60,24 @@ export class Renderer extends ExperienceBasedBlueprint {
 		);
 
 	public _mixerContext?: HtmlMixerContext;
+
+	private _updateFocusedScreen() {
+		const root = this._mixerContext?.rendererCss.domElement;
+		const plane = this._experience.world?.scene3?.pcScreenMixerPlane;
+		const camera = this._camera?.instance;
+		const focused = !!plane && this._experience.interactions?.focusedObject?.object === plane.object3d;
+		if (!root) return;
+		root.classList.toggle("lab-laptop-focused", focused);
+		if (!focused || !plane || !camera) { this._focusedScreenKey = ""; return; }
+		const { width, height } = this._appSizes;
+		const key = `${plane.object3d.uuid}:${width}:${height}:${camera.fov}`;
+		if (key === this._focusedScreenKey) return;
+		this._focusedScreenKey = key;
+		const element = plane.domElement;
+		const matrix = screenCssTransform(plane.object3d as Mesh, camera, width, height,
+			parseFloat(element.style.width), parseFloat(element.style.height));
+		element.style.setProperty("--lab-screen-transform", `matrix(${matrix.join(",")})`);
+	}
 
 	private _renderPortal(
 		mesh: Mesh,
@@ -124,6 +144,7 @@ export class Renderer extends ExperienceBasedBlueprint {
 		this._app.on(quickEvents.PRE_UPDATED, () => {
 			if (this._activeDevice.value || document.hidden) return;
 			this.enableCssRender && this._mixerContext?.update();
+			this._updateFocusedScreen();
 
 			if (!Object.keys(this._renderPortalAssets).length) return;
 			const now = performance.now();

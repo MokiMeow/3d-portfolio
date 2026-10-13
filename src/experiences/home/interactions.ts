@@ -218,6 +218,10 @@ export class Interactions extends ExperienceBasedBlueprint {
 					}
 				}, "<")
 				.add(() => {
+					// Commit the final pose before focus mode suspends orbit updates.
+					// Otherwise a slow frame can leave the screen at the previous pose.
+					if (currentObject.focusPoint) this._camera?.setCameraPosition(currentObject.focusPoint);
+					this._camera?.setCameraLookAt(this._getFocusedPosition(currentObject));
 					if (currentObject) this.focusedObject = currentObject;
 					if (this._navigation?.view) this._navigation.view.limits = true;
 

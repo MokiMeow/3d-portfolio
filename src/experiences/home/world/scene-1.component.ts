@@ -158,7 +158,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 
 	private _lightSwitch?: ReturnType<typeof createWallLightSwitch>;
 	private _drawers?: ReturnType<typeof createInteractiveDrawers>;
-	private _spareMouse?: ReturnType<typeof splitMeshParts>;
+	private _replacedProps?: ReturnType<typeof splitMeshParts>;
 	private _atelier?: ReturnType<typeof createAtelier>;
 	private readonly _atelierState = useState<AtelierState>("atelierState", initialAtelierState);
 	private readonly _music = useState<MusicState>('labMusic', initialMusicState);
@@ -405,6 +405,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 		if (availableMaterials.tree instanceof MeshBasicMaterial) clipSceneryToWindow(availableMaterials.tree);
 		availableMaterials.room = new ShaderMaterial({
 			uniforms: {
+				uDeskRepair: { value: 0 },
 				uBakedTexture: {
 					value: availableTextures.scene_1_no_lights_baked_texture,
 				},
@@ -427,6 +428,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 		});
 		availableMaterials.wood = new ShaderMaterial({
 			uniforms: {
+				uDeskRepair: { value: 1 },
 				uBakedTexture: {
 					value: availableTextures.scene_1_woods_no_lights_baked_texture,
 				},
@@ -488,9 +490,15 @@ export class Scene1Component extends SceneComponentBlueprint {
 			this._drawers = createInteractiveDrawers(this.modelScene);
 			const room = this.modelScene.getObjectByName('scene_1_room');
 			if (room instanceof Mesh) {
-				// Remove the second mouse and its wheel from the baked mesh; preserve the one beside the keyboard.
-				this._spareMouse = splitMeshParts(room, box => box.min.x > -.01 && box.max.x < .2 && box.min.y > 1.85 && box.max.y < 1.94 && box.min.z > -1.69 && box.max.z < -1.41 ? 0 : -1);
-				this._spareMouse.pieces.forEach(piece => piece.visible = false);
+				// Replace the spare mouse and the three flat shelf books, preserving the original room UVs.
+				this._replacedProps = splitMeshParts(room, box => {
+					const mouse = box.min.x > -.01 && box.max.x < .2 && box.min.y > 1.85 && box.max.y < 1.94 && box.min.z > -1.69 && box.max.z < -1.41;
+					const shelfBook = box.min.x > -3.25 && box.max.x < -2.5 && box.max.x - box.min.x > .5 && (
+						(box.min.y > 4.26 && box.max.y < 4.33 && box.min.z > 2.3 && box.max.z < 3.15) ||
+						(box.min.y > 3.91 && box.max.y < 4.12 && box.min.z > -.43 && box.max.z < .34));
+					return mouse || shelfBook ? 0 : -1;
+				});
+				this._replacedProps.pieces.forEach(piece => piece.visible = false);
 			}
 			this.markers.push(...this._drawers.markers);
 			this._atelier = createAtelier(this.modelScene, action => this.actAtelier(action), {
@@ -727,8 +735,8 @@ export class Scene1Component extends SceneComponentBlueprint {
 				for (const geometry of this._boardNoteGeometries) geometry.dispose();
 				this._deskProps?.dispose();
 				this._deskProps = undefined;
-				this._spareMouse?.dispose();
-				this._spareMouse = undefined;
+				this._replacedProps?.dispose();
+				this._replacedProps = undefined;
 				this._drawers?.dispose();
 				this._drawers = undefined;
 				this._lightSwitch?.dispose();
@@ -924,16 +932,23 @@ export class Scene1Component extends SceneComponentBlueprint {
 			  });
 	}
 
-	public update(): void {
+	/** Playback must reach the deck during the entry animation too, before the
+	 * world manager has selected a room to update. */
+	public updateMusic(): void {
 		const lofi = this._experience.sound?.lofi_audio;
 		const audioAnchor = this._atelier?.root.visible ? this._atelier.recordAnchor : this.fixedComputer;
 		if (lofi && audioAnchor && lofi.parent !== audioAnchor) {
 			audioAnchor.add(lofi);
 			lofi.position.set(0, 0, 0);
 		}
-		if (this._atelier && this._experience.router?.currentRouteKey === pages.HOME_PAGE) {
+		if (this._atelier) {
 			this._atelier.setSound(!!this._experience.sound?.musicPlaying, !this._ready.value);
 			this._atelier.update(this._appTime.delta);
+		}
+	}
+
+	public update(): void {
+		if (this._experience.router?.currentRouteKey === pages.HOME_PAGE) {
 			if(this._camera?.instance)this.companion?.update(this._appTime.delta,this._camera.instance);
 		}
 		if (
