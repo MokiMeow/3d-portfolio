@@ -61,7 +61,7 @@ export default defineNuxtConfig({
 			TWITTER_LINK: process.env.TWITTER_LINK || "https://x.com/smohiths",
 			PORTFOLIO_LINK: process.env.PORTFOLIO_LINK || "https://smohith.vercel.app",
 			EMAIL_LINK: process.env.EMAIL_LINK || "mailto:smohith.sm@gmail.com",
-			GITHUB_CONTENT_LINK: process.env.GITHUB_REPO_NAME,
+			GITHUB_CONTENT_LINK: process.env.GITHUB_CONTENT_LINK || "https://github.com/MokiMeow/3d-portfolio/tree/main/src/content",
 		},
 	},
 	typescript: {

@@ -3,8 +3,7 @@
 	"version": "1.0.0",
 	"author": "Sai Mohith S",
 	"repository": {
-		"url": "https://github.com/MokiMeow",
-		"directory": "https://github.com/MokiMeow",
+		"url": "https://github.com/MokiMeow/3d-portfolio",
 		"type": "git"
 	},
 	"homepage": "https://smohith.vercel.app",
@@ -20,6 +19,7 @@
 		"generate": "nuxt generate",
 		"preview": "nuxt preview",
 		"postinstall": "nuxt prepare",
+		"test": "node --test scripts/camera-damping.test.cjs scripts/mesh-parts.test.cjs scripts/music-link.test.cjs",
 		"typecheck": "nuxi typecheck"
 	},
 	"devDependencies": {

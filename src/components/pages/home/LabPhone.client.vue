@@ -156,7 +156,7 @@ const send = async (value = message.value) => {
 			: "smooth",
 	});
 };
-watch(app, (next, previous) => {
+watch(app, (_next, previous) => {
 	if (previous === "camera") {
 		stopCamera();
 		if (photo.value) URL.revokeObjectURL(photo.value);

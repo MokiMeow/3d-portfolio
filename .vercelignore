@@ -1,0 +1,11 @@
+# Local build output and diagnostics are not deployment source.
+.git
+.nuxt
+.output
+.cache
+.vscode
+node_modules
+*.log
+.env
+.env.*
+!.env.example

@@ -57,8 +57,7 @@ export function createCompanion(
     neck: Object3D | undefined,
     leftEye: Object3D | undefined,
     rightEye: Object3D | undefined,
-    leftArm: Object3D | undefined,
-    rightArm: Object3D | undefined;
+    leftArm: Object3D | undefined;
   const neutral = new Map<Object3D, { x: number; y: number; z: number }>();
   const tint = (m: MeshStandardMaterial | MeshBasicMaterial) => {
     m.onBeforeCompile = (shader) => {
@@ -282,7 +281,6 @@ export function createCompanion(
         if (key === "controllefteyeroll") leftEye = object;
         if (key === "controlrighteyeroll") rightEye = object;
         if (key === "controlleftarmlift") leftArm = object;
-        if (key === "controlrightarmlift") rightArm = object;
         if (key.startsWith("control"))
           neutral.set(object, {
             x: object.rotation.x,

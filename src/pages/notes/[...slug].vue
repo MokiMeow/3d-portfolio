@@ -8,8 +8,6 @@ const correctLinks = () => {
 			(e) => {
 				e.preventDefault();
 
-				console.log(link.href);
-
 				window.parent.dispatchEvent(
 					new CustomEvent<IframeLinkClickEventDetails>("iframelinkclick", {
 						detail: { link: link.href },

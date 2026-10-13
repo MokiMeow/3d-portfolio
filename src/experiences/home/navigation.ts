@@ -200,7 +200,7 @@ export class Navigation extends ExperienceBasedBlueprint {
 			this._view.move(e.clientX, e.clientY);
 		};
 
-		this._view.onMouseUp = (e) => {
+		this._view.onMouseUp = () => {
 			if (!this._view?.up || !this._view.onMouseUp || !this._view.onMouseMove)
 				return;
 
@@ -254,7 +254,7 @@ export class Navigation extends ExperienceBasedBlueprint {
 
 			this._view.move(e.touches[0].clientX, e.touches[0].clientY);
 		};
-		this._view.onTouchEnd = (e) => {
+		this._view.onTouchEnd = () => {
 			if (!this._view.up || !this._view.onTouchEnd || !this._view.onTouchMove)
 				return;
 
@@ -279,7 +279,7 @@ export class Navigation extends ExperienceBasedBlueprint {
 			this._view.zooming(normalized.pixelY);
 		};
 
-		this._view.onLeave = (e) => {
+		this._view.onLeave = () => {
 			if (this._view.onMouseMove)
 				this._ui?.off(events.MOUSE_MOVE, this._view.onMouseMove);
 		};

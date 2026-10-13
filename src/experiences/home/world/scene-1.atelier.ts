@@ -816,7 +816,7 @@ export function createAtelier(
     "#ded2b7",
     23,
   );
-  const sleeve = box(
+  box(
     console,
     [0.47, 0.5, 0.025],
     [.45, 1.584, -.46],
@@ -1004,7 +1004,7 @@ export function createAtelier(
     leaf.position.set(x, .43 + h, z); leaf.rotation.set(1.1, a, 0);
     plant.add(leaf);
   }
-  const shelf = box(
+  box(
     architecture,
     [1.37, 0.07, 0.4],
     [5.03, 4.46, -2.55],

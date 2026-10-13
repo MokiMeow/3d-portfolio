@@ -5,7 +5,7 @@ import { LiquidBgExperience } from ".";
 import { ExperienceBasedBlueprint } from "~/common/blueprints/experience-based.blueprint";
 
 // STATIC
-import { errors, events } from "~/static";
+import { events } from "~/static";
 
 /** Class in charge of all the direct interactions with the DOM HTML elements. */
 export class UI extends ExperienceBasedBlueprint {

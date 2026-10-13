@@ -61,7 +61,7 @@ export class Debug extends ExperienceBasedBlueprint {
 			new MeshBasicMaterial({ color: "#ff0040" })
 		);
 		this._targetIndicator.visible = false;
-		this._camera?.cameras.forEach((item, id) => {
+		this._camera?.cameras.forEach((item) => {
 			const cameraHelper = new CameraHelper(item);
 			this._worldCameraHelpers?.push(cameraHelper);
 			this._experience.app.scene.add(cameraHelper);

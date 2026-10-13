@@ -22,7 +22,6 @@ const current = ref<MusicLink | null>(null),
   compact = ref(false),
   busy = ref(false);
 const mount = ref<HTMLElement>(),
-  linkInput = ref<HTMLInputElement>(),
   audio = ref<HTMLAudioElement>();
 let youtube: YouTubePlayer | undefined,
   spotify: SpotifyPlayer | undefined,
@@ -348,7 +347,6 @@ onBeforeUnmount(() => {
       >
       <div class="link-row">
         <input
-          ref="linkInput"
           id="music-link"
           v-model="input"
           type="url"

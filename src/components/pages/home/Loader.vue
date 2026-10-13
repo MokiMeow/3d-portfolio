@@ -20,7 +20,6 @@ const timeline = gsap.timeline({
 });
 
 const loaderContainer = ref<HTMLElement | undefined>();
-const loaderButton = ref<HTMLElement | undefined>();
 const isLoadingStarted = ref(false);
 const isLoadingCompleted = ref<boolean | undefined>();
 const isLoadingEnded = ref(false);
@@ -154,7 +153,6 @@ const watchStopHandle = watchEffect(
 					class="flex flex-col items-center opacity-0 animate-[.3s_linear_show-with-transition_forwards]"
 				>
 					<button
-						ref="loaderButton"
 						:class="`px-5 py-3 uppercase tracking-[0.12em] border-[1px] sm:border-[1.5px] rounded-lg cursor-pointer text-sm hover:animate-none active:opacity-40 border-light font-light ${
 							isButtonPressable ? 'animate-pulse' : 'pointer-events-none'
 						}`"
@@ -247,7 +245,7 @@ const watchStopHandle = watchEffect(
 					<div>
 						v{{ packageJson.version }} | Built by
 						<a
-							:href="packageJson.repository.directory"
+							:href="Config.GITHUB_LINK"
 							target="_blank"
 							class="underline hover:text-white"
 							>@{{ packageJson.author }}</a

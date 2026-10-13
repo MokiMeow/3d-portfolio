@@ -21,11 +21,8 @@ export class Camera extends ExperienceBasedBlueprint {
 	protected readonly _experience = new LiquidBgExperience();
 
 	private readonly _appCamera = this._experience.app.camera;
-	private readonly _appCameraControls =
-		this._experience.app.debug?.cameraControls;
 	private readonly _appCameraInstance = this._experience.app.camera.instance;
 	private readonly _appDebug = this._experience.app.debug;
-	private readonly _ui = this._experience.ui;
 
 	private readonly _timeline = gsap.timeline({
 		onStart: () => {

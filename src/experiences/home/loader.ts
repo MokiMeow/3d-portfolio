@@ -59,6 +59,7 @@ export class Loader extends ExperienceBasedBlueprint {
 	private _availableTextures: { [name: string]: Texture } = {};
 	private _availableAudios: { [name: string]: AudioBuffer } = {};
 	private _motionPreference?: MediaQueryList;
+	private _removeResourceListeners?: () => void;
 	private readonly _syncScreenPlayback = () => {
 		const shouldPlay = !document.hidden && !this._motionPreference?.matches
 			&& this._experience.router?.currentRouteKey === HOME_PAGE;
@@ -245,12 +246,17 @@ export class Loader extends ExperienceBasedBlueprint {
 		};
 
 		const onLoad = () => {
-			this._appResources.off("start", onStart);
-			this._appResources.off("progress", onProgress);
-			this._appResources.off("load", onLoad);
+			this._removeResourceListeners?.();
 			this.emit(LOADED, this._progress);
 		};
 
+		this._removeResourceListeners?.();
+		this._removeResourceListeners = () => {
+			this._appResources.off(quickEvents.STARTED, onStart);
+			this._appResources.off(quickEvents.PROGRESSED, onProgress);
+			this._appResources.off(quickEvents.LOADED, onLoad);
+			this._removeResourceListeners = undefined;
+		};
 		this._progress = 0;
 		this._appResources.on(quickEvents.STARTED, onStart);
 		this._appResources.on(quickEvents.PROGRESSED, onProgress);
@@ -260,12 +266,10 @@ export class Loader extends ExperienceBasedBlueprint {
 	}
 
 	public destruct() {
+		this._removeResourceListeners?.();
 		this._motionPreference?.removeEventListener("change", this._syncScreenPlayback);
 		document.removeEventListener("visibilitychange", this._syncScreenPlayback);
 		this._experience.router?.off(CHANGED, this._syncScreenPlayback);
-		this._appResources.loadingManager.removeHandler(
-			/onStart|onError|onProgress|onLoad/
-		);
 		const keys = Object.keys(this._appResources.items);
 
 		for (let i = 0; i < keys.length; i++) {

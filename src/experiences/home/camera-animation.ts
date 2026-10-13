@@ -129,6 +129,7 @@ export class CameraAnimation extends ExperienceBasedBlueprint {
 	}
 
 	public destruct() {
+		if (this._onWheel) this._ui?.off(events.WHEEL, this._onWheel);
 		if (this._onKeyDown) window.removeEventListener("keydown", this._onKeyDown);
 		this.emit(events.DESTRUCTED);
 		this.removeAllListeners();
