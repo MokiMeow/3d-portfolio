@@ -44,6 +44,9 @@ watch(() => route.path, close);
       <button :disabled="!state.ready" @click="robot()?.dock()">
         Back to dock <span aria-hidden="true">↙</span>
       </button>
+      <button :disabled="!state.ready" @click="robot()?.togglePlant()" :aria-expanded="state.plantOpen">
+        {{ state.plantOpen ? 'Close hatch' : 'A little green hope' }} <span aria-hidden="true">✳</span>
+      </button>
       <button @click="close" aria-label="Close WALL-E controls">×</button>
     </nav>
     <button
@@ -96,6 +99,7 @@ watch(() => route.path, close);
 }
 .robot-menu {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 20px;
 }

@@ -47,12 +47,12 @@ export function createCompanionDock(env: Texture, night: { value: number }) {
     batches.set(m, []);
     return m;
   };
-  const graphite = finish("#343b38", 0.65, 0.38),
-    shell = finish("#bcb4a0", 0.45, 0.47),
-    rubber = finish("#161c1b", 0.05, 0.83),
-    brass = finish("#ad8750", 0.8, 0.31),
-    steel = finish("#89928d", 0.85, 0.3),
-    concrete = finish("#7f8178", 0, 0.95);
+  const graphite = finish("#353438", 0.65, 0.38),
+    shell = finish("#68635f", 0.45, 0.47),
+    rubber = finish("#1c1d1f", 0.05, 0.83),
+    brass = finish("#8c7769", 0.8, 0.31),
+    steel = finish("#818388", 0.85, 0.3),
+    concrete = finish("#555257", 0, 0.95);
   const add = (
     g: BufferGeometry,
     p: number[],

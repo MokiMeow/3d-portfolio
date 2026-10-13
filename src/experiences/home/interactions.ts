@@ -155,6 +155,7 @@ export class Interactions extends ExperienceBasedBlueprint {
 		const currentObject = this._selectableObjects?.[this._selectedObject.uuid];
 
 		if (currentObject?.onSelect) return currentObject.onSelect();
+		currentObject?.resolveFocus?.();
 
 		if (
 			currentObject?.focusPoint &&
@@ -208,7 +209,7 @@ export class Interactions extends ExperienceBasedBlueprint {
 						const sizes = $getSizes();
 						let fovFactor = 1;
 
-						if (sizes.sw < sizes.vl) fovFactor = (sizes.vl / sizes.sw) * 1.25;
+						if (!currentObject.focusFitsViewport && sizes.sw < sizes.vl) fovFactor = (sizes.vl / sizes.sw) * 1.25;
 
 						this._camera.updateCameraFov(
 							currentObject.focusFov * fovFactor,
@@ -308,8 +309,9 @@ export class Interactions extends ExperienceBasedBlueprint {
 	}
 
 	private _getFocusedPosition(object: SelectableObject) {
-		if (!object.focusTarget || !object.focusRadius || !this._camera?.instance)
+		if (!object.focusTarget || !this._camera?.instance)
 			return new Vector3();
+		if (!object.focusRadius) return object.focusTarget.clone();
 
 		return new Vector3(
 			object.focusTarget.x -

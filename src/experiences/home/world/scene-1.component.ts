@@ -55,6 +55,7 @@ import { createAtelier } from "./scene-1.atelier";
 import { initialAtelierState, type AtelierAction, type AtelierState } from "~/common/models/atelier.model";
 import { initialMusicState, type MusicState } from "~/common/models/music.model";
 import { createCompanion } from './scene-1.companion';
+import { splitMeshParts } from './mesh-parts';
 import { initialCompanionState, type CompanionState } from '~/common/models/companion.model';
 
 export class Scene1Component extends SceneComponentBlueprint {
@@ -157,6 +158,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 
 	private _lightSwitch?: ReturnType<typeof createWallLightSwitch>;
 	private _drawers?: ReturnType<typeof createInteractiveDrawers>;
+	private _spareMouse?: ReturnType<typeof splitMeshParts>;
 	private _atelier?: ReturnType<typeof createAtelier>;
 	private readonly _atelierState = useState<AtelierState>("atelierState", initialAtelierState);
 	private readonly _music = useState<MusicState>('labMusic', initialMusicState);
@@ -484,6 +486,12 @@ export class Scene1Component extends SceneComponentBlueprint {
 		});
 		if (this.modelScene) {
 			this._drawers = createInteractiveDrawers(this.modelScene);
+			const room = this.modelScene.getObjectByName('scene_1_room');
+			if (room instanceof Mesh) {
+				// Remove the second mouse and its wheel from the baked mesh; preserve the one beside the keyboard.
+				this._spareMouse = splitMeshParts(room, box => box.min.x > -.01 && box.max.x < .2 && box.min.y > 1.85 && box.max.y < 1.94 && box.min.z > -1.69 && box.max.z < -1.41 ? 0 : -1);
+				this._spareMouse.pieces.forEach(piece => piece.visible = false);
+			}
 			this.markers.push(...this._drawers.markers);
 			this._atelier = createAtelier(this.modelScene, action => this.actAtelier(action), {
 				room: this._loader?.availableTextures.scene_1_no_lights_baked_texture,
@@ -719,10 +727,12 @@ export class Scene1Component extends SceneComponentBlueprint {
 				for (const geometry of this._boardNoteGeometries) geometry.dispose();
 				this._deskProps?.dispose();
 				this._deskProps = undefined;
-				this._lightSwitch?.dispose();
-				this._lightSwitch = undefined;
+				this._spareMouse?.dispose();
+				this._spareMouse = undefined;
 				this._drawers?.dispose();
 				this._drawers = undefined;
+				this._lightSwitch?.dispose();
+				this._lightSwitch = undefined;
 				this._boardNotes.length = 0;
 				this._boardNoteTextures.length = 0;
 				this._boardNoteMaterials.length = 0;
@@ -922,7 +932,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 			lofi.position.set(0, 0, 0);
 		}
 		if (this._atelier && this._experience.router?.currentRouteKey === pages.HOME_PAGE) {
-			this._atelier.setSound(!!this._experience.sound?.musicPlaying);
+			this._atelier.setSound(!!this._experience.sound?.musicPlaying, !this._ready.value);
 			this._atelier.update(this._appTime.delta);
 			if(this._camera?.instance)this.companion?.update(this._appTime.delta,this._camera.instance);
 		}

@@ -383,10 +383,10 @@ onBeforeUnmount(() => {
   max-height: calc(100dvh - 130px);
   overflow: auto;
   padding: 20px;
-  color: #30352e;
-  background: #eee9df;
-  border: 1px solid #fff8;
-  border-radius: 18px;
+  color: #e0e2e5;
+  background: #232426;
+  border: 1px solid #67686a66;
+  border-radius: 12px;
   box-shadow:
     0 24px 75px #0005,
     0 2px 5px #0002;
@@ -412,7 +412,7 @@ header {
 }
 .edition {
   font: 10px monospace;
-  color: #8c8b7b;
+  color: #92969b;
   letter-spacing: 0;
   margin-left: 4px;
 }
@@ -420,11 +420,11 @@ header {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #939589;
+  background: #646c71;
 }
 .signal.live {
-  background: #70894d;
-  box-shadow: 0 0 0 3px #70894d18;
+  background: #78c9e3;
+  box-shadow: 0 0 0 3px #78c9e318;
 }
 button {
   border-radius: 50%;
@@ -434,7 +434,7 @@ button {
   cursor: pointer;
 }
 button:hover {
-  background: #343b3010;
+  background: #ffffff0d;
 }
 button:active {
   transform: scale(0.96);
@@ -448,24 +448,24 @@ header > button {
   height: 32px;
   font-size: 22px;
   line-height: 1;
-  background: #dfdbd2;
+  background: #303236;
 }
 button:focus-visible,
 input:focus-visible,
 a:focus-visible {
-  outline: 2px solid #56684b;
+  outline: 2px solid #80cce5;
   outline-offset: 4px;
 }
 .turntable {
   height: 212px;
   position: relative;
   overflow: hidden;
-  border: 1px solid #b4b6a5;
+  border: 1px solid #5e5148;
   border-radius: 10px;
-  background: linear-gradient(135deg, #bac0ac, #d3d5c6 58%, #aab09e);
+  background: linear-gradient(135deg, #40332c, #594337 58%, #362c27);
   box-shadow:
-    inset 0 1px 0 #ffffff9c,
-    inset 0 -2px 4px #69725c26;
+    inset 0 1px 0 #ffffff16,
+    inset 0 -2px 4px #00000050;
 }
 .deck-mark {
   position: absolute;
@@ -473,7 +473,7 @@ a:focus-visible {
   top: 12px;
   font: 7px monospace;
   letter-spacing: 0.14em;
-  color: #5b654f;
+  color: #baa291;
 }
 .platter {
   position: absolute;
@@ -529,9 +529,9 @@ a:focus-visible {
   width: 78px;
   height: 78px;
   border-radius: 50%;
-  color: #363e31;
-  background: #cbb68e;
-  border: 1px solid #f2dbae;
+  color: #1a2e39;
+  background: #80bcd0;
+  border: 1px solid #aad8e5;
   box-shadow: 0 0 0 5px #141b1680;
 }
 .record-label small {
@@ -604,10 +604,10 @@ a:focus-visible {
   align-items: center;
   gap: 6px;
   font: 7px monospace;
-  color: #535f49;
+  color: #b5a89b;
 }
 .deck-speed span {
-  color: #6c814e;
+  color: #86cbe0;
   font-size: 5px;
 }
 .transport {
@@ -623,7 +623,7 @@ a:focus-visible {
 .track-copy p {
   font: 8px monospace;
   letter-spacing: 0.14em;
-  color: #787d6e;
+  color: #a7adb3;
   margin: 0 0 6px;
 }
 .track-copy h2 {
@@ -638,7 +638,7 @@ a:focus-visible {
 .track-copy > span {
   display: block;
   font-size: 11px;
-  color: #7e8175;
+  color: #abb0b6;
   margin-top: 6px;
 }
 .play-button {
@@ -647,12 +647,12 @@ a:focus-visible {
   width: 52px;
   height: 52px;
   flex-shrink: 0;
-  background: #344331;
-  color: #edeedf;
+  background: #77bed5;
+  color: #182a31;
   box-shadow: 0 2px 4px #25332426;
 }
 .play-button:hover {
-  background: #536447;
+  background: #a0d8e8;
 }
 .play-button svg {
   width: 24px;
@@ -666,11 +666,11 @@ a:focus-visible {
   gap: 8px;
   font-size: 10px;
   line-height: 1.5;
-  color: #777e6c;
+  color: #b3bbc0;
   margin: 3px 0 17px;
 }
 .message.error {
-  color: #9d452f;
+  color: #f0a088;
 }
 .level {
   display: flex;
@@ -681,7 +681,7 @@ a:focus-visible {
 .level i {
   width: 2px;
   height: 3px;
-  background: #7d8c6a;
+  background: #7bc8df;
 }
 .level.active i {
   animation: meter 1s ease-in-out infinite alternate;
@@ -696,7 +696,7 @@ a:focus-visible {
   animation-delay: -0.5s;
 }
 form {
-  border-top: 1px solid #d6d5c8;
+  border-top: 1px solid #ffffff1c;
   padding-top: 16px;
 }
 label {
@@ -711,14 +711,15 @@ label {
 label > span {
   font: 7px monospace;
   letter-spacing: 0.1em;
-  color: #969888;
+  color: #a5afb4;
 }
 .link-row {
   display: flex;
-  background: #f8f5ef;
-  border: 1px solid #d6d6ca;
-  border-radius: 9px;
-  padding: 4px;
+  background: transparent;
+  border: 1px solid #ffffff26;
+  border-radius: 0;
+  border-width: 0 0 1px;
+  padding: 4px 0;
 }
 .link-row input {
   width: 0;
@@ -727,31 +728,31 @@ label > span {
   padding: 8px;
   font-size: 12px;
   background: transparent;
-  color: #30392a;
+  color: #e1e6e9;
   user-select: text;
 }
 .link-row input::placeholder {
-  color: #79806f;
+  color: #969fa5;
 }
 .link-row button {
-  border-radius: 6px;
-  width: 36px;
-  height: 36px;
-  background: #dbdfcf;
+  border-radius: 50%;
+  width: 42px;
+  height: 42px;
+  background: transparent;
   font-size: 23px;
   line-height: 1;
-  color: #48583c;
+  color: #88cfe3;
 }
 .services {
   font-size: 9px;
-  color: #8b9080;
+  color: #99a4aa;
   margin-top: 9px;
   display: flex;
   gap: 8px;
 }
 .services i {
   font-style: normal;
-  color: #b4b8aa;
+  color: #59656c;
 }
 .provider-player {
   overflow: hidden;

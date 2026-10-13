@@ -3,6 +3,7 @@ export interface CompanionState {
   failed: boolean;
   panel: boolean;
   caption: string;
+  plantOpen: boolean;
   phase:
     "loading" | "docked" | "greeting" | "visiting" | "returning" | "sleeping";
 }
@@ -11,5 +12,6 @@ export const initialCompanionState = (): CompanionState => ({
   failed: false,
   panel: false,
   caption: "",
+  plantOpen: false,
   phase: "loading",
 });

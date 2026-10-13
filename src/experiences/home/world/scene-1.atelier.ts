@@ -1222,11 +1222,11 @@ export function createAtelier(
         });
       }
     },
-    setSound(on: boolean) {
-      if (recordOn === on) return;
+    setSound(on: boolean, immediate = false) {
+      if (recordOn === on && !immediate) return;
       recordOn = on;
       armAnimation?.pause();
-      if (reduced.matches) {
+      if (reduced.matches || immediate) {
         armPivot.position.y = on ? RECORD_ARM.playingY : RECORD_ARM.liftedY;
         armPivot.rotation.y = on ? RECORD_ARM.playingAngle : 0;
         return;

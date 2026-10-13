@@ -21,6 +21,7 @@ import {
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { createCompanionDock } from "./scene-1.dock";
+import { createBootPlant } from "./companion-plant";
 import gsap from "gsap";
 import { dockTrackPose } from "~/utils/room-mechanics";
 import type { SelectableObject } from "~/common/models/experience-interaction.model";
@@ -62,6 +63,9 @@ export function createCompanion(
   let returnAfterGreeting = false;
   let head: Object3D | undefined,
     neck: Object3D | undefined,
+    upperNeck: Object3D | undefined,
+    compartment: Object3D | undefined,
+    bootPlant: Group | undefined,
     leftEye: Object3D | undefined,
     rightEye: Object3D | undefined;
   const neutral = new Map<Object3D, { x: number; y: number; z: number }>();
@@ -125,6 +129,12 @@ export function createCompanion(
     }
   };
   const resetPose = () => {
+    if (bootPlant) {
+      gsap.killTweensOf(bootPlant.position);
+      bootPlant.position.z = 0.025;
+    }
+    state.plantOpen = false;
+    if (compartment) gsap.killTweensOf(compartment.rotation);
     returnAfterGreeting = false;
     greeting?.stop();
     for (const [node, v] of neutral) node.rotation.set(v.x, v.y, v.z);
@@ -151,7 +161,7 @@ export function createCompanion(
           duration: reduced.matches ? 0 : 1.6,
           ease: "power2.inOut",
         },
-        reduced.matches ? 0 : .45,
+        reduced.matches ? 0 : 0.45,
       )
       .to(
         carriage.rotation,
@@ -200,7 +210,13 @@ export function createCompanion(
     // Use the asset's authored telescoping arms, grippers and compactor-door sequence.
     // The head remains free to notice the visitor rather than replaying a fixed gaze.
     if (!reduced.matches && greeting)
-      motion.call(() => { greeting?.reset().setEffectiveTimeScale(1.35).play(); }, [], 1.6);
+      motion.call(
+        () => {
+          greeting?.reset().setEffectiveTimeScale(1.35).play();
+        },
+        [],
+        1.6,
+      );
     if (!reduced.matches && leftEye && rightEye) {
       motion
         .to(leftEye.rotation, { z: 0.14, duration: 0.5 }, 0.5)
@@ -230,7 +246,35 @@ export function createCompanion(
     state.panel = true;
     greet();
   };
-  selectables.push({ object: dock, outline: false, onSelect: () => dockRobot() });
+  const togglePlant = () => {
+    if (!compartment || !state.ready) return;
+    returnAfterGreeting = false;
+    greeting?.stop();
+    state.plantOpen = !state.plantOpen;
+    state.panel = true;
+    gsap.to(compartment.rotation, {
+      x: state.plantOpen ? (Math.PI * 95) / 180 : 0,
+      duration: reduced.matches ? 0 : 0.85,
+      ease: "power2.inOut",
+      overwrite: true,
+      delay: state.plantOpen || reduced.matches ? 0 : 0.25,
+    });
+    // Present the boot on the lowered hatch, then tuck it safely inside before closing.
+    if (bootPlant)
+      gsap.to(bootPlant.position, {
+        z: state.plantOpen ? 0.18 : 0.025,
+        duration: reduced.matches ? 0 : 0.4,
+        delay: state.plantOpen && !reduced.matches ? 0.55 : 0,
+        ease: "power2.inOut",
+        overwrite: true,
+      });
+    if (state.plantOpen) say("A little green hope.", false);
+  };
+  selectables.push({
+    object: dock,
+    outline: false,
+    onSelect: () => dockRobot(),
+  });
   new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load(
     "/models/wall-e-companion.glb",
     (gltf) => {
@@ -268,12 +312,17 @@ export function createCompanion(
         -center.z * scale,
       );
       carriage.add(robot);
+      bootPlant = createBootPlant();
+      robot.add(bootPlant);
       selectables.push({ object: robot, outline: false, onSelect: interact });
-      const mechanicalTracks = gltf.animations.flatMap(clip => clip.tracks)
-        .filter(track => /compactor|arm|finger|thumb/i.test(track.name));
+      const mechanicalTracks = gltf.animations
+        .flatMap((clip) => clip.tracks)
+        .filter((track) => /compactor|arm|finger|thumb/i.test(track.name));
       if (mechanicalTracks.length) {
         mixer = new AnimationMixer(robot);
-        greeting = mixer.clipAction(new AnimationClip("Hello, visitor", -1, mechanicalTracks));
+        greeting = mixer.clipAction(
+          new AnimationClip("Hello, visitor", -1, mechanicalTracks),
+        );
         greeting.setLoop(LoopOnce, 1);
         greeting.clampWhenFinished = true;
         mixer.addEventListener("finished", () => {
@@ -284,6 +333,8 @@ export function createCompanion(
         const key = object.name.toLowerCase().replace(/[^a-z0-9]/g, "");
         if (key === "controlheadpan") head = object;
         if (key === "controlneckpitch") neck = object;
+        if (key === "controlupperneck") upperNeck = object;
+        if (key === "controlcompactordoor") compartment = object;
         if (key === "controllefteyeroll") leftEye = object;
         if (key === "controlrighteyeroll") rightEye = object;
         if (key.startsWith("control"))
@@ -328,6 +379,12 @@ export function createCompanion(
           }
         }
       });
+      if (compartment)
+        selectables.push({
+          object: compartment,
+          outline: false,
+          onSelect: togglePlant,
+        });
       state.ready = true;
       state.phase = "docked";
       ready();
@@ -345,6 +402,7 @@ export function createCompanion(
     },
   );
   const cameraLocal = new Vector3();
+  const headLocal = new Vector3();
   return {
     root,
     selectables,
@@ -352,6 +410,7 @@ export function createCompanion(
     greet: () => greet(),
     dock: () => dockRobot(),
     farewell,
+    togglePlant,
     wake() {
       sleeping = false;
       if (state.ready) {
@@ -370,19 +429,35 @@ export function createCompanion(
       mixer?.update(Math.min(delta, 100) / 1000);
       shade.position.y = 0.004;
       if (!reduced.matches && head && neck) {
-        carriage.updateMatrixWorld();
+        head.updateWorldMatrix(true, false);
         camera.getWorldPosition(cameraLocal);
-        carriage.worldToLocal(cameraLocal);
+        head.getWorldPosition(headLocal);
+        robot?.worldToLocal(cameraLocal);
+        robot?.worldToLocal(headLocal);
+        cameraLocal.sub(headLocal);
         const yaw = sleeping
           ? 0
           : Math.max(
-              -0.65,
-              Math.min(0.65, Math.atan2(cameraLocal.x, cameraLocal.z)),
+              -1.05,
+              Math.min(1.05, Math.atan2(cameraLocal.x, cameraLocal.z)),
             );
         const follow = 1 - Math.exp(-dt * 3.5);
         head.rotation.y += (yaw - head.rotation.y) * follow;
-        const pitch = sleeping ? 0.36 : -0.06 + Math.sin(elapsed * 0.7) * 0.015;
-        neck.rotation.x += (pitch - neck.rotation.x) * follow;
+        const pitch = sleeping
+          ? 0.36
+          : Math.max(
+              -0.9,
+              Math.min(
+                0.3,
+                -Math.atan2(
+                  cameraLocal.y,
+                  Math.max(0.04, Math.hypot(cameraLocal.x, cameraLocal.z)),
+                ),
+              ),
+            );
+        neck.rotation.x += (pitch * 0.6 - neck.rotation.x) * follow;
+        if (upperNeck)
+          upperNeck.rotation.x += (pitch * 0.4 - upperNeck.rotation.x) * follow;
         if (leftEye && rightEye && state.phase !== "greeting") {
           leftEye.rotation.z +=
             ((sleeping ? -0.12 : 0.035 + Math.sin(elapsed * 0.8) * 0.018) -
@@ -406,6 +481,8 @@ export function createCompanion(
     dispose() {
       disposed = true;
       motion?.kill();
+      if (compartment) gsap.killTweensOf(compartment.rotation);
+      if (bootPlant) gsap.killTweensOf(bootPlant.position);
       mixer?.stopAllAction();
       if (robot) mixer?.uncacheRoot(robot);
       clearTimeout(captionTimer);

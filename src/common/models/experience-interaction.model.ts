@@ -7,11 +7,14 @@ export interface SelectableObject {
 	link?: string;
 	externalLink?: string;
 	onSelect?: () => unknown;
+	/** Resolve moving targets at click time, after their opening animation. */
+	resolveFocus?: () => void;
 	/** Called when the pointer moves onto the object (true) and off it (false). */
 	onHover?: (hovered: boolean) => unknown;
 	focusPoint?: Vector3;
 	focusTarget?: Vector3;
 	focusFov?: number;
+	focusFitsViewport?: boolean;
 	focusRadius?: number;
 	focusOffset?: Vector3;
 	onFocusedIn?: () => unknown;

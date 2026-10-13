@@ -27,6 +27,7 @@ import { events, pages } from "~/static";
 import { createContactProps } from "./scene-3.props";
 import { createGuidedObjectPicker } from "./guided-object-picker";
 import type { LabDevice } from "~/common/models/lab-device.model";
+import { screenFocusPose } from "~/utils/screen-focus";
 
 // UTILS
 import { getTodayTimestamp } from "~/utils/common-utils";
@@ -328,10 +329,12 @@ export class Scene3Component extends SceneComponentBlueprint {
 		const pcScreen = this.pcScreenMixerPlane?.object3d;
 		const pcScreenPosition = new Vector3();
 		const pcScreenFocusPoint = new Vector3();
-		pcScreen?.localToWorld(pcScreenPosition);
-		pcScreen?.position.add(new Vector3(0, -1.415, 0));
-		pcScreen?.localToWorld(pcScreenFocusPoint);
-		pcScreen?.position.add(new Vector3(0, 1.415, 0));
+		const resolveScreen = () => {
+			if (!pcScreen || !this._experience.camera?.instance) return;
+			const pose = screenFocusPose(pcScreen, this._experience.camera.instance.aspect, 35);
+			pcScreenPosition.copy(pose.target);
+			pcScreenFocusPoint.copy(pose.position);
+		};
 
 		this.selectableObjects = [
 			...(this._contactProps?.selectables ?? []),
@@ -341,9 +344,10 @@ export class Scene3Component extends SceneComponentBlueprint {
 							object: pcScreen,
 							focusPoint: pcScreenFocusPoint,
 							focusTarget: pcScreenPosition,
-							focusFov: 25,
-							focusRadius: 0.03,
-							focusOffset: new Vector3(0, 0, Math.PI),
+							resolveFocus: resolveScreen,
+							focusFov: 35,
+							focusFitsViewport: true,
+							focusRadius: 0,
 						},
 				  ]
 				: []),

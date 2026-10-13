@@ -3,6 +3,10 @@ export interface YouTubePlayer {
   pauseVideo(): void;
   destroy(): void;
   getVideoData(): { title?: string };
+  getCurrentTime(): number;
+  seekTo(seconds: number, allowSeekAhead: boolean): void;
+  mute(): void;
+  unMute(): void;
 }
 export interface SpotifyPlayer {
   play(): void;
