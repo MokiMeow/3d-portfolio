@@ -35,7 +35,7 @@ import { Config } from "~/config";
 import { DeviceConfig } from "~/config/device.config";
 
 // STATIC
-import { DESTRUCTED } from "~/static/event.static";
+import { CHANGED, DESTRUCTED } from "~/static/event.static";
 import { pages } from "~/static";
 
 // MODELS
@@ -58,6 +58,20 @@ import { createCompanion } from './scene-1.companion';
 import { initialCompanionState, type CompanionState } from '~/common/models/companion.model';
 
 export class Scene1Component extends SceneComponentBlueprint {
+	private readonly _syncScreenTextures = () => {
+		for (const [materialName, textureName] of [
+			["monitor_a", "monitor_a_screen_record"],
+			["monitor_b", "monitor_b_screen_record"],
+			["phone_screen", "phone_screen_record"],
+		]) {
+			const material = this._availableMaterials[materialName];
+			const texture = this._loader?.availableTextures[textureName];
+			if (material instanceof MeshBasicMaterial && texture && material.map !== texture) {
+				material.map = texture;
+				material.needsUpdate = true;
+			}
+		}
+	};
 	private readonly _renderer = this._experience.renderer;
 	private readonly _appTime = this._experience.app.time;
 	private readonly _camera = this._experience.camera;
@@ -444,6 +458,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 	}
 
 	public construct() {
+		this._loader?.on(CHANGED, this._syncScreenTextures);
 		this._fitHomeCamera();
 		window.addEventListener("resize", this._fitHomeCamera);
 		super.construct(() => {
@@ -675,6 +690,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 	}
 
 	public destruct() {
+		this._loader?.off(CHANGED, this._syncScreenTextures);
 		this.companion?.dispose();this.companion=undefined;
 		window.removeEventListener("resize", this._fitHomeCamera);
 		this._atelier?.dispose();

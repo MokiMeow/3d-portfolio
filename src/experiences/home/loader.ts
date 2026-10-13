@@ -4,6 +4,7 @@ import { events as quickEvents } from "quick-threejs/lib/static";
 
 // EXPERIENCE
 import { HomeExperience } from ".";
+import { loadScreenVideo } from "./screen-video";
 
 // STATIC
 import {
@@ -43,8 +44,15 @@ import monitor_a_screen_record from "~/assets/videos/mohith-code.webm?url";
 import monitor_b_screen_record from "~/assets/videos/mohith-github.webm?url";
 import phone_screen_record from "~/assets/videos/phone_screen_record.webm?url";
 
-import computer_startup_audio from "~/assets/sounds/computer_startup.mp3?url";
-import empty_room_audio from "~/assets/sounds/empty_room_ambient_noise.mp3?url";
+import monitorAPoster from "~/assets/textures/mohith-code-poster.jpg?url";
+import monitorBPoster from "~/assets/textures/mohith-github-poster.jpg?url";
+import phonePoster from "~/assets/textures/phone_screen_record-poster.jpg?url";
+
+const screenVideos = {
+	monitor_a_screen_record,
+	monitor_b_screen_record,
+	phone_screen_record,
+};
 
 /**
  * [`quick-threejs#Resource`](https://www.npmjs.com/package/quick-threejs)
@@ -57,7 +65,8 @@ export class Loader extends ExperienceBasedBlueprint {
 
 	private _progress = 0;
 	private _availableTextures: { [name: string]: Texture } = {};
-	private _availableAudios: { [name: string]: AudioBuffer } = {};
+	private _disposeVideos: (() => void)[] = [];
+	private _screenPosters: Texture[] = [];
 	private _motionPreference?: MediaQueryList;
 	private _removeResourceListeners?: () => void;
 	private readonly _syncScreenPlayback = () => {
@@ -147,33 +156,21 @@ export class Loader extends ExperienceBasedBlueprint {
 				path: scene_container_baked_texture,
 			},
 
-			// VIDEO TEXTURES
+			// Still frames make the room independent of media buffering/autoplay.
 			{
 				name: "monitor_a_screen_record",
-				type: "video",
-				path: monitor_a_screen_record,
+				type: "texture",
+				path: monitorAPoster,
 			},
 			{
 				name: "monitor_b_screen_record",
-				type: "video",
-				path: monitor_b_screen_record,
+				type: "texture",
+				path: monitorBPoster,
 			},
 			{
 				name: "phone_screen_record",
-				type: "video",
-				path: phone_screen_record,
-			},
-
-			// AUDIO
-			{
-				name: "computer_startup_audio",
-				type: "audio",
-				path: computer_startup_audio,
-			},
-			{
-				name: "empty_room_audio",
-				type: "audio",
-				path: empty_room_audio,
+				type: "texture",
+				path: phonePoster,
 			},
 			// OTHER TEXTURES
 			{
@@ -197,11 +194,11 @@ export class Loader extends ExperienceBasedBlueprint {
 	private _initAvailableResource(source: Source, file: LoadedItem) {
 		if (file instanceof Texture) {
 			this.correctTextures(file);
+			// Screen UVs used VideoTexture's default vertical orientation.
+			if (source.name in screenVideos) file.flipY = true;
 			this._availableTextures[source.name] = file;
 			if (file instanceof VideoTexture) this._syncScreenPlayback();
 		}
-
-		if (file instanceof AudioBuffer) this._availableAudios[source.name] = file;
 
 		this.emit(CHANGED);
 	}
@@ -214,8 +211,17 @@ export class Loader extends ExperienceBasedBlueprint {
 		return this._availableTextures;
 	}
 
-	public get availableAudios() {
-		return this._availableAudios;
+	private _loadScreenVideos() {
+		for (const [name, url] of Object.entries(screenVideos)) {
+			this._disposeVideos.push(loadScreenVideo(url, texture => {
+				this._screenPosters.push(this._availableTextures[name]);
+				this.correctTextures(texture);
+				this._appResources.items[name] = texture;
+				this._availableTextures[name] = texture;
+				this._syncScreenPlayback();
+				this.emit(CHANGED);
+			}));
+		}
 	}
 
 	/** Correct resource textures color and flip faces. */
@@ -248,6 +254,7 @@ export class Loader extends ExperienceBasedBlueprint {
 		const onLoad = () => {
 			this._removeResourceListeners?.();
 			this.emit(LOADED, this._progress);
+			this._loadScreenVideos();
 		};
 
 		this._removeResourceListeners?.();
@@ -266,6 +273,10 @@ export class Loader extends ExperienceBasedBlueprint {
 	}
 
 	public destruct() {
+		for (const dispose of this._disposeVideos) dispose();
+		this._disposeVideos = [];
+		for (const poster of this._screenPosters) poster.dispose();
+		this._screenPosters = [];
 		this._removeResourceListeners?.();
 		this._motionPreference?.removeEventListener("change", this._syncScreenPlayback);
 		document.removeEventListener("visibilitychange", this._syncScreenPlayback);
