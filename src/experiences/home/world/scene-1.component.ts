@@ -511,7 +511,6 @@ export class Scene1Component extends SceneComponentBlueprint {
 			});
 			this._atelier.refresh(this._atelierState.value);
 			this.companion = createCompanion(this.modelScene,this._atelier.reflectionTexture,this._night,this._companionState.value,
-				()=>!this._experience.sound?.isMuted&&!document.hidden,
 				()=>{this.initSelectableObjects();if(this._ready.value&&this._experience.router?.currentRouteKey===pages.HOME_PAGE&&!this._experience.cameraAnimation?.enabled)
 					this._experience.interactions?.start(this.selectableObjects,this.modelScene);});
 		}

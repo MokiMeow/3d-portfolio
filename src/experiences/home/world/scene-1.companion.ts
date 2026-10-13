@@ -33,7 +33,6 @@ export function createCompanion(
   env: Texture,
   night: { value: number },
   state: CompanionState,
-  audible: () => boolean,
   ready: () => void,
 ) {
   const root = new Group(),
@@ -54,8 +53,7 @@ export function createCompanion(
     elapsed = 0,
     captionTimer: ReturnType<typeof setTimeout> | undefined;
   let motion: gsap.core.Timeline | undefined,
-    robot: Group | undefined,
-    utterance: SpeechSynthesisUtterance | undefined;
+    robot: Group | undefined;
   let rightArm: Object3D | undefined, rightExtension: Object3D | undefined;
   let head: Object3D | undefined,
     neck: Object3D | undefined,
@@ -107,23 +105,12 @@ export function createCompanion(
   shade.rotation.x = -Math.PI / 2;
   shade.position.y = -0.064;
   carriage.add(shade);
-  const say = (text: string, spoken = true) => {
+  const say = (text: string) => {
     state.caption = text;
     clearTimeout(captionTimer);
     captionTimer = setTimeout(() => {
       if (!disposed) state.caption = "";
     }, 5500);
-    if (spoken && audible() && "speechSynthesis" in window) {
-      if (utterance) window.speechSynthesis.cancel();
-      utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.9;
-      utterance.pitch = 1.12;
-      utterance.volume = 0.65;
-      const voices = window.speechSynthesis.getVoices();
-      utterance.voice =
-        voices.find((v) => v.localService && v.lang.startsWith("en")) ?? null;
-      window.speechSynthesis.speak(utterance);
-    }
   };
   const resetPose = () => {
     if (bootPlant) {
@@ -140,7 +127,7 @@ export function createCompanion(
     motion?.kill();
     resetPose();
     state.phase = "returning";
-    if (!silent) say("Heading back to my charging bay.", false);
+    if (!silent) say("Heading back to my charging bay.");
     motion = gsap
       .timeline({
         onComplete: () => {
@@ -176,7 +163,6 @@ export function createCompanion(
     resetPose();
     state.phase = "greeting";
     state.caption = "";
-    if (utterance && "speechSynthesis" in window) window.speechSynthesis.cancel();
     const hello = () => say(
       first
         ? "Hello! Welcome to Mohith’s lab."
@@ -266,7 +252,7 @@ export function createCompanion(
         ease: "power2.inOut",
         overwrite: true,
       });
-    if (state.plantOpen) say("A little green hope.", false);
+    if (state.plantOpen) say("A little green hope.");
   };
   selectables.push({
     object: dock,
@@ -403,7 +389,7 @@ export function createCompanion(
       sleeping = false;
       if (state.ready) {
         state.phase = "docked";
-        say("Lights on. Hello again.", false);
+        say("Lights on. Hello again.");
       }
     },
     update(delta: number, camera: Camera) {
@@ -457,13 +443,6 @@ export function createCompanion(
       chargingBay.led.color.setHex(
         sleeping ? 0x58694c : state.phase === "docked" ? 0xa9c297 : 0xd9b66f,
       );
-      if (
-        !audible() &&
-        utterance &&
-        "speechSynthesis" in window &&
-        window.speechSynthesis.speaking
-      )
-        window.speechSynthesis.cancel();
     },
     dispose() {
       disposed = true;
@@ -471,8 +450,6 @@ export function createCompanion(
       if (compartment) gsap.killTweensOf(compartment.rotation);
       if (bootPlant) gsap.killTweensOf(bootPlant.position);
       clearTimeout(captionTimer);
-      if (utterance && "speechSynthesis" in window)
-        window.speechSynthesis.cancel();
       chargingBay.dispose();
       root.removeFromParent();
       geometries.forEach((g) => g.dispose());
