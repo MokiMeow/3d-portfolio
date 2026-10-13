@@ -17,6 +17,7 @@ import {
   SphereGeometry,
   TorusGeometry,
   Texture,
+  TextureLoader,
   MeshStandardMaterial,
   HemisphereLight,
   DirectionalLight,
@@ -42,7 +43,7 @@ import { ATELIER_PALETTES, drawAtelierArt } from "./atelier-art";
 import roomTile from "./room-tile.json";
 import { RECORD_ARM } from "~/utils/room-mechanics";
 import { createRecordCue } from "~/utils/record-cue";
-import { drawNewspaperCover } from "~/utils/newspaper-art";
+import { NEWSPAPER_COVER } from "~/static/newspaper.static";
 
 // Surveyed from the baked room, including its tile thickness.
 const FLOOR = 0.339813;
@@ -60,7 +61,7 @@ export function createAtelier(
   scene.add(root);
   const geometries = new Set<BufferGeometry>();
   const materials = new Set<SurfaceMaterial>();
-  const textures = new Set<CanvasTexture>();
+  const textures = new Set<Texture>();
   const selectables: SelectableObject[] = [];
   const floor = new Group(),
     architecture = new Group(),
@@ -1032,11 +1033,21 @@ export function createAtelier(
   newspaper.rotation.y = -.19;
   sideTable.add(newspaper);
   for (let i = 0; i < 3; i++) {
-    const page = box(newspaper, [.305, .002, .407], [i * .0015, i * .0025, 0], i % 2 ? '#cfc7b5' : '#e1d9c8');
+    const page = box(newspaper, [.305, .002, .457], [i * .0015, i * .0025, 0], i % 2 ? '#d4d1c9' : '#e7e5df');
     page.rotation.y = i * .005;
   }
-  const newsTexture = canvasTexture(768, 1024, drawNewspaperCover);
-  const cover = panel(newspaper, .305, .407, [.003, .0078, 0], textured(newsTexture));
+  // Reuse the exact front page without stretching it. This small, optional image
+  // never gates entry to the room; delayed loading also respects scene disposal.
+  const newsMaterial = lightMaterial(new MeshBasicMaterial({ color: '#e7e5df', side: DoubleSide }));
+  const newsTexture = new TextureLoader().load(NEWSPAPER_COVER, texture => {
+    if (disposed) { texture.dispose(); return; }
+    texture.anisotropy = Math.min(8, finishes.renderer.capabilities.getMaxAnisotropy());
+    newsMaterial.map = texture;
+    newsMaterial.color.set('#ffffff');
+    newsMaterial.needsUpdate = true;
+  });
+  textures.add(newsTexture);
+  const cover = panel(newspaper, .305, .457, [.003, .0078, 0], newsMaterial);
   cover.rotation.x = -Math.PI / 2;
   clickable(cover, 'newspaper');
   lathe(sideTable, [[0, 0], [.06, 0], [.075, .012], [.079, .112], [.075, .124], [.067, .124],

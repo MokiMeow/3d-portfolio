@@ -1,52 +1,77 @@
+export const NEWSPAPER_COVER = '/newspaper/founders-front-page.jpg';
+
+/** Original satire; the supplied cover is reproduced intact, including its parody labels. */
 export const NEWSPAPER_PAGES = [
+  { section: 'Front page', short: 'Front page', kind: 'cover' },
   {
-    section: 'The front page', title: 'Small room. Big ideas.', subtitle: 'A place to make, pause and notice.', art: 'room',
-    caption: 'An original drawing of a place for unfinished ideas.',
-    articles: [
-      { title: 'The room is part of the story', text: 'A portfolio can be a list of things made. It can also be somewhere to spend a little time. This room lets the work share a space with records, a newspaper, a plant and the ordinary objects around a desk. Start anywhere. There is no correct order.' },
-      { title: 'Take the long way round', text: 'Turn the camera. Look closer. Open a drawer, try the phone, change the drawing or put a song on. Small interactions reward curiosity without asking you to finish a tour. The best detail is often the one you discover yourself.' },
-    ], note: 'Inside this edition: listening notes / design margins / work in progress / a little green / the back page',
+    section: 'Bengaluru & beyond', short: 'City', kind: 'city',
+    kicker: 'THE CITY THAT NEVER SAYS “I’M FIVE MINUTES AWAY” ACCURATELY',
+    title: 'Man leaves early.\nReaches at the usual time.',
+    subtitle: 'A brave experiment in Bengaluru timekeeping ends exactly where everybody expected.',
+    byline: 'Our entirely fictional city correspondent',
+    paragraphs: [
+      'BENGALURU — A local commuter set his alarm forty minutes earlier on Tuesday, only to arrive at the office at his regular time. “The traffic also left early,” he told this newspaper, looking respectfully at a signal he now considers a colleague.',
+      'The journey included three podcasts, one career rethink and a meaningful exchange of eye contact with the same auto driver at seven consecutive junctions. By the fifth signal, they were discussing a joint birthday celebration.',
+      'His manager praised the initiative, then asked whether tomorrow he could simply arrive yesterday. The commuter has requested a work-from-signal arrangement. Negotiations are currently at a standstill.',
+    ],
+    caption: 'At the signal: enough time for a cutting chai, a full conversation and a second cutting chai.',
+    briefs: [
+      { title: 'Chai stall rejects app, retains customers', text: 'The owner says his recommendation engine already knows everyone’s order. “You look tired. Strong tea.” Investors have described the system as suspiciously efficient.' },
+      { title: '“On the way” gets a new definition', text: 'A neighbourhood friend group has voted to interpret the phrase as “currently choosing a shirt”. “Almost there” will continue to mean “looking for keys”.' },
+      { title: 'Pigeon secures corner office', text: 'The new occupant of a balcony refuses to pay rent, attends no meetings and has already brought a colleague. Residents describe its confidence as senior-management level.' },
+    ],
+    quote: 'The destination is temporary. The signal is a community.',
+    ribbon: 'CITY FORECAST  /  Cloudy, with a 90% chance of someone saying “nice weather, no?”',
   },
   {
-    section: 'Listening notes', title: 'Give a record its time.', subtitle: 'A small pause between one thought and the next.', art: 'record',
-    caption: 'Side A: the room soundtrack. Side B: whatever you bring.',
-    articles: [
-      { title: 'One room, two ways to listen', text: 'The room has its own lo-fi soundtrack. The record player also accepts a music link, so the listening corner can sound like you. Start a track and the needle meets the groove; pause it and the arm returns to rest.' },
-      { title: 'No hurry to skip', text: 'Some ideas arrive while your attention is elsewhere. A familiar melody, a quiet desk, a page you have already read. Leave a little space between tasks. Even the most carefully built room needs a moment when nothing is asking for a click.' },
-    ], note: 'Listening suggestion: one favourite song, all the way through. No multitasking required.',
+    section: 'Science, mildly applied', short: 'Tech', kind: 'tech',
+    kicker: 'FROM THE DEPARTMENT OF UNNECESSARY INNOVATION',
+    title: 'AI does every task.\nExcept naming the file.',
+    subtitle: 'Breakthrough system saves work as final_final_REAL_final_v7. Industry feels seen.',
+    byline: 'The desk of advanced guesswork',
+    paragraphs: [
+      'LAB REPORT — An experimental assistant has written a thousand lines of code, organised a calendar and summarised an unread document. It then spent twenty-three minutes deciding whether to call a folder “new” or “new2”.',
+      'The research team called this a landmark moment. “We were looking for human-like intelligence,” said a fictional spokesperson. “We have successfully reproduced human-like desktop management.” A second model was summoned to locate the file. It created a duplicate.',
+      'Meanwhile, the office printer has become the first machine to achieve complete independence. It refuses all instructions, prints only when nobody is watching, and has asked the team to respect its creative process.',
+    ],
+    caption: 'Our laboratory assistant has solved the problem by moving it to a different folder.',
+    briefs: [
+      { title: 'Password demands one happy memory', text: 'After uppercase, lowercase, symbols and numbers, the form now wants “something meaningful”. The user entered the day before passwords existed. Rejected: too predictable.' },
+      { title: 'Bug disappears during screen share', text: 'A defect that appeared 47 times before the call is now behaving impeccably. Engineers have proposed keeping a manager on video permanently. Nobody has volunteered.' },
+      { title: 'Smart fridge knows too much', text: 'The fridge sent a notification reading “again?” at 1:12 a.m. Its owner has disabled analytics and returned to opening the door very quietly.' },
+    ],
+    quote: 'It works on my machine. Unfortunately, my machine is on leave.',
+    ribbon: 'LAB NOTE  /  This page contains no actual scientific breakthroughs. The printer remains uncooperative.',
   },
   {
-    section: 'In the margins', title: 'Leave a little room.', subtitle: 'Not every empty space needs filling.', art: 'room',
-    caption: 'A drawing can begin with the space around an object.',
-    articles: [
-      { title: 'First, decide what matters', text: 'A strong composition gives the eye somewhere to begin. Make the important thing clear, then let the quieter details support it. If every element is calling for attention, none of them gets heard. Contrast is useful only when it has a purpose.' },
-      { title: 'Motion should explain', text: 'A drawer slides from where it belongs. A needle lifts before it moves. A page turns because you asked it to. Motion feels natural when the beginning, the movement and the landing tell the same story. A small, well-timed gesture can say more than a whole screen of effects.' },
-    ], note: 'A useful test: remove one thing. If the idea becomes clearer, keep the space.',
+    section: 'Sport & the good life', short: 'Weekend', kind: 'sport',
+    kicker: 'LIVE FROM THE STADIUM BETWEEN TWO PARKED SCOOTERS',
+    title: 'Third umpire is aunty\non the second floor.',
+    subtitle: 'Gully cricket adopts a review system. Her decision is final. So is dinner at eight.',
+    byline: 'Our boundary-wall correspondent',
+    paragraphs: [
+      'SPORTS DESK — After a disputed one-tip-one-hand catch, the lane appointed a neutral observer: the neighbour who had been watching the entire match while hanging laundry. She immediately overturned three decisions and asked who had hit her flowerpot.',
+      'The new rules are clear. The scooter is four, the terrace is six and the locked house is “you hit it, you get it”. A ball landing in the pressure-cooker whistle zone may be declared dinner.',
+      'Play was suspended when the only person who owned a bat went home. Analysts called this a dramatic shift in the balance of power. Both sides have appealed to his mother.',
+    ],
+    caption: 'Decision pending. The upstairs review system is checking whether that was her window.',
+    briefs: [
+      { title: 'Playlist friend skips his own song', text: 'After saying “wait for the good part” for three minutes, he has quietly moved to the next track. The group has placed his aux-cable privileges under review.' },
+      { title: 'Dosa survives photograph, barely', text: 'A breakfast spent eleven minutes posing beside a filter coffee. Witnesses say it was finally eaten after the caption “simple joys” required six drafts.' },
+      { title: 'Book bought. Personality updated.', text: 'A reader has placed a difficult novel on the coffee table and is now referring to weekends as “a slower season”. Page two is scheduled for next month.' },
+    ],
+    quote: 'One more over is not a measure of time. It is a way of life.',
+    ribbon: 'RESULTS  /  Street XI: 84, approximately.  /  Lost balls: 2.  /  Arguments: still counting.',
   },
-  {
-    section: 'From the workbench', title: 'Under the surface.', subtitle: 'A few different ways to ask: how does this work?', art: 'room',
-    caption: 'The visible interface is only one layer of a project.',
-    articles: [
-      { title: 'Bare Metal', text: 'An operating-system project in C and Assembly. Working close to the machine makes familiar abstractions visible again: memory, interrupts and the instructions underneath a running program.' },
-      { title: 'ZKAuth', text: 'An exploration of zero-knowledge authentication. The interesting question is what a system needs to verify, and what information it should never need to collect.' },
-      { title: 'OARS & Aurora', text: 'Two projects exploring the systems around AI work: security governance and engineering orchestration. Find their repository links in the projects area, alongside the rest of the work.' },
-    ], note: 'For implementations and project details, visit the Projects station after reading.',
-  },
-  {
-    section: 'Small observations', title: 'A little green goes far.', subtitle: 'Something living in a room full of machines.', art: 'plant',
-    caption: 'Light, soil, a little patience. A study in ordinary things.',
-    articles: [
-      { title: 'Details have a job', text: 'The dark soil beneath a plant, a folded edge of paper, a cup placed within reach: these things give an object a reason to be somewhere. Detail is not just adding more geometry. It is making the small decisions agree with the larger scene.' },
-      { title: 'A very small optimist', text: 'WALL-E has a place in the room too. Say hello, then take a closer look at his little plant. A mechanical character can still feel curious and warm. Sometimes a raised arm and a change of gaze are all the introduction you need.' },
-    ], note: 'Field note 05: there is always room for one more leaf.',
-  },
-  {
-    section: 'The back page', title: 'See you around.', subtitle: 'The paper ends. The room is still yours.', art: 'record',
-    caption: 'Put the paper down whenever you are ready.',
-    articles: [
-      { title: 'Classifieds', text: 'WANTED: one good idea, slightly unusual. Experience in surviving a blank canvas preferred. FOUND: a quiet corner, a warm record and several unfinished thoughts. No reward necessary.' },
-      { title: 'The desk forecast', text: 'Scattered sketches, with a chance of another iteration. Visibility improves after a short break. Expect occasional music and a robot waving hello. Tomorrow’s outlook: still making things.' },
-      { title: 'One last observation', text: 'You do not have to inspect every object to get the picture. A few details are enough to make a place feel like someone belongs there. Thanks for spending a moment in this one.' },
-    ], note: 'The Lab Post · An original studio zine · Three sheets, six sides · End of edition',
-  },
+  { section: 'The puzzle page', short: 'Puzzles', kind: 'puzzles' },
+  { section: 'Last, but least serious', short: 'Back page', kind: 'back' },
+] as const;
+
+export const NEWSPAPER_CLASSIFIEDS = [
+  { label: 'WANTED', title: 'One charger. Any charger.', text: 'Must fit a drawer containing eleven almost-correct cables. Excellent opportunity for the right connector.' },
+  { label: 'LOST & FOUND', title: 'A weekend, barely used.', text: 'Last seen on Friday evening. Answers to “we should do something”. If found, please return before Monday.' },
+  { label: 'TO LET', title: 'Spacious browser tab.', text: 'Unfurnished, opened six months ago. Close to 38 other tabs. Owner cannot remember why it is there.' },
+  { label: 'SITUATIONS VACANT', title: 'Chief Biscuit Officer.', text: 'Must know the precise moment before a biscuit falls into tea. Experience with structural failure preferred.' },
+  { label: 'PERSONAL', title: 'Dear missing sock,', text: 'It has been three washes. Your partner is trying to move on. Please call. No questions asked.' },
+  { label: 'PUBLIC NOTICE', title: 'The group trip is happening.', text: 'Dates, destination, budget and attendees are yet to be decided. The group name has been finalised.' },
 ] as const;
