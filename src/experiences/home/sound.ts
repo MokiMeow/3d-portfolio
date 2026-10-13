@@ -140,10 +140,10 @@ export class Sound extends ExperienceBasedBlueprint {
 		this.emit(events.CHANGED);
 	}
 
-	public async toggleMute() {
-		const shouldEnable = this.isMuted;
-		if (shouldEnable) await this.startFromGesture();
-		else { this._setVolume(0); this.pauseMusic(); }
+	/** The transport button represents the soundtrack, not a silent master gain. */
+	public async toggleMusic() {
+		if (this.musicPlaying) { this._setVolume(0); this.pauseMusic(); }
+		else await this.startFromGesture();
 	}
 
 	public construct() {
@@ -212,5 +212,10 @@ export class Sound extends ExperienceBasedBlueprint {
 		this.removeAllListeners();
 	}
 
-	public update() {}
+	public update() {
+		// Startup audio can finish loading before the player UI mounts. Publish
+		// real WebAudio playback for the indicator and the record on every frame.
+		if (this._music.value.source === 'room')
+			this._music.value.playing = this.musicPlaying;
+	}
 }

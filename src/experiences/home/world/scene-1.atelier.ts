@@ -8,6 +8,7 @@ import {
   Float32BufferAttribute,
   Group,
   InstancedMesh,
+  IcosahedronGeometry,
   Matrix4,
   Mesh,
   MeshBasicMaterial,
@@ -41,6 +42,7 @@ import { ATELIER_PALETTES, drawAtelierArt } from "./atelier-art";
 import roomTile from "./room-tile.json";
 import { RECORD_ARM } from "~/utils/room-mechanics";
 import { createRecordCue } from "~/utils/record-cue";
+import { drawNewspaperCover } from "~/utils/newspaper-art";
 
 // Surveyed from the baked room, including its tile thickness.
 const FLOOR = 0.339813;
@@ -90,6 +92,7 @@ export function createAtelier(
   const ink = "#292d2c",
     walnut = "#895d44",
     brass = "#b19969";
+  const shelfCenterX = 5.45;
 
   const geo = <T extends BufferGeometry>(geometry: T, shaded = true): T => {
     geometries.add(geometry);
@@ -412,22 +415,10 @@ export function createAtelier(
     roughness: .52, envMap: probe.texture, envMapIntensity: .18 }));
   for (const color of [walnut, "#8f7354", "#aa8460", "#9c6648"])
     materialCache.set(color + true, woodMaterial);
-  const plaster = canvasTexture(512, 512, ctx => {
-    const pixels = ctx.createImageData(512, 512);
-    let seed = 29;
-    for (let i = 0; i < pixels.data.length; i += 4) {
-      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-      const grain = 233 + (seed >>> 30);
-      pixels.data[i] = pixels.data[i + 1] = pixels.data[i + 2] = grain;
-      pixels.data[i + 3] = 255;
-    }
-    ctx.putImageData(pixels, 0, 0);
-  });
-  plaster.wrapS = plaster.wrapT = RepeatWrapping; plaster.repeat.set(8, 8);
   for (const color of ["#514d4a", "#484443", "#494645", "#55504e"]) {
     materialCache.set(color + true, lightMaterial(new MeshStandardMaterial({
-      color: new Color(color).convertLinearToSRGB(), map: plaster, bumpMap: plaster,
-      bumpScale: .0004, roughness: .96, envMap: probe.texture, envMapIntensity: .18,
+      color: new Color(color).convertLinearToSRGB(),
+      roughness: .96, envMap: probe.texture, envMapIntensity: .18,
     })));
   }
   const tileMaterial = finishes.room ? textured(finishes.room) : mat("#625b59");
@@ -463,12 +454,6 @@ export function createAtelier(
     const g = ctx.createLinearGradient(0, 0, 512, 512);
     g.addColorStop(0, "#4d4a49"); g.addColorStop(.55, "#5c5856"); g.addColorStop(1, "#47413f");
     ctx.fillStyle = g; ctx.fillRect(0, 0, 512, 512);
-    // Low contrast plaster grain, deterministic and baked once.
-    for (let i = 0; i < 5000; i++) {
-      const x = (i * 193) % 512, y = (i * 73 + Math.floor(i / 512) * 37) % 512;
-      ctx.fillStyle = i % 2 ? "#ffffff03" : "#00000004";
-      ctx.fillRect(x, y, 1, 1);
-    }
     const base = ctx.createLinearGradient(0, 390, 0, 512);
     base.addColorStop(0, "#0000"); base.addColorStop(1, "#0007");
     ctx.fillStyle = base; ctx.fillRect(0, 390, 512, 122);
@@ -524,8 +509,8 @@ export function createAtelier(
   });
   const wallWashMaterial = textured(wash, true);
   panel(architecture, 3.25, 2.8, [3.14, 3.34, -2.795], wallWashMaterial);
-  panel(architecture, 1.5, 1.7, [5.03, 3.56, -2.795], wallWashMaterial);
-  box(architecture, [1.2, .014, .14], [5.03, 4.417, -2.55], "#edb67b");
+  panel(architecture, 1.5, 1.7, [shelfCenterX, 3.56, -2.795], wallWashMaterial);
+  box(architecture, [1.2, .014, .14], [shelfCenterX, 4.417, -2.55], "#edb67b");
 
   // A built-in materials bench along the back wall: storage belongs here,
   // with the printer at its left end and a clear aisle around the drawing desk.
@@ -1041,18 +1026,19 @@ export function createAtelier(
   shadow(furniture, 3.98, 6.85, 1.1, 1.1);
   lathe(sideTable, [[0, .006], [.27, .006], [.31, .027], [.28, .055], [.105, .09], [.058, .18],
     [.055, .43], [.09, .57], [.36, .602], [.426, .614], [.438, .638], [.426, .667], [0, .674]], [0, 0, 0], walnut);
-  const journal = book(sideTable, .028, .34, .25, [0, .692, 0], 1);
-  journal.rotation.z = Math.PI / 2; journal.rotation.y = .15;
-  const journalCover = canvasTexture(256, 256, ctx => {
-    ctx.fillStyle = "#b6a589"; ctx.fillRect(0, 0, 256, 256);
-    ctx.fillStyle = "#42423a"; ctx.font = "22px Georgia";
-    ctx.fillText("Small things,", 24, 48); ctx.fillText("observed.", 24, 76);
-    ctx.strokeStyle = "#716851"; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.ellipse(127, 160, 53, 31, -.5, 0, Math.PI * 2); ctx.stroke();
-    ctx.font = "11px monospace"; ctx.fillText("FIELD NOTES / 01", 24, 230);
-  });
-  const cover = panel(sideTable, .32, .23, [0, .708, 0], textured(journalCover));
-  cover.rotation.set(-Math.PI / 2, 0, .15);
+  // Three thin double-sided sheets; keep the cup beside the readable cover.
+  const newspaper = new Group();
+  newspaper.position.set(-.105, .679, -.065);
+  newspaper.rotation.y = -.19;
+  sideTable.add(newspaper);
+  for (let i = 0; i < 3; i++) {
+    const page = box(newspaper, [.305, .002, .407], [i * .0015, i * .0025, 0], i % 2 ? '#cfc7b5' : '#e1d9c8');
+    page.rotation.y = i * .005;
+  }
+  const newsTexture = canvasTexture(768, 1024, drawNewspaperCover);
+  const cover = panel(newspaper, .305, .407, [.003, .0078, 0], textured(newsTexture));
+  cover.rotation.x = -Math.PI / 2;
+  clickable(cover, 'newspaper');
   lathe(sideTable, [[0, 0], [.06, 0], [.075, .012], [.079, .112], [.075, .124], [.067, .124],
     [.064, .115], [.06, .023], [0, .023]], [.12, .701, .1], "#7a8a7a");
   cylinder(sideTable, .064, .002, [.12, .798, .1], "#352e24");
@@ -1085,7 +1071,6 @@ export function createAtelier(
   const bulb = ball(lamp, [.073, .096, .073], [-.08, 2.62, 0], "#f3dbaa");
   bulb.material = lightMaterial(new MeshBasicMaterial({ color: 0xf3dbaa }));
   cylinder(lamp, .041, .095, [-.08, 2.51, 0], brass);
-  tube(lamp, [[0, .065, 0], [-.2, .02, -.03], [-.34, .018, -.14], [-.4, .017, -.44]], .008, "#292d2c");
   const lampPool = canvasTexture(128, 128, (ctx) => {
     const g = ctx.createRadialGradient(64, 64, 1, 64, 64, 64);
     g.addColorStop(0, "#f1c57c60");
@@ -1111,7 +1096,27 @@ export function createAtelier(
   lathe(plant, [[0, .01], [.158, .01], [.177, .025], [.224, .407], [.236, .412], [.236, .443],
     [.214, .45], [.208, .438], [.207, .41], [.163, .065], [0, .065]], [0, 0, 0], "#a57857");
   lathe(plant, [[0, .01], [.215, .01], [.235, .02], [.237, .035], [.218, .048], [0, .048]], [0, 0, 0], "#906245");
-  cylinder(plant, 0.207, 0.012, [0, 0.411, 0], "#3b352b");
+  const earth = cylinder(plant, .207, .016, [0, .409, 0], '#30281f');
+  const soilTexture = canvasTexture(256, 256, ctx => {
+    ctx.fillStyle = '#3a3026'; ctx.fillRect(0, 0, 256, 256);
+    // Broad, low-contrast colour patches survive minification without glitter.
+    for (let i = 0; i < 70; i++) {
+      ctx.fillStyle = ['#40352a', '#332b22', '#45392c'][i % 3];
+      ctx.beginPath(); ctx.ellipse((i * 73) % 256, (i * 113) % 256, 9 + i % 8, 5 + i % 6, i, 0, Math.PI * 2); ctx.fill();
+    }
+  });
+  earth.material = lightMaterial(new MeshStandardMaterial({ map: soilTexture, roughness: 1 }));
+  const crumbGeometry = geo(new IcosahedronGeometry(1, 1));
+  const soilMaterials = ['#332b23', '#413429', '#514232', '#867a61'].map(color =>
+    lightMaterial(new MeshStandardMaterial({ color: new Color(color).convertLinearToSRGB(), roughness: 1 })));
+  for (let i = 0; i < 62; i++) {
+    const angle = i * 2.39996, radius = .191 * Math.sqrt((i + .5) / 62);
+    const crumb = new Mesh(crumbGeometry, soilMaterials[i % 17 === 0 ? 3 : i % 3]);
+    const size = .008 + (i % 5) * .0016;
+    crumb.position.set(Math.cos(angle) * radius, .419 + Math.sin(i * 3) * .002, Math.sin(angle) * radius);
+    crumb.scale.set(size * 1.25, size * .52, size);
+    crumb.rotation.set(i * .37, i, i * .71); plant.add(crumb);
+  }
   const leafTexture = canvasTexture(256, 512, ctx => {
     ctx.fillStyle = "#81957b"; ctx.fillRect(0, 0, 256, 512);
     ctx.strokeStyle = "#bac6a455"; ctx.lineWidth = 2;
@@ -1145,17 +1150,17 @@ export function createAtelier(
   box(
     architecture,
     [1.37, 0.07, 0.4],
-    [5.03, 4.46, -2.55],
+    [shelfCenterX, 4.46, -2.55],
     walnut,
     0.02,
   );
   for (let i = 0; i < 7; i++) {
     const h = .35 + .04 * (i % 3);
     const volume = book(architecture, .075 + .01 * (i % 2), h, .23,
-      [4.53 + i * .093, 4.495 + h / 2, -2.54], i);
+      [shelfCenterX - .5 + i * .093, 4.495 + h / 2, -2.54], i);
     volume.rotation.z = i === 6 ? -.12 : 0;
   }
-  cylinder(architecture, 0.12, 0.23, [5.47, 4.63, -2.54], "#c1a57d");
+  cylinder(architecture, 0.12, 0.23, [shelfCenterX + .44, 4.63, -2.54], "#c1a57d");
   // A low bookcase defines the listening nook without closing the view.
   // Its open end is the passage from the design bench into the new bay.
   const bookcase = new Group();
@@ -1174,21 +1179,27 @@ export function createAtelier(
   }
   shadow(furniture, 1.71, 5.9, .85, 3.3);
 
-  // Small pinned process sketches over the printer, rather than wall signage.
-  const sketches = canvasTexture(512, 512, ctx => {
-    ctx.fillStyle = "#bba994"; ctx.fillRect(0, 0, 512, 512);
-    ctx.strokeStyle = "#51483f"; ctx.lineWidth = 2;
-    for (let i = 0; i < 4; i++) {
-      const x = 40 + i % 2 * 240, y = 55 + Math.floor(i / 2) * 240;
-      ctx.strokeRect(x, y, 175, 155);
-      ctx.beginPath(); ctx.moveTo(x + 10, y + 30); ctx.lineTo(x + 150, y + 30); ctx.stroke();
-      ctx.beginPath(); ctx.arc(x + 85, y + 90, 39 - i * 4, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x + 25, y + 130); ctx.lineTo(x + 145, y + 60); ctx.stroke();
+  // A quiet botanical field study beside the large composition.
+  const sketches = canvasTexture(768, 896, ctx => {
+    ctx.fillStyle = '#c9bc9f'; ctx.fillRect(0, 0, 768, 896);
+    ctx.fillStyle = '#43483a'; ctx.font = '20px monospace'; ctx.fillText('FIELD STUDY / 01', 64, 81);
+    ctx.font = 'italic 44px Georgia'; ctx.fillText('Ordinary, observed.', 64, 145);
+    ctx.strokeStyle = '#596049'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(302, 753); ctx.bezierCurveTo(386, 602, 319, 406, 445, 237); ctx.stroke();
+    for (let i = 0; i < 6; i++) {
+      const x = 346 + Math.max(0, i - 2) * 17, y = 682 - i * 74, d = i % 2 ? 1 : -1;
+      ctx.fillStyle = i % 2 ? '#727857' : '#596649'; ctx.beginPath(); ctx.moveTo(x, y);
+      ctx.bezierCurveTo(x + d * 83, y + 20, x + d * 171, y - 53, x + d * 142, y - 111);
+      ctx.bezierCurveTo(x + d * 40, y - 102, x + d * 22, y - 55, x, y); ctx.fill();
+      ctx.strokeStyle = '#b5bb8b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y);
+      ctx.quadraticCurveTo(x + d * 52, y - 52, x + d * 134, y - 104); ctx.stroke();
     }
+    ctx.strokeStyle = '#717360'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(440, 493); ctx.lineTo(646, 459); ctx.stroke();
+    ctx.fillStyle = '#43483a'; ctx.font = '16px monospace'; ctx.fillText('light / leaf', 529, 440);
+    ctx.fillRect(64, 808, 640, 1); ctx.font = '17px Georgia'; ctx.fillText('A little green, a little patience.', 64, 848);
   });
   const processSketch = panel(architecture, 1.12, 1.23, [.88, 3.55, -2.76], textured(sketches));
   processSketch.rotation.z = -.035;
-  clickable(processSketch, "wireframe");
   cylinder(architecture, .026, .022, [.88, 4.1, -2.73], "#b78652").rotation.x = Math.PI / 2;
 
   // Fold stationary joinery into material batches. Keep only the things that

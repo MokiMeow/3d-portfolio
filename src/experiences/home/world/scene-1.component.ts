@@ -53,6 +53,7 @@ import { createWallLightSwitch, LIGHT_SWITCH_POSITION } from "./scene-1.light-sw
 import { createInteractiveDrawers } from "./scene-1.drawers";
 import { createAtelier } from "./scene-1.atelier";
 import { initialAtelierState, type AtelierAction, type AtelierState } from "~/common/models/atelier.model";
+import type { LabDevice } from "~/common/models/lab-device.model";
 import { initialMusicState, type MusicState } from "~/common/models/music.model";
 import { createCompanion } from './scene-1.companion';
 import { splitMeshParts } from './mesh-parts';
@@ -767,6 +768,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 		if (action === "wireframe") state.wireframe = !state.wireframe;
 		if (action === "lamp") state.lamp = !state.lamp;
 		if (action === "sound") this._music.value.open = true;
+		if (action === "newspaper") useState<boolean>('isNewspaperOpen', () => false).value = true;
 		if (action === "print" && !state.printing) {
 			state.printing = true;
 			this._atelier.print(() => { state.printing = false; state.printed = true; });
@@ -822,7 +824,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 				? [{ object: this.monitorBScreen, externalLink: Config.GITHUB_LINK }]
 				: []),
 			...(this.phoneScreen
-				? [{ object: this.phoneScreen, link: "/contact" }]
+				? [{ object: this.phoneScreen, onSelect: () => { useState<LabDevice>("activeLabDevice", () => null).value = "phone"; } }]
 				: []),
 		];
 	}

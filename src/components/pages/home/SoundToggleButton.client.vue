@@ -1,26 +1,29 @@
 <script setup lang="ts">
 import { HomeExperience } from "~/experiences/home";
+import { initialMusicState, type MusicState } from '~/common/models/music.model';
 
 const experience = new HomeExperience();
 const isSoundMuted = useState("isSoundMuted");
+const music = useState<MusicState>('labMusic', initialMusicState);
+const playing = computed(() => music.value.playing && !isSoundMuted.value);
 
 const onPress = () => {
-	void experience.sound?.toggleMute();
+	void experience.sound?.toggleMusic();
 };
 </script>
 
 <template>
 	<button
 		@click="onPress"
-		:aria-label="`${isSoundMuted ? 'Enable' : 'Mute'} scene sound`"
-		:aria-pressed="!isSoundMuted"
-		:title="`${isSoundMuted ? 'Enable' : 'Disable'} Sound`"
+		:aria-label="playing ? 'Pause room soundtrack' : 'Play room soundtrack'"
+		:aria-pressed="playing"
+		:title="playing ? 'Pause soundtrack' : 'Play soundtrack'"
 	>
 		<svg
 			viewBox="0 0 38 25"
 			fill="none"
 			:class="`transition-transform scale-y-100 translate-y-0  ${
-				isSoundMuted ? '' : 'active'
+				playing ? 'active' : ''
 			}`"
 		>
 			<path

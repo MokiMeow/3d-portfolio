@@ -11,7 +11,7 @@ const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
 const exported = {};
 vm.runInNewContext(source, {
   exports: exported,
-  require: (name) => name.includes('blueprint') ? { ExperienceBasedBlueprint: class {} } : {},
+  require: (name) => name.includes('blueprint') ? { ExperienceBasedBlueprint: class {} } : { events: { CHANGED: 'changed' } },
 });
 function sound(source, actualPlayback, uiPlayback) {
   const subject = Object.create(exported.Sound.prototype);
@@ -87,4 +87,49 @@ test('entry playback and both transports reach the deck before a room is selecte
   assert.deepEqual(frames.pop(), [true, false]);
   playback.pauseMusic(); world.update();
   assert.deepEqual(frames.pop(), [false, false]);
+});
+
+test('the sound indicator follows actual startup playback, not only master volume', () => {
+  const room = sound('room', true, false);
+  room.update();
+  assert.equal(room._music.value.playing, true);
+  room._lofi_audio.isPlaying = false;
+  room.update();
+  assert.equal(room._music.value.playing, false);
+});
+
+test('a paused startup soundtrack resumes in one click even while the scene is unmuted', async () => {
+  const room = sound('room', false, false);
+  let started = 0;
+  room.startFromGesture = async () => { started++; };
+  room._setVolume = value => { room._muted = value === 0; };
+  await room.toggleMusic();
+  assert.equal(started, 1);
+});
+
+test('entry starts a delayed lo-fi download without opening the player, and the same transport pauses and resumes it', async () => {
+  const room = sound('room', false, false);
+  room._muted = true;
+  room._music.value.open = false;
+  room.emit = () => {};
+  room.listener.context.state = 'suspended';
+  room.listener.context.resume = async () => { room.listener.context.state = 'running'; };
+  room.listener.setMasterVolume = () => {};
+  room._lofi_audio.play = function () { this.isPlaying = true; };
+  let resolveAudio;
+  const loaded = new Promise(resolve => { resolveAudio = resolve; });
+  room._loadLofi = () => loaded;
+  const entering = room.startFromGesture();
+  assert.equal(room.musicPlaying, false);
+  resolveAudio(room._lofi_audio);
+  await entering;
+  room.update();
+  assert.equal(room.musicPlaying, true);
+  assert.equal(room._music.value.playing, true);
+  assert.equal(room._music.value.open, false);
+  await room.toggleMusic();
+  assert.equal(room.musicPlaying, false);
+  await room.toggleMusic();
+  assert.equal(room.musicPlaying, true);
+  assert.equal(room._music.value.open, false);
 });

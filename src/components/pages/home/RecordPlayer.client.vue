@@ -207,7 +207,7 @@ watch(
       compact.value = false;
       await nextTick();
       // Do not open the phone keyboard until the listener chooses the link field.
-    } else if (current.value) close();
+    } else close();
   },
 );
 watch(muted, (value) => {

@@ -4,6 +4,7 @@ export type AtelierAction =
   | "wireframe"
   | "print"
   | "lamp"
+  | "newspaper"
   | "sound";
 
 export interface AtelierState {

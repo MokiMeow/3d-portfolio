@@ -63,7 +63,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeyDown));
 								class="flex items-start justify-between gap-4 py-4 transition-colors border-t group border-white/10 hover:border-white/40"
 							>
 								<span>
-									<strong class="flex items-center gap-3 text-lg font-semibold tracking-tight"><img v-if="'logo' in project" :src="project.logo" alt="" width="30" height="30"/>{{ project.title }}</strong>
+									<strong class="text-lg font-semibold tracking-tight">{{ project.title }}</strong>
 									<span class="block mt-1 text-sm leading-6 text-light/65">{{ project.description }}</span>
 								</span>
 								<span aria-hidden="true" class="mt-1 transition-transform text-light/50 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-light">↗</span>

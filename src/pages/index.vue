@@ -172,6 +172,7 @@ onBeforeRouteUpdate((route) => {
 		<LazyHomeLabDeviceDialog />
 		<HomeRecordPlayer />
 		<HomeCompanion />
+		<HomeNewspaper />
 	</main>
 </template>
 
