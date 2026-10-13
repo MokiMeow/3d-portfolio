@@ -1,4 +1,3 @@
-export type AtelierView = "workroom" | "atelier" | "table" | "listen";
 export type AtelierAction =
   | "study"
   | "palette"
@@ -8,9 +7,6 @@ export type AtelierAction =
   | "sound";
 
 export interface AtelierState {
-  view: AtelierView;
-  opened: boolean;
-  busy: boolean;
   study: number;
   palette: number;
   wireframe: boolean;
@@ -20,9 +16,6 @@ export interface AtelierState {
 }
 
 export const initialAtelierState = (): AtelierState => ({
-  view: "workroom",
-  opened: false,
-  busy: false,
   study: 0,
   palette: 0,
   wireframe: false,

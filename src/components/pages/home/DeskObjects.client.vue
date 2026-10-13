@@ -18,6 +18,17 @@ const toggleDrawer = (index: number, label: string) => {
 	const open = new HomeExperience().world?.scene1?.toggleDrawer(index);
 	announcement.value = `${label} drawer ${open ? "opened" : "closed"}.`;
 };
+const outside = (event: PointerEvent) => {
+	if (event.target instanceof Node && !menu.value?.contains(event.target)) closeMenu();
+};
+const toggled = () => {
+	if (!menu.value?.open) return;
+	document.querySelectorAll<HTMLDetailsElement>('footer details[open]').forEach(other => {
+		if (other !== menu.value) other.open = false;
+	});
+};
+onMounted(() => document.addEventListener('pointerdown', outside));
+onBeforeUnmount(() => document.removeEventListener('pointerdown', outside));
 watch(() => route.path, closeMenu);
 </script>
 
@@ -26,11 +37,13 @@ watch(() => route.path, closeMenu);
 		v-if="isHome || isContact"
 		ref="menu"
 		class="desk-objects"
+		@toggle="toggled"
 		@pointerdown.stop
 		@pointerup.stop
 		@pointermove.stop
 		@click.stop
 		@wheel.stop
+		@keydown.stop
 		@keydown.esc.prevent="closeMenu"
 	>
 		<summary aria-label="Explore desk objects" title="Explore desk objects">

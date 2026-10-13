@@ -52,7 +52,7 @@ import { createDeskProps } from "./scene-1.props";
 import { createWallLightSwitch, LIGHT_SWITCH_POSITION } from "./scene-1.light-switch";
 import { createInteractiveDrawers } from "./scene-1.drawers";
 import { createAtelier } from "./scene-1.atelier";
-import { initialAtelierState, type AtelierAction, type AtelierState, type AtelierView } from "~/common/models/atelier.model";
+import { initialAtelierState, type AtelierAction, type AtelierState } from "~/common/models/atelier.model";
 
 export class Scene1Component extends SceneComponentBlueprint {
 	private readonly _renderer = this._experience.renderer;
@@ -83,33 +83,42 @@ export class Scene1Component extends SceneComponentBlueprint {
 
 	public readonly navigationLimits: ViewLimits = {
 		spherical: {
-			radius: { min: 10, max: 19.2 },
-			phi: { min: 0.01, max: Math.PI * 0.5 },
+			radius: { min: 5, max: 65 },
+			phi: { min: 0.12, max: Math.PI * 0.48 },
 			theta: { min: 0, max: Math.PI * 0.5 },
 			enabled: true,
 			enabledPhi: true,
-			enabledTheta: true,
+			enabledTheta: false,
 		},
 		target: {
-			x: { min: -1.5, max: 1.5 },
-			y: { min: 0, max: 3.5 },
-			z: { min: -1.5, max: 1.5 },
+			x: { min: -5, max: 5 },
+			y: { min: -1.5, max: 2.5 },
+			z: { min: -4, max: 5 },
 			enabled: true,
 		},
 	};
+	private readonly _homeCameraPoints = [
+		new Vector3(12.4, 11.5, 21.2),
+		new Vector3(3, 10, 21),
+		new Vector3(-8, 9, 18),
+		new Vector3(16, 9, 17),
+		new Vector3(12.4, 11.5, 21.2),
+	];
 	public readonly cameraPath = new CatmullRomCurve3(
-		[
-			new Vector3(0, 5.5, 19),
-			new Vector3(12, 10, 12),
-			new Vector3(19, 5.5, 0),
-			new Vector3(12, 3.7, 12),
-			new Vector3(0, 4.2, 19),
-		],
+		this._homeCameraPoints.map(point => point.clone()),
 		false,
 		"centripetal",
 		1
 	);
-	public readonly center = new Vector3(0, 2.5, 0);
+	public readonly center = new Vector3(2.9, 2.3, 1.3);
+	private readonly _fitHomeCamera = () => {
+		// Fit the whole connected home in portrait; keep user-controlled zoom
+		// untouched in free mode. The guided path picks up these points on resize.
+		const scale = Math.max(1, .87 / (window.innerWidth / Math.max(1, window.innerHeight)));
+		this.cameraPath.points.forEach((point, index) =>
+			point.copy(this._homeCameraPoints[index]).sub(this.center).multiplyScalar(scale).add(this.center));
+		this.cameraPath.updateArcLengths();
+	};
 
 	public timeline = gsap.timeline();
 	public pcScreenProjectedCamera =
@@ -126,6 +135,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 	public monitorAScreen?: Mesh;
 	public monitorBScreen?: Mesh;
 	public treeOutside?: Object3D;
+	private readonly _windowScenery: Mesh[] = [];
 	public coffeeSteam?: Mesh;
 	private readonly _boardNotes: Mesh[] = [];
 	private _deskProps?: ReturnType<typeof createDeskProps>;
@@ -337,6 +347,8 @@ export class Scene1Component extends SceneComponentBlueprint {
 		if (item.name === "scene_1_phone_screen") this.phoneScreen = item;
 		if (item.name === "monitor_a_screen") this.monitorAScreen = item;
 		if (item.name === "monitor_b_screen") this.monitorBScreen = item;
+		if (item.name === "tree" || (/^tree_cube_/.test(item.name) && !/_clone$/.test(item.name)))
+			this._windowScenery.push(item);
 
 		if (
 			new RegExp(/^tree_cube_/, "ig").test(item.name) &&
@@ -443,6 +455,8 @@ export class Scene1Component extends SceneComponentBlueprint {
 	}
 
 	public construct() {
+		this._fitHomeCamera();
+		window.addEventListener("resize", this._fitHomeCamera);
 		super.construct(() => {
 			this.treeOutside = new Object3D();
 			(this.keyboards = new Object3D()).position.set(-1.5, 1.2, -1.1);
@@ -462,7 +476,15 @@ export class Scene1Component extends SceneComponentBlueprint {
 			window.addEventListener("pointerdown", this._onGuidedDown);
 			window.addEventListener("pointerup", this._onGuidedUp);
 		});
-		if (this.modelScene) this._drawers = createInteractiveDrawers(this.modelScene);
+		if (this.modelScene) {
+			this._drawers = createInteractiveDrawers(this.modelScene);
+			this._atelier = createAtelier(this.modelScene, action => this.actAtelier(action), {
+				room: this._loader?.availableTextures.scene_1_no_lights_baked_texture,
+				wood: this._loader?.availableTextures.scene_1_woods_no_lights_baked_texture,
+				night: this._night,
+			});
+			this._atelier.refresh(this._atelierState.value);
+		}
 	}
 
 	private _createLightSwitch() {
@@ -654,6 +676,8 @@ export class Scene1Component extends SceneComponentBlueprint {
 	}
 
 	public destruct() {
+		window.removeEventListener("resize", this._fitHomeCamera);
+		this._windowScenery.length = 0;
 		this._atelier?.dispose();
 		this._atelier = undefined;
 		this._atelierState.value = initialAtelierState();
@@ -697,67 +721,9 @@ export class Scene1Component extends SceneComponentBlueprint {
 		return this._drawers?.toggle(index);
 	}
 
-	/** Move through the connected room without taking control away from the visitor. */
-	public visitAtelier(view: AtelierView) {
-		const exp = this._experience, nav = exp.navigation, camera = exp.cameraAnimation;
-		const state = this._atelierState.value;
-		if (!this.modelScene || !nav || !camera || state.busy || nav.timeline.isActive() ||
-			exp.world?.manager?.timeline.isActive() || exp.router?.currentRouteKey !== pages.HOME_PAGE) return;
-		if (!this._atelier && view !== "workroom") {
-			this._atelier = createAtelier(this.modelScene, action => this.actAtelier(action));
-			this._atelier.refresh(state);
-			this._atelier.reveal();
-			state.opened = true;
-		}
-		state.view = view;
-		if (this._atelier && view !== "workroom") this._atelier.root.visible = true;
-		state.busy = true;
-		exp.interactions?.stop();
-		camera.enabled = false;
-		const views = {
-			workroom: { position: this.cameraPath.getPoint(0), target: this.center.clone() },
-			atelier: { position: new Vector3(12.8, 9.2, 15.8), target: new Vector3(3.1, 2.35, 0) },
-			table: { position: new Vector3(7.7, 6.5, 8.4), target: new Vector3(5.25, 2.30, -.3) },
-			listen: { position: new Vector3(11.4, 5.9, 7.3), target: new Vector3(7.8, 1.9, -.3) },
-		};
-		const { position, target } = views[view];
-		// Preserve the same useful framing on narrow screens.
-		if (view !== "workroom" && window.innerWidth < 700) {
-			if (view === "atelier") target.x = 2.4;
-			position.sub(target).multiplyScalar(view === "atelier" ? 2.10 : view === "table" ? 1.62 : 1.45).add(target);
-		}
-		nav.setViewCenter(target.clone());
-		nav.setLimits(view === "workroom" ? this.navigationLimits : {
-			spherical: { radius: { min: 4.5, max: 48 }, phi: { min: .16, max: Math.PI * .48 },
-				theta: { min: 0, max: Math.PI * 2 }, enabled: true, enabledPhi: true, enabledTheta: false },
-			target: { x: { min: -4, max: 4 }, y: { min: -1, max: 2 }, z: { min: -3, max: 3 }, enabled: true },
-		});
-		camera.cameraPath = view === "workroom" ? this.cameraPath : new CatmullRomCurve3([
-			position.clone(), position.clone().add(new Vector3(-5, 0, 1)),
-			position.clone().add(new Vector3(-7, -2, -3)), position.clone(),
-		]);
-		camera.progressCurrent = camera.progressTarget = 0;
-		camera.positionOnCurve.copy(position);
-		nav.view.controls = true;
-		const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-		nav.updateCameraPosition(position, target, reduced ? .01 : 1.4).add(() => {
-			state.busy = false;
-			if (exp.router?.currentRouteKey !== pages.HOME_PAGE) return;
-			nav.view.controls = true;
-			if (view === "workroom") {
-				camera.enable(true);
-				if (this._atelier) this._atelier.root.visible = false;
-			}
-			else {
-				this.initSelectableObjects();
-				exp.interactions?.start(this.selectableObjects, this.modelScene);
-			}
-		});
-	}
-
 	public actAtelier(action: AtelierAction) {
 		const state = this._atelierState.value;
-		if (!this._atelier || state.busy || this._experience.router?.currentRouteKey !== pages.HOME_PAGE) return;
+		if (!this._atelier || this._experience.router?.currentRouteKey !== pages.HOME_PAGE) return;
 		if (action === "study") state.study = (state.study + 1) % 3;
 		if (action === "palette") state.palette = (state.palette + 1) % 3;
 		if (action === "wireframe") state.wireframe = !state.wireframe;
@@ -772,12 +738,6 @@ export class Scene1Component extends SceneComponentBlueprint {
 	}
 
 	public saveAtelierPrint() { this._atelier?.save(); }
-
-	public resetAtelierView() {
-		this._atelierState.value.view = "workroom";
-		this._atelierState.value.busy = false;
-		if (this._atelier) this._atelier.root.visible = false;
-	}
 
 	public initSelectableObjects() {
 		const router = useRouter();
@@ -939,6 +899,12 @@ export class Scene1Component extends SceneComponentBlueprint {
 	}
 
 	public update(): void {
+		// The baked scenery behind the window has invisible depth masks for the
+		// original quarter-turn view. From behind the home they would punch a
+		// hole through the new exterior, so keep that window effect interior-facing.
+		const seesWindowScenery = (this._camera?.instance.position.z ?? 0) > -3.1;
+		if (this.treeOutside) this.treeOutside.visible = seesWindowScenery;
+		for (const mesh of this._windowScenery) mesh.visible = seesWindowScenery;
 		const lofi = this._experience.sound?.lofi_audio;
 		const audioAnchor = this._atelier?.root.visible ? this._atelier.recordAnchor : this.fixedComputer;
 		if (lofi && audioAnchor && lofi.parent !== audioAnchor) {

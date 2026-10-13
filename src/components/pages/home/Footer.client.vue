@@ -37,6 +37,7 @@ const currentYear = new Date().getFullYear();
 			class="z-20 flex flex-row items-center justify-center mt-3 space-x-2 sm:space-x-4 xs:mt-0 !pointer-events-auto"
 		>
 			<lazy-home-desk-objects />
+			<lazy-home-drawing-tools />
 			<lazy-home-sound-toggle-button
 				class="transition-opacity w-7 h-7 opacity-70 hover:opacity-100"
 			/>

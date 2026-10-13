@@ -15,6 +15,7 @@ definePageMeta({
 	<div>
 		<Title>Mohith Lab | Home</Title>
 		<LazyHomeContent
+			align="start"
 			:can-display-landing="canDisplayLanding"
 			:landing-head="$t('homeLandingHead')"
 			:landing-foot="$t('homeLandingFoot')"

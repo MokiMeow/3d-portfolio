@@ -10,8 +10,9 @@ withDefaults(
 		landingFoot?: string;
 		contentTitle?: string;
 		contentBody: string;
+		align?: "start" | "end";
 	}>(),
-	{ canDisplayBody: true }
+	{ canDisplayBody: true, align: "end" }
 );
 
 const emits = defineEmits(["landingAnimationDone"]);
@@ -20,9 +21,10 @@ const emits = defineEmits(["landingAnimationDone"]);
 <template>
 	<div
 		v-if="isExperienceReady"
+		:style="align === 'start' ? { justifyContent: 'flex-start' } : undefined"
 		:class="`relative flex items-end justify-center flex-1 w-full h-full sm:items-end sm:pb-10 sm:justify-end transition-opacity ${
 			isFreeCamera ? 'opacity-0' : 'opacity-100'
-		}`"
+		} ${align === 'start' ? 'sm:pl-8' : ''}`"
 	>
 		<LazyHomeContentLanding
 			v-if="!!canDisplayLanding"

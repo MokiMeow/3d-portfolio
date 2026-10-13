@@ -1,7 +1,8 @@
 # Interactive lab additions
 
 The pre-expansion checkpoint is `aaef38c` on `station-redo`. The original room,
-lighting, camera tour, furniture and Skills scene remain in place.
+lighting, furniture and Skills scene remain in place. The Home camera tour now
+frames the connected rooms.
 
 ## Exploring
 
@@ -33,28 +34,39 @@ normals are generated once before applying the blue face shading.
 
 ## Connected atelier
 
-From Home, choose **Step into the atelier**. A second physical room unfolds beside
-the original workroom, with three visitor-controlled camera views. Drag to orbit
-freely, including full horizontal rotation. Workroom restores the original view
-and hides the extension; leaving Home also resets the room view.
+Home now includes the drawing/printing area and a connected reading/listening
+nook from the start. There is no separate entry, room mode or view-tab panel.
+The existing footer stays visible: its pencil icon opens a small drawing menu;
+the objects also respond directly in the guided view. The camera icon unlocks
+continuous horizontal orbit, with a wider zoom/pan range. The guided camera
+fits the full floor plan at portrait widths.
+
+Both extensions use the original tile level (y=0.341), a continuous foundation,
+matching wall heights, and samples of the existing tile and wood atlases. The
+printer and paper storage sit against the back wall. The listening nook has a
+clear passage, low bookcase, record console, seating and a reading light.
+The original wall switch dims the new rooms through the same night uniform.
+Exterior backing surfaces close the original cutaway for rear views; the old
+window scenery/depth masks are hidden when viewing from behind the home.
 
 - The drawing table and framed print cycle through Orbit, Rhythm and Field.
 - Ceramic ink wells cycle Clay & ink, Moss & cream and Blue hour palettes.
 - The ruler switches between composition and construction outlines.
-- The press animates a paper print. **Save your print** downloads the current
+- The press animates a paper print. **Save this print** downloads the current
   original composition as a 1400 × 980 PNG; nothing is uploaded.
 - The turntable and speaker grilles control the existing lab audio. Its audio
-  source moves to the record player while the atelier is visible.
+  source sits at the record console.
 - The reading light toggles its bulb and soft floor glow.
-- Every object action also has a keyboard-accessible, touch-sized control.
+- The drawing actions have keyboard-accessible, 44-pixel-high footer controls.
+  Menus close on Escape, outside click, or when another footer menu opens.
 
 The furniture, joinery, rug, plant, artwork and lighting accents are procedural.
-Geometry is constructed on first entry. Repeated floorboards and slats are
-instanced, static furniture is batched by material, and animated/clickable pieces
-stay independent. There are no new model downloads, real-time lights, shadow
-maps, or dependencies. Anime.js drives the reveal, print and small object
-responses. The existing GSAP navigation handles camera travel. Reduced motion
-skips decorative motion and makes camera travel nearly immediate.
+Geometry is constructed once with Home. Floor tiles are instanced, static
+furniture is batched by material, and animated/clickable pieces stay independent.
+Texture samples are made once from assets already loaded for the original room.
+There are no new model downloads, realtime lights, shadow maps or dependencies.
+Anime.js drives printing and small object responses. Reduced motion disables
+those decorative responses and record rotation, and completes printing instantly.
 
 ## Media and performance
 
@@ -89,9 +101,13 @@ UV/normal preservation, world transforms, ray picking after a part moves, and
 cleanup. Browser checks cover drawer open/close, continuous contact orbit,
 phone/messages, script-URL rejection, device modal isolation, terminal commands,
 and a 390-pixel layout. Additional checks cover direct atelier object picking,
-camera-view changes, shared artwork updates, physical printing and PNG download.
+shared artwork updates, physical printing and PNG download. The integrated-room
+revision also checks Home rotation, the shared light switch, a 390-pixel portrait
+layout and the compact footer menu.
 Camera damping tests cover long/invalid frame deltas and equivalent convergence
 at 30/60/120 fps. Actual low-end-device frame rates were not measured.
 
 Checkpoints: `9158707` before these fixes and `ef5f5dd` for the standalone
 Discord/device fixes, before the atelier expansion.
+
+Room integration checkpoint: `374e191` preserves the previous atelier version.
