@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { DeviceConfig } from "~/config/device.config";
+import { initialMusicState, type MusicState } from '~/common/models/music.model';
+const music = useState<MusicState>('labMusic', initialMusicState);
 
 const isFreeCamera = useState<boolean>("isFreeCamera");
 const isFocusMode = useState<boolean>("isFocusMode");
@@ -20,17 +21,7 @@ const currentYear = new Date().getFullYear();
 			Sai Mohith S / {{ currentYear }}
 		</span>
 
-		<div
-			:class="`w-full text-center xs:w-1/2 sm:w-3/12 lg:w-60 transition-opacity  ${
-				isFreeCamera ? 'pointer-events-none opacity-30' : ''
-			}`"
-		>
-			<lazy-home-camera-path-slider />
-			<span class="block text-[10px] opacity-70"
-				>Drag the slider
-				<span v-if="DeviceConfig.DEVICE === 'pc'">or use the wheel</span></span
-			>
-		</div>
+		<p class="hidden sm:block text-[10px] tracking-wide opacity-40">{{isFreeCamera ? 'Drag to explore · Scroll to zoom' : 'Scroll to explore'}}</p>
 
 		<div
 			type="button"
@@ -38,6 +29,7 @@ const currentYear = new Date().getFullYear();
 		>
 			<lazy-home-desk-objects />
 			<lazy-home-drawing-tools />
+			<button class="w-6 h-6 opacity-70 hover:opacity-100" aria-label="Open record player" title="Record player" @click="music.open = true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/><path d="M6 12a6 6 0 0 1 6-6m6 6a6 6 0 0 1-6 6"/></svg></button>
 			<lazy-home-sound-toggle-button
 				class="transition-opacity w-7 h-7 opacity-70 hover:opacity-100"
 			/>

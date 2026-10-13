@@ -296,7 +296,7 @@ export function createAtelier(
   });
   linen.wrapS = linen.wrapT = RepeatWrapping;
   linen.repeat.set(3, 3);
-  for (const color of ["#464748", "#686260", "#b6906c", "#8c8986", "#c0b6a0", "#cbb78f"]) {
+  for (const color of ["#464748", "#686260", "#b6906c", "#8c8986", "#c0b6a0", "#cbb78f", "#b6ad98", "#9b9d85", "#687562"]) {
     const material = lightMaterial(new MeshStandardMaterial({
       color: new Color(color).convertLinearToSRGB(), map: linen, bumpMap: linen,
       bumpScale: .004, roughness: .96, envMap: probe.texture, envMapIntensity: .12,
@@ -846,7 +846,7 @@ export function createAtelier(
     textured(sleeveArt),
   );
 
-  // A low daybed, sewn cushions, a small table and a warm reading light.
+  // Walnut sling frame, full back cushions and one gently slouched accent pillow.
   const sofa = new Group();
   sofa.position.set(5.12, FLOOR, 5.3);
   sofa.scale.setScalar(1.2);
@@ -854,27 +854,32 @@ export function createAtelier(
   shadow(furniture, 5.12, 5.3, 2.05, 3.65);
   for (const x of [-0.5, 0.5])
     for (const z of [-1.01, 1.01])
-      cylinder(sofa, 0.035, 0.19, [x, 0.095, z], ink);
-  box(sofa, [1.38, 0.21, 2.58], [0, 0.3, 0], walnut, 0.06);
-  box(sofa, [0.2, 0.77, 2.54], [0.61, 0.7, 0], "#464748", 0.07);
-  for (const z of [-1.16, 1.16])
-    box(sofa, [1.35, 0.3, 0.23], [0, 0.65, z], "#464748", 0.07);
+      cylinder(sofa, 0.038, 0.24, [x, 0.12, z], walnut);
+  box(sofa, [1.37, 0.12, 2.6], [0, 0.29, 0], walnut, 0.045);
+  box(sofa, [1.22, 0.065, 2.4], [-.025, .368, 0], "#363832", .025);
+  for(const y of [.55,.79,1.06])box(sofa,[.07,.105,2.46],[.615,y,0],walnut,.024);
+  for (const z of [-1.19, 1.19]) {
+    tube(sofa,[[-.59,.27,z],[-.61,.65,z],[-.49,.79,z],[.51,.79,z],[.61,.71,z],[.615,.3,z]],.043,walnut);
+    box(sofa,[1.19,.19,.245],[-.035,.79,z],"#9b9d85",.085);
+  }
   for (const z of [-0.55, 0.55]) {
-    box(sofa, [1.1, 0.24, 1.03], [-0.065, 0.52, z], "#686260", 0.09);
-    const seatSeam = seam(sofa, .91, .84, .07, "#817a70");
-    seatSeam.rotation.x = -Math.PI / 2; seatSeam.position.set(-.065, .642, z);
+    box(sofa, [1.12, 0.27, 1.035], [-0.065, 0.515, z], "#b6ad98", 0.11);
+    const seatSeam = seam(sofa, .94, .85, .09, "#c0b6a0");
+    seatSeam.rotation.x = -Math.PI / 2; seatSeam.position.set(-.065, .651, z);
     const cushion = box(
       sofa,
-      [0.28, 0.52, 0.79],
-      [0.32, 0.89, z],
-      z < 0 ? "#b6906c" : "#8c8986",
-      0.1,
+      [0.29, 0.64, 1.005],
+      [0.365, 0.95, z],
+      "#b6ad98",
+      0.12,
     );
-    cushion.rotation.z = 0.15;
+    cushion.rotation.z = -0.12;
     // Welt follows the pillow's softened perimeter and tilts with it.
-    const welt = seam(sofa, .64, .37, .065, z < 0 ? "#bba487" : "#aaa399");
-    welt.geometry.rotateY(-Math.PI / 2).translate(-.141, 0, 0).rotateZ(.15).translate(.32, .89, z);
+    const welt = seam(sofa, .82, .46, .09, "#c0b6a0");
+    welt.geometry.rotateY(-Math.PI / 2).translate(-.146, 0, 0).rotateZ(-.12).translate(.365, .95, z);
   }
+  const accentPillow=box(sofa,[.25,.44,.48],[.08,.89,-.77],"#687562",.105);
+  accentPillow.rotation.set(.17,-.1,.13);
   // A continuous draped surface, with soft folds over the seat edge.
   const blanketGeo = geo(new PlaneGeometry(1, 1, 28, 20));
   const blanketPos = blanketGeo.getAttribute("position");
@@ -1137,6 +1142,7 @@ export function createAtelier(
     selectables,
     refresh,
     recordAnchor: console,
+    reflectionTexture: probe.texture,
     print(onComplete: () => void) {
       printAnimation?.pause();
       printPaper.visible = true;

@@ -24,6 +24,7 @@ const isSoundMuted = useState<boolean>("isSoundMuted", () => true);
 // EVENTS;
 const onUiReady = () => {
 	isExperienceReady.value = true;
+	new HomeExperience().world?.scene1?.companion?.welcome();
 };
 const onCameraAnimationChange = () => {
 	const _exp = new HomeExperience();
@@ -134,6 +135,7 @@ onMounted(init);
 onBeforeUnmount(dispose);
 onBeforeRouteUpdate((route) => {
 	const _exp = new HomeExperience();
+	if(_exp.router?.currentRouteKey===pages.HOME_PAGE&&route.meta.key!==pages.HOME_PAGE)_exp.world?.scene1?.companion?.farewell();
 	isFocusMode.value = false;
 	_exp?.router?.emit(events.CHANGED, route);
 });
@@ -168,6 +170,8 @@ onBeforeRouteUpdate((route) => {
 		<LazyHomeBoardNoteDialog />
 		<LazyHomeProjectsPanel />
 		<LazyHomeLabDeviceDialog />
+		<HomeRecordPlayer />
+		<HomeCompanion />
 	</main>
 </template>
 

@@ -117,8 +117,10 @@ export class Navigation extends ExperienceBasedBlueprint {
 
 	private _setConfig() {
 		const boundingClient = this._targetElement.getBoundingClientRect();
-		const width = boundingClient.width;
-		const height = Number(boundingClient.height || this._appSizes?.width);
+		// The canvas may still be hidden behind the entry screen at construction.
+		// A zero side would turn even an idle 0px drag into 0/0 and poison the camera.
+		const width = Math.max(1, boundingClient.width || this._appSizes.width);
+		const height = Math.max(1, boundingClient.height || this._appSizes.height);
 
 		this._config.smallestSide = Math.min(width, height);
 		this._config.largestSide = Math.max(width, height);
@@ -224,7 +226,8 @@ export class Navigation extends ExperienceBasedBlueprint {
 					e.touches[0].clientX - e.touches[1].clientX,
 					e.touches[0].clientY - e.touches[1].clientY
 				);
-			this._view.down(e.touches[0].clientX, e.touches[0].clientY);
+			this._view.down(e.touches.length===2 ? (e.touches[0].clientX+e.touches[1].clientX)/2 : e.touches[0].clientX,
+				e.touches.length===2 ? (e.touches[0].clientY+e.touches[1].clientY)/2 : e.touches[0].clientY);
 
 			this._ui?.on(events.TOUCH_END, this._view.onTouchEnd);
 			this._ui?.on(events.TOUCH_MOVE, this._view.onTouchMove);
@@ -243,7 +246,9 @@ export class Navigation extends ExperienceBasedBlueprint {
 					-((currentPinchDistance - this._initialPinchDistance) * 2)
 				);
 
-				return (this._initialPinchDistance = currentPinchDistance);
+				this._initialPinchDistance = currentPinchDistance;
+				this._view.move((e.touches[0].clientX+e.touches[1].clientX)/2,(e.touches[0].clientY+e.touches[1].clientY)/2);
+				return;
 			}
 
 			this._view.move(e.touches[0].clientX, e.touches[0].clientY);

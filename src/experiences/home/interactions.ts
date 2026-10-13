@@ -301,6 +301,7 @@ export class Interactions extends ExperienceBasedBlueprint {
 			this._hoveredUuid = selectedObj?.uuid;
 		}
 
+		this.outlinePass.enabled = !!selectedObj;
 		if (!selectedObj) return;
 
 		this._selectedObject = selectedObj;
@@ -356,7 +357,7 @@ export class Interactions extends ExperienceBasedBlueprint {
 		selectables: SelectableObject[],
 		intersectable: Object3D<Object3DEventMap> = this._appScene
 	) {
-		if (!this._camera?.instance || this.outlinePass)
+		if (!this._camera?.instance)
 			throw new Error("Wrong params");
 		if (!selectables.length) return;
 		if (this.timeline.isActive()) this.timeline.progress(1);
@@ -364,6 +365,7 @@ export class Interactions extends ExperienceBasedBlueprint {
 		this.enabled = true;
 		this._intersectableContainer = intersectable;
 		this._selectableUuids = [];
+		this._selectableObjects = {};
 		const selectableObjects: Object3D[] = [];
 
 		for (const _ of selectables) {
@@ -376,11 +378,13 @@ export class Interactions extends ExperienceBasedBlueprint {
 			selectableObjects.push(_.object);
 		}
 
+		// An asynchronously loaded companion can refresh the pick list in place.
+		if(this.outlinePass){this.outlinePass.selectedObjects=[];this.outlinePass.enabled=false;return;}
 		this.outlinePass = new OutlinePass(
 			new Vector2(this._appSizes.width, this._appSizes.height),
 			this._appScene,
 			this._camera.instance,
-			selectableObjects
+			[]
 		);
 		this.outlinePass.visibleEdgeColor = new Color(
 			this._outlineDefault.visibleColor
@@ -390,29 +394,11 @@ export class Interactions extends ExperienceBasedBlueprint {
 		);
 
 		this._composer?.addPass(this.passName, this.outlinePass);
-
-		this.timeline
-			.fromTo(
-				this.outlinePass,
-				{
-					edgeStrength: 0,
-				},
-				{
-					edgeStrength: this._outlineDefault.strength + 2,
-					repeat: 1,
-					repeatDelay: 1,
-					yoyo: true,
-				}
-			)
-			.add(() => {
-				if (!this.outlinePass) return;
-
-				this.outlinePass.selectedObjects = [];
-				this.outlinePass.edgeStrength = this._outlineDefault.strength;
-				this.outlinePass.edgeGlow = this._outlineDefault.glow;
-				this.outlinePass.edgeThickness = this._outlineDefault.thickness;
-				this.outlinePass.pulsePeriod = this._outlineDefault.pulse;
-			});
+		this.outlinePass.enabled=false;
+		this.outlinePass.edgeStrength=this._outlineDefault.strength;
+		this.outlinePass.edgeGlow=this._outlineDefault.glow;
+		this.outlinePass.edgeThickness=this._outlineDefault.thickness;
+		this.outlinePass.pulsePeriod=this._outlineDefault.pulse;
 
 		this.emit(events.STARTED);
 		this.emit(events.CHANGED);

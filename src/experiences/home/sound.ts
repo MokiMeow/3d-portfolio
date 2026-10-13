@@ -9,9 +9,23 @@ import { ExperienceBasedBlueprint } from "~/common/blueprints/experience-based.b
 
 // STATIC
 import { events } from "~/static";
+import { initialMusicState, type MusicState } from "~/common/models/music.model";
 
 export class Sound extends ExperienceBasedBlueprint {
 	protected _experience = new HomeExperience();
+	private _muted = true;
+	private readonly _music = useState<MusicState>('labMusic', initialMusicState);
+	public get musicPlaying() { return !this.isMuted && this._music.value.playing; }
+	public pauseMusic() {
+		this._shouldPlayLofi = false;
+		if (this._lofi_audio?.isPlaying) this._lofi_audio.pause();
+		this._music.value.playing = false;
+	}
+	public useExternalMusic() {
+		this.pauseMusic(); this._music.value.source = 'external';
+		this._setVolume(1);
+	}
+	public useRoomMusic() { this.pauseMusic(); this._music.value.source = 'room'; }
 
 	private readonly _loader = this._experience.loader;
 	private readonly _camera = this._experience.camera;
@@ -45,7 +59,14 @@ export class Sound extends ExperienceBasedBlueprint {
 		return this._lofi_audio;
 	}
 	public get isMuted() {
-		return this.listener.getMasterVolume() !== 1;
+		return this._muted;
+	}
+	private _setVolume(volume: 0 | 1) {
+		// AudioParam ramps approach their target over time; UI state must follow
+		// the requested state rather than compare an intermediate gain to 1.
+		this._muted = volume === 0;
+		this.listener.setMasterVolume(volume);
+		this.emit(events.CHANGED);
 	}
 
 	public set empty_room_audio(audio: typeof this._empty_room_audio) {
@@ -90,24 +111,27 @@ export class Sound extends ExperienceBasedBlueprint {
 	}
 
 	public async startFromGesture() {
+		if (this._music.value.source === 'external') {
+			this._setVolume(1);
+			this._music.value.open = true; return;
+		}
 		this._shouldPlayLofi = true;
 		if (this.listener.context.state !== "running")
 			await this.listener.context.resume();
-		this.listener.setMasterVolume(1);
-		this.emit(events.CHANGED);
+		this._setVolume(1);
 
 		const lofi = await this._loadLofi();
-		if (lofi && !lofi.isPlaying) lofi.play();
+		if (lofi && this._shouldPlayLofi && this._music.value.source === 'room') {
+			if (!lofi.isPlaying) lofi.play();
+			this._music.value.playing = true;
+		}
 		this.emit(events.CHANGED);
 	}
 
 	public async toggleMute() {
-		const vol = this.listener.getMasterVolume();
-		const shouldEnable = vol !== 1;
+		const shouldEnable = this.isMuted;
 		if (shouldEnable) await this.startFromGesture();
-		else this.listener.setMasterVolume(0);
-
-		setTimeout(() => this.emit(events.CHANGED), 200);
+		else { this._setVolume(0); this.pauseMusic(); }
 	}
 
 	public construct() {
@@ -122,7 +146,7 @@ export class Sound extends ExperienceBasedBlueprint {
 		)
 			return;
 		this._camera?.instance.add(this.listener);
-		this.listener.setMasterVolume(0);
+		this._setVolume(0);
 		void this._loadLofi();
 
 		this.empty_room_audio = new PositionalAudio(this.listener);

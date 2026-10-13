@@ -53,6 +53,9 @@ import { createWallLightSwitch, LIGHT_SWITCH_POSITION } from "./scene-1.light-sw
 import { createInteractiveDrawers } from "./scene-1.drawers";
 import { createAtelier } from "./scene-1.atelier";
 import { initialAtelierState, type AtelierAction, type AtelierState } from "~/common/models/atelier.model";
+import { initialMusicState, type MusicState } from "~/common/models/music.model";
+import { createCompanion } from './scene-1.companion';
+import { initialCompanionState, type CompanionState } from '~/common/models/companion.model';
 
 export class Scene1Component extends SceneComponentBlueprint {
 	private readonly _renderer = this._experience.renderer;
@@ -142,6 +145,10 @@ export class Scene1Component extends SceneComponentBlueprint {
 	private _drawers?: ReturnType<typeof createInteractiveDrawers>;
 	private _atelier?: ReturnType<typeof createAtelier>;
 	private readonly _atelierState = useState<AtelierState>("atelierState", initialAtelierState);
+	private readonly _music = useState<MusicState>('labMusic', initialMusicState);
+	private readonly _companionState = useState<CompanionState>('labCompanion', initialCompanionState);
+	private readonly _ready = useState<boolean>('isExperienceReady',()=>false);
+	public companion?: ReturnType<typeof createCompanion>;
 	public lightsOn = true;
 	/** Shared by the room and wood materials: 0 by day, 1 with the lights off. */
 	private readonly _night = { value: 0 };
@@ -465,7 +472,17 @@ export class Scene1Component extends SceneComponentBlueprint {
 				renderer: this._experience.app.renderer.instance,
 			});
 			this._atelier.refresh(this._atelierState.value);
+			this.companion = createCompanion(this.modelScene,this._atelier.reflectionTexture,this._night,this._companionState.value,
+				()=>!this._experience.sound?.isMuted&&!document.hidden,
+				()=>{this.initSelectableObjects();if(this._ready.value&&this._experience.router?.currentRouteKey===pages.HOME_PAGE&&!this._experience.cameraAnimation?.enabled)
+					this._experience.interactions?.start(this.selectableObjects,this.modelScene);});
 		}
+	}
+
+	public focusCompanion() {
+		const position=this.companion?.root.children[0]?.position;
+		if (!position) return;
+		this._experience.navigation?.updateCameraPosition(new Vector3(position.x+2.1,2.4,position.z+3.5),new Vector3(position.x,1.05,position.z),.65);
 	}
 
 	private _createLightSwitch() {
@@ -480,6 +497,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 	public toggleLights() {
 		this.lightsOn = !this.lightsOn;
 		const on = this.lightsOn;
+		if(on)this.companion?.wake();else this.companion?.farewell();
 		const tween = { duration: 1.1, ease: "power2.inOut" };
 
 		gsap.to(this._night, { value: on ? 0 : 1, ...tween });
@@ -657,6 +675,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 	}
 
 	public destruct() {
+		this.companion?.dispose();this.companion=undefined;
 		window.removeEventListener("resize", this._fitHomeCamera);
 		this._atelier?.dispose();
 		this._atelier = undefined;
@@ -708,7 +727,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 		if (action === "palette") state.palette = (state.palette + 1) % 3;
 		if (action === "wireframe") state.wireframe = !state.wireframe;
 		if (action === "lamp") state.lamp = !state.lamp;
-		if (action === "sound") void this._experience.sound?.toggleMute();
+		if (action === "sound") this._music.value.open = true;
 		if (action === "print" && !state.printing) {
 			state.printing = true;
 			this._atelier.print(() => { state.printing = false; state.printed = true; });
@@ -742,6 +761,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 			...(this._lightSwitch?.selectables ?? []),
 			...(this._drawers?.selectables ?? []),
 			...(this._atelier?.selectables ?? []),
+			...(this.companion?.selectables ?? []),
 			...(this.pcScreen && nextPage
 				? [
 						{
@@ -886,8 +906,9 @@ export class Scene1Component extends SceneComponentBlueprint {
 			lofi.position.set(0, 0, 0);
 		}
 		if (this._atelier && this._experience.router?.currentRouteKey === pages.HOME_PAGE) {
-			this._atelier.setSound(!this._experience.sound?.isMuted);
+			this._atelier.setSound(!!this._experience.sound?.musicPlaying);
 			this._atelier.update(this._appTime.delta);
+			if(this._camera?.instance)this.companion?.update(this._appTime.delta,this._camera.instance);
 		}
 		if (
 			this._availableMaterials?.coffee_steam instanceof ShaderMaterial &&

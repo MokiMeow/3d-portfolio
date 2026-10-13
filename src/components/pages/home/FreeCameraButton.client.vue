@@ -2,6 +2,8 @@
 import { HomeExperience } from "~/experiences/home";
 
 const experience = new HomeExperience();
+const route = useRoute();
+const isHome = computed(() => route.path === '/');
 const isFreeCamera = useState<boolean>("isFreeCamera");
 const isFocusMode = useState<boolean>("isFocusMode");
 const isCameraHintVisible = useState<boolean>("isCameraHintVisible", () => false);
@@ -14,6 +16,14 @@ const onLeaveFocusMode = () => {
 
 const onToggleFreeCamera = () => {
 	if (!experience?.cameraAnimation) return;
+	if (isHome.value) {
+		const scene=experience.world?.scene1;
+		if (!scene || !experience.navigation) return;
+		experience.cameraAnimation.enabled=false;
+		experience.navigation.view.controls=true;
+		experience.navigation.updateCameraPosition(scene.cameraPath.getPoint(0),scene.center,window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:.6);
+		return;
+	}
 	if (!isFreeCamera.value) return experience.cameraAnimation.disable();
 	if (isFreeCamera.value) return experience.cameraAnimation.enable();
 };
@@ -27,21 +37,22 @@ const onToggleFreeCamera = () => {
 		:aria-label="
 			isFocusMode
 				? 'Leave focus mode'
-				: isFreeCamera
+				: isHome ? 'Reset room view' : isFreeCamera
 					? 'Return to guided camera'
 					: 'Enable free camera'
 		"
-		:aria-pressed="isFreeCamera"
+		:aria-pressed="isHome ? undefined : isFreeCamera"
 		:title="
 			isFocusMode
 				? 'Leave Focus Mode'
-				: isFreeCamera
+				: isHome ? 'Reset room view' : isFreeCamera
 					? 'Return to Guided Camera'
 					: 'Enable Free Camera'
 		"
 	>
+		<svg v-if="isHome && !isFocusMode" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6" stroke-linecap="round" stroke-linejoin="round"/></svg>
 		<svg
-			v-if="!isFreeCamera && !isFocusMode"
+			v-if="!isHome && !isFreeCamera && !isFocusMode"
 			viewBox="0 0 23 15"
 			fill="none"
 			class=""
@@ -64,7 +75,7 @@ const onToggleFreeCamera = () => {
 			viewBox="0 0 20 32"
 			fill="none"
 			class="w-full h-full"
-			v-if="isFreeCamera && !isFocusMode"
+			v-if="!isHome && isFreeCamera && !isFocusMode"
 		>
 			<path
 				fill-rule="evenodd"

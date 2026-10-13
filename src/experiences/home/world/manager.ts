@@ -152,6 +152,7 @@ export class WorldManager extends ExperienceBasedBlueprint {
 
 	/** Set the current scene depending to the current `Router` state */
 	private _setScene() {
+		this._interactions?.stop();
 		if (
 			typeof this._router?.currentRouteKey !== "string" ||
 			this._supportedPageKeys.indexOf(this._router.currentRouteKey) === -1
@@ -236,7 +237,9 @@ export class WorldManager extends ExperienceBasedBlueprint {
 
 		this._cameraAnimation.progressCurrent = 0;
 		this._cameraAnimation.progressTarget = 0;
-		this._cameraAnimation.enable(true);
+		// Every destination opens ready to orbit, including a direct Contact visit.
+		this._navigation.view.controls = true;
+		this._cameraAnimation.enabled = false;
 
 		if (this._experience.ui)
 			this._experience.ui.markers = this._currentScene.markers;
@@ -289,6 +292,9 @@ export class WorldManager extends ExperienceBasedBlueprint {
 				}, "<87%");
 
 		if (!isSwitchingMain && !isSwitchingProjected) updateCameraToCurrentScene();
+		this._onCameraAnimationEnd();
+		if (isSwitchingMain && this._world.scene1?.lightsOn)
+			this._world.scene1.companion?.wake();
 
 		if (this._prevProjectedSceneKey === this._router?.currentRouteKey)
 			this._prevProjectedSceneKey = undefined;
