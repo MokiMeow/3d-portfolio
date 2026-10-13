@@ -1,22 +1,31 @@
 <script setup lang="ts">
 import { animate, type JSAnimation } from "animejs";
 import type { LabDevice } from "~/common/models/lab-device.model";
+// Keep the small device interfaces in the dialog's bundle. Loading another
+// deployment-specific chunk on click previously left only the close button.
+import LabPhone from "./LabPhone.client.vue";
+import LabGlasses from "./LabGlasses.client.vue";
+import LabTerminal from "./LabTerminal.client.vue";
 const active = useState<LabDevice>("activeLabDevice", () => null);
 const dialog = ref<HTMLDialogElement>();
 const body = ref<HTMLElement>();
 const closeButton = ref<HTMLButtonElement>();
 const route = useRoute();
 let entrance: JSAnimation | undefined;
+let opening = 0;
+const reload = () => window.location.reload();
 const close = () => {
 	active.value = null;
 };
 watch(active, async (value) => {
+	const request = ++opening;
 	entrance?.pause();
 	if (!value) {
 		dialog.value?.close();
 		return;
 	}
 	await nextTick();
+	if (request !== opening || active.value !== value) return;
 	dialog.value?.showModal();
 	closeButton.value?.focus();
 	if (
@@ -70,9 +79,18 @@ onBeforeUnmount(() => {
 			<div v-if="active" ref="body" class="device-stage">
 				<button ref="closeButton" class="device-close" @click="close">
 					<span aria-hidden="true">×</span> Put it back <kbd>ESC</kbd></button
-				><LazyHomeLabPhone v-if="active === 'phone'" /><LazyHomeLabGlasses
-					v-else-if="active === 'glasses'"
-				/><LazyHomeLabTerminal v-else />
+				>
+				<NuxtErrorBoundary :key="active">
+					<LabPhone v-if="active === 'phone'" />
+					<LabGlasses v-else-if="active === 'glasses'" />
+					<LabTerminal v-else />
+					<template #error>
+						<div class="device-recovery" role="alert">
+							<p>This device needs a fresh start.</p>
+							<button @click="reload">Reload the lab</button>
+						</div>
+					</template>
+				</NuxtErrorBoundary>
 			</div></dialog
 	></Teleport>
 </template>
@@ -109,6 +127,8 @@ onBeforeUnmount(() => {
 	gap: 13px;
 	margin: auto;
 }
+.device-recovery { padding: 36px; border: 1px solid #ffffff30; border-radius: 18px; background: #122127; }
+.device-recovery button { margin-top: 20px; padding: 12px 18px; border: 1px solid #a8c5c5; border-radius: 24px; }
 .device-close {
 	display: flex;
 	align-items: center;

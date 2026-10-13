@@ -1,17 +1,16 @@
 import gsap from "gsap";
 import {
 	BoxGeometry,
-	CanvasTexture,
+	Float32BufferAttribute,
+	Matrix3,
 	Color,
 	Group,
 	Mesh,
 	MeshBasicMaterial,
-	PlaneGeometry,
 	Vector3,
 	type BufferGeometry,
 	type Material,
 } from "three";
-import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import type { LabDevice } from "~/common/models/lab-device.model";
 import type { SelectableObject } from "~/common/models/experience-interaction.model";
 import { splitMeshParts } from "./mesh-parts";
@@ -22,8 +21,7 @@ export function createContactProps(scene: Group) {
 	group.visible = false;
 	scene.add(group);
 	const geometries: BufferGeometry[] = [],
-		materials: Material[] = [],
-		textures: CanvasTexture[] = [];
+		materials: Material[] = [];
 	const selectables: SelectableObject[] = [];
 	const open = (device: LabDevice) => {
 		useState<LabDevice>("activeLabDevice", () => null).value = device;
@@ -63,56 +61,33 @@ export function createContactProps(scene: Group) {
 	const lenses = scene.getObjectByName("eye-glass_glass");
 	if (lenses)
 		selectables.push({ object: lenses, onSelect: () => open("glasses") });
-	// The original hidden logo left a dark baked silhouette. A real enamel
-	// plaque occupies that same footprint, including its shadow, on the plinth.
+	// Reuse the actual sculpted Clyde mesh, including its eye openings and
+	// bevels. A clean material replaces the dark atlas; no backing rectangle.
 	const discord = scene.getObjectByName("discord_logo");
-	if (discord) discord.visible = false;
-	const plaque = new Group();
-	plaque.name = "discord_enamel_plaque";
-	plaque.position.set(0.445, 1.672, 0.365);
-	// The logo's original +Y points out of the face; use +Z for our plaque.
-	plaque.lookAt(
-		plaque.position.clone().add(new Vector3(0.84396, 0.22432, -0.48726)),
-	);
-	const backingGeometry = new RoundedBoxGeometry(0.49, 0.355, 0.037, 3, 0.018);
-	geometries.push(backingGeometry);
-	const backingMaterial = new MeshBasicMaterial({
-		color: new Color(0.22, 0.25, 0.61),
-	});
-	materials.push(backingMaterial);
-	const backing = new Mesh(backingGeometry, backingMaterial);
-	plaque.add(backing);
-	const canvas = document.createElement("canvas");
-	canvas.width = 512;
-	canvas.height = 368;
-	const ctx = canvas.getContext("2d")!;
-	ctx.fillStyle = "#5865f2";
-	ctx.fillRect(0, 0, 512, 368);
-	// Discord's Clyde mark, drawn crisply rather than sampling the baked atlas.
-	ctx.save();
-	ctx.translate(74, 36);
-	ctx.scale(15.2, 15.2);
-	const clyde = new Path2D(
-		"M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.211.375-.445.865-.609 1.25a18.27 18.27 0 0 0-5.487 0c-.164-.394-.406-.875-.618-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.675 4.37a.07.07 0 0 0-.032.027C.533 9.043-.32 13.574.099 18.05a.082.082 0 0 0 .031.056 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.095.252-.194.372-.294a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.1.246.2.373.294a.077.077 0 0 1-.006.128 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.771 1.362 1.225 1.992a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.67-3.549-13.653a.061.061 0 0 0-.03-.028Z",
-	);
-	ctx.fillStyle = "#fff";
-	ctx.fill(clyde);
-	ctx.fillStyle = "#5865f2";
-	ctx.beginPath();
-	ctx.ellipse(8.02, 12.97, 1.46, 1.67, 0, 0, Math.PI * 2);
-	ctx.ellipse(15.98, 12.97, 1.46, 1.67, 0, 0, Math.PI * 2);
-	ctx.fill();
-	ctx.restore();
-	const texture = new CanvasTexture(canvas);
-	textures.push(texture);
-	const faceGeometry = new PlaneGeometry(0.455, 0.326);
-	geometries.push(faceGeometry);
-	const faceMaterial = new MeshBasicMaterial({ map: texture });
-	materials.push(faceMaterial);
-	const face = new Mesh(faceGeometry, faceMaterial);
-	face.position.z = 0.0195;
-	plaque.add(face);
-	group.add(plaque);
+	const discordOriginal = discord instanceof Mesh ? {
+		geometry: discord.geometry, material: discord.material, visible: discord.visible,
+	} : undefined;
+	if (discord instanceof Mesh) {
+		discord.updateWorldMatrix(true, false);
+		const geometry = discord.geometry.clone();
+		if (!geometry.getAttribute("normal")) geometry.computeVertexNormals();
+		const normals = geometry.getAttribute("normal");
+		const colors = new Float32Array(normals.count * 3);
+		const normalMatrix = new Matrix3().getNormalMatrix(discord.matrixWorld);
+		const normal = new Vector3();
+		const key = new Vector3(0.8, 0.9, -0.6).normalize();
+		for (let i = 0; i < normals.count; i++) {
+			normal.fromBufferAttribute(normals, i).applyMatrix3(normalMatrix).normalize();
+			const light = 0.54 + 0.46 * Math.max(0, normal.dot(key));
+			colors.set([light, light, light], i * 3);
+		}
+		geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
+		const material = new MeshBasicMaterial({
+			color: new Color(0.39, 0.46, 0.96), vertexColors: true,
+		});
+		geometries.push(geometry); materials.push(material);
+		discord.geometry = geometry; discord.material = material;
+	}
 	const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 	// The game controller rocks once when tapped. Its real shell and buttons
@@ -162,6 +137,7 @@ export function createContactProps(scene: Group) {
 		selectables,
 		setVisible(visible: boolean) {
 			group.visible = visible;
+			if (discord) discord.visible = visible;
 		},
 		dispose() {
 			gsap.killTweensOf(controllerPivot.rotation);
@@ -176,7 +152,11 @@ export function createContactProps(scene: Group) {
 			group.removeFromParent();
 			geometries.forEach((g) => g.dispose());
 			materials.forEach((m) => m.dispose());
-			textures.forEach((t) => t.dispose());
+			if (discord instanceof Mesh && discordOriginal) {
+				discord.geometry = discordOriginal.geometry;
+				discord.material = discordOriginal.material;
+				discord.visible = discordOriginal.visible;
+			}
 		},
 	};
 }
