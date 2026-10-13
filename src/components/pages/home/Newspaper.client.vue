@@ -1,246 +1,243 @@
 <script setup lang="ts">
-import { NEWSPAPER_COVER, NEWSPAPER_PAGES, NEWSPAPER_CLASSIFIEDS } from '~/static/newspaper.static';
+import { NEWSPAPER_COVER, NEWSPAPER_PAGES } from '~/static/newspaper.static';
+
+// A page is drawn at this size and scaled to the window: the proportions of the front-page image.
+const PAGE_W = 720, PAGE_H = 1080, LAST = NEWSPAPER_PAGES.length - 1, LEAVES = 3, TURN_MS = 900;
 const opened = useState<boolean>('isNewspaperOpen', () => false);
 const dialog = ref<HTMLDialogElement>();
-const sheet = ref<HTMLElement>();
+const stage = ref<HTMLElement>();
 const page = ref(0);
-const current = computed(() => NEWSPAPER_PAGES[page.value]);
 const direction = ref(1);
-const enlarged = ref(false);
-const coverFailed = ref(false);
+const rendered = ref(false);
+const ready = ref(false);
+const closer = ref(false);
+const unfolding = ref(false);
+const leaving = ref(false);
+const turning = ref<number[]>([]);
+const layout = reactive({ compact: false, wide: true, fit: 1, near: 1 });
 
-function close() { opened.value = false; }
+const spread = computed(() => layout.wide && !closer.value);
+const scale = computed(() => (closer.value ? layout.near : layout.fit));
+const canZoom = computed(() => (layout.compact ? page.value === 0 : layout.near > layout.fit * 1.12));
+// Leaves already turned to the left. Leaf n carries page 2n+1 on its front and 2n+2 on its back.
+const flipped = computed(() => Math.ceil(page.value / 2));
+const atEnd = computed(() => (spread.value ? flipped.value === LEAVES : page.value === LAST));
+const shift = computed(() => {
+  const w = PAGE_W * scale.value;
+  if (spread.value) return flipped.value === 0 ? -w / 2 : flipped.value === LEAVES ? w / 2 : 0;
+  return page.value % 2 === 0 ? -w : 0;
+});
+const boxStyle = computed(() => ({ width: `${(spread.value ? 2 : 1) * PAGE_W * scale.value}px`, height: `${PAGE_H * scale.value}px` }));
+const bookStyle = computed(() => ({ transform: `translateX(${shift.value}px) scale(${scale.value})` }));
+const inView = (index: number) => (spread.value ? index === 2 * flipped.value - 1 || index === 2 * flipped.value : index === page.value);
+const nextLabel = computed(() => (layout.compact ? (page.value === 0 ? 'Open' : 'Next') : page.value === 0 ? 'Open the paper' : page.value % 2 || spread.value ? 'Next sheet' : 'Turn over'));
+const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let turnTimer = 0, openTimer = 0, closeTimer = 0;
 function go(index: number) {
-  if (index < 0 || index >= NEWSPAPER_PAGES.length || index === page.value) return;
+  index = Math.max(0, Math.min(LAST, index));
+  if (index === page.value) return;
+  const from = flipped.value, to = Math.ceil(index / 2);
   direction.value = index > page.value ? 1 : -1;
-  page.value = index; enlarged.value = false;
-  void nextTick(() => { sheet.value?.scrollTo({ top: 0, left: 0 }); });
+  turning.value = Array.from({ length: Math.abs(to - from) }, (_, n) => Math.min(from, to) + n);
+  clearTimeout(turnTimer);
+  turnTimer = window.setTimeout(() => { turning.value = []; }, TURN_MS + 250);
+  page.value = index; unfolding.value = false;
+  if (layout.compact) closer.value = false;
+  void nextTick(() => stage.value?.scrollTo({ top: 0, left: 0 }));
+}
+function turn(step: number) {
+  // Across a spread, one turn moves a whole leaf: front page, 2-3, 4-5, back page.
+  if (spread.value) go([0, 1, 3, 5][Math.max(0, Math.min(LEAVES, flipped.value + step))]);
+  else go(page.value + step);
+}
+function leafStyle(leaf: number) {
+  const turned = leaf < flipped.value;
+  const moving = turning.value.indexOf(leaf);
+  return {
+    zIndex: (turned ? leaf + 1 : LEAVES - leaf) + (moving >= 0 ? 10 : 0),
+    transitionDelay: moving > 0 ? `${(direction.value > 0 ? moving : turning.value.length - 1 - moving) * 110}ms` : '0ms',
+  };
+}
+function toggleCloser() {
+  closer.value = !closer.value;
+  void nextTick(() => stage.value?.scrollTo({ top: 0, left: 0 }));
+}
+function measure() {
+  const el = stage.value;
+  if (!el) return;
+  const width = el.clientWidth - 32, height = el.clientHeight - 20;
+  layout.compact = window.innerWidth < 700;
+  const single = Math.min(height / PAGE_H, width / PAGE_W), double = Math.min(height / PAGE_H, width / (2 * PAGE_W));
+  layout.wide = double >= single * 0.8;
+  layout.fit = Math.max(0.2, layout.wide ? double : single);
+  layout.near = Math.max(layout.fit, Math.min(1.25, width / PAGE_W));
+}
+function close() {
+  if (leaving.value || !opened.value) return;
+  if (reducedMotion()) { opened.value = false; return; }
+  leaving.value = true;
+  closeTimer = window.setTimeout(() => { opened.value = false; }, 240);
 }
 function key(event: KeyboardEvent) {
   // Letter/cursor keys belong to the crossword, never to reader pagination.
   if ((event.target as HTMLElement).closest('input, textarea, [contenteditable="true"]')) return;
   if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-    event.preventDefault(); go(page.value + (event.key === 'ArrowLeft' ? -1 : 1));
+    event.preventDefault(); turn(event.key === 'ArrowLeft' ? -1 : 1);
   }
 }
-function zoomCover() {
-  enlarged.value = !enlarged.value;
-  void nextTick(() => sheet.value?.scrollTo({ top: 0, left: 0 }));
+// A sideways flick turns the page on touch screens.
+let swipe: { x: number; y: number } | null = null;
+function swipeStart(event: PointerEvent) {
+  swipe = event.pointerType === 'touch' && !(event.target as HTMLElement).closest('input, button, summary') && !closer.value
+    ? { x: event.clientX, y: event.clientY } : null;
+}
+function swipeEnd(event: PointerEvent) {
+  if (!swipe) return;
+  const dx = event.clientX - swipe.x, dy = event.clientY - swipe.y;
+  swipe = null;
+  if (Math.abs(dx) > 64 && Math.abs(dx) > Math.abs(dy) * 1.6) turn(dx < 0 ? 1 : -1);
 }
 watch(opened, async value => {
-  if (value) {
-    page.value = 0; enlarged.value = false; coverFailed.value = false;
-    await nextTick();
-    if (!dialog.value?.open) dialog.value?.showModal();
-    sheet.value?.scrollTo({ top: 0, left: 0 });
-  } else dialog.value?.close();
+  clearTimeout(openTimer); clearTimeout(closeTimer);
+  if (!value) { leaving.value = false; dialog.value?.close(); return; }
+  rendered.value = true; page.value = 0; closer.value = false; leaving.value = false; turning.value = []; ready.value = false;
+  await nextTick();
+  if (!dialog.value?.open) dialog.value?.showModal();
+  measure();
+  stage.value?.scrollTo({ top: 0, left: 0 });
+  // Hold the paper back until its front page and typeface have arrived, so it never unfolds blank.
+  const cover = new Image();
+  cover.src = NEWSPAPER_COVER;
+  await Promise.race([
+    Promise.allSettled([cover.decode(), document.fonts?.load("800 20px 'Roboto Serif'")]),
+    new Promise(resolve => setTimeout(resolve, 1600)),
+  ]);
+  if (!opened.value) return;
+  unfolding.value = !reducedMotion();
+  ready.value = true;
+  openTimer = window.setTimeout(() => { unfolding.value = false; }, 1700);
 });
 let resizeFrame = 0;
-function keepAnswerVisible() {
+function onResize() {
   cancelAnimationFrame(resizeFrame);
   resizeFrame = requestAnimationFrame(() => {
+    if (!opened.value) return;
+    measure();
     const active = document.activeElement;
-    if (opened.value && active instanceof HTMLInputElement && sheet.value?.contains(active))
-      active.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});
+    if (active instanceof HTMLInputElement && stage.value?.contains(active))
+      active.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
   });
 }
-onMounted(() => { window.addEventListener('resize',keepAnswerVisible); window.visualViewport?.addEventListener('resize',keepAnswerVisible); });
-onBeforeUnmount(() => { cancelAnimationFrame(resizeFrame); window.removeEventListener('resize',keepAnswerVisible); window.visualViewport?.removeEventListener('resize',keepAnswerVisible); dialog.value?.close(); opened.value = false; });
+onMounted(() => { window.addEventListener('resize', onResize); window.visualViewport?.addEventListener('resize', onResize); });
+onBeforeUnmount(() => {
+  cancelAnimationFrame(resizeFrame); clearTimeout(turnTimer); clearTimeout(openTimer); clearTimeout(closeTimer);
+  window.removeEventListener('resize', onResize); window.visualViewport?.removeEventListener('resize', onResize);
+  dialog.value?.close(); opened.value = false;
+});
 </script>
 
 <template>
   <Teleport to="body">
-    <dialog ref="dialog" class="newspaper-reader" aria-label="The fictional fun edition newspaper"
-      @cancel.prevent="close" @close="close" @click.self="close"
+    <dialog ref="dialog" class="newspaper-reader" :class="{ leaving }" aria-label="The fictional fun edition newspaper"
+      @cancel.prevent="close" @close="opened = false"
       @pointerdown.stop @pointerup.stop @mousedown.stop @mouseup.stop @wheel.stop @touchstart.stop @touchmove.stop @touchend.stop
       @keydown.stop="key">
-      <div class="reader-frame">
-        <header class="reader-tools">
-          <span class="reader-label">THE FUN EDITION <i>•</i> THREE SHEETS. SIX SIDES.</span>
-          <div>
-            <button v-if="page === 0" :aria-pressed="enlarged" @click="zoomCover">{{ enlarged ? 'Fit page −' : 'Read closer +' }}</button>
-            <button class="close-paper" aria-label="Close newspaper" @click="close"><span class="close-label">Put it down</span><span aria-hidden="true">×</span></button>
-          </div>
-        </header>
-        <nav class="edition-index" aria-label="Newspaper sections">
-          <button v-for="(item, index) in NEWSPAPER_PAGES" :key="item.kind" :aria-current="page === index ? 'page' : undefined"
-            @click="go(index)"><span>{{ String(index + 1).padStart(2, '0') }}</span> <span class="edition-full">{{ item.short }}</span><span class="edition-compact">{{ item.kind === 'cover' ? 'Front' : item.kind === 'back' ? 'Back' : item.short }}</span></button>
-        </nav>
-        <div ref="sheet" class="sheet-scroll" tabindex="0" aria-label="Newspaper page, scroll to read">
-          <article :key="page" class="news-sheet" :class="[{ backwards: direction < 0, 'cover-sheet': page === 0 }, current.kind]">
-            <template v-if="current.kind === 'cover'">
-              <figure class="cover-image" :class="{ enlarged }">
-                <img v-if="!coverFailed" :src="NEWSPAPER_COVER" width="853" height="1280" fetchpriority="low" decoding="async"
-                  alt="Fictional Times of India front page: Two founders. Zero knowledge. $80 million. A black-and-white portrait of Mohith and his friend accompanies their imaginary ZKAuth funding story. The page is labelled parody and created for fun."
-                  @error="coverFailed = true" />
-                <div v-else class="cover-fallback"><h1>Two founders.<br>Zero knowledge.<br>$80 million.</h1><p>A fictional ZKAuth startup story, starring Mohith and his friend.</p><p>The cover image could not load. The five other pages are ready to read.</p></div>
-                <figcaption>Startup dreams special · Bengaluru <span>Parody · Created for fun</span></figcaption>
-              </figure>
-              <details class="cover-transcript">
-                <summary>Read the front-page story</summary>
-                <div><p class="kicker">STARTUP DREAMS SPECIAL · FICTIONAL FUN EDITION</p><h1>Two founders. Zero knowledge. $80 million.</h1><p class="standfirst">ZKAuth creators land $80 million in their first seed round with a new zero-knowledge proof framework.</p><p><b>BENGALURU:</b> Two young founders have turned a bold idea into a headline-making startup dream. Their zero-knowledge proof framework lets users prove who they are without handing over their secrets.</p><p>In this fictional future, an $80 million first seed round puts ZKAuth on a global stage. Built by a small team out of Bengaluru, ZKAuth aims to reimagine digital identity for a more private and open internet.</p><h2>From late-night commits to a multimillion-dollar future</h2><p>The founders believe people should be able to prove information about themselves — such as age, eligibility or account access — without revealing sensitive personal data. Their framework uses zero-knowledge proofs to make this possible.</p><blockquote>“Zero knowledge. Maximum ambition.”</blockquote><h2>Founders promise funding will not fix their sleep schedule</h2><p>Despite the $80 million boost, the founders admit their sleep schedule is unlikely to change anytime soon. “More funding, more work, same late nights,” they say.</p><p class="kicker">PARODY · FICTIONAL STARTUP NEWS · CREATED FOR FUN</p></div>
-              </details>
-            </template>
-            <template v-else>
-              <header class="paper-masthead">
-                <div class="edition-line"><span>BENGALURU · EST. THIS MORNING</span><span>{{ current.section }}</span></div>
-                <div class="masthead-name">The Studio Times</div>
-                <div class="issue-line"><span>FICTIONAL FUN EDITION</span><span>TUESDAY, 13 OCTOBER 2026</span><b>{{ String(page + 1).padStart(2, '0') }}</b></div>
-              </header>
-
-              <template v-if="'title' in current">
-                <div class="lead-heading">
-                  <p class="kicker">{{ current.kicker }}</p>
-                  <h1>{{ current.title }}</h1>
-                  <p class="standfirst">{{ current.subtitle }}</p>
-                </div>
-                <figure class="editorial-figure">
-                  <HomeNewspaperIllustration :kind="current.kind" />
-                  <figcaption>{{ current.caption }} <span>Illustration: The Studio Times</span></figcaption>
-                </figure>
-                <p class="byline">{{ current.byline }}</p>
-                <div class="story-columns"><p v-for="paragraph in current.paragraphs" :key="paragraph">{{ paragraph }}</p></div>
-                <blockquote>{{ current.quote }}</blockquote>
-                <div class="briefs">
-                  <section v-for="(brief, index) in current.briefs" :key="brief.title">
-                    <span class="brief-number">IN BRIEF / {{ String(index + 1).padStart(2, '0') }}</span>
-                    <h2>{{ brief.title }}</h2><p>{{ brief.text }}</p>
-                  </section>
-                </div>
-                <p class="news-ribbon">{{ current.ribbon }}</p>
-              </template>
-
-              <template v-else-if="current.kind === 'puzzles'">
-                <div class="puzzle-heading">
-                  <span class="puzzle-number" aria-hidden="true">05</span>
-                  <div><p class="kicker">THE CHAI-BREAK CROSSWORD · NO. 001</p><h1>A little square <br>of peace & quiet.</h1><p class="standfirst">Thirteen clues. A few familiar things. Absolutely no rush.</p></div>
-                </div>
-                <LazyHomeNewspaperCrossword />
-                <div class="puzzle-extras">
-                  <section>
-                    <p class="kicker">THE DAILY UNSCRAMBLE</p><h2>A six-letter essential.</h2>
-                    <p class="letter-jumble" aria-label="Letters F O C F E E">F O C F E E</p><p>Clue: some of us cannot be interviewed before it.</p>
-                    <details><summary>Turn for the answer</summary><p>COFFEE. The newspaper accepts chai as a lifestyle, but not as a six-letter answer.</p></details>
-                  </section>
-                  <section>
-                    <p class="kicker">ONE FOR THE ROAD</p><h2>I have keys, but no locks.</h2>
-                    <p>A space, but no room. You can enter, but you can’t go inside. What am I?</p>
-                    <details><summary>Reveal the answer</summary><p>A keyboard. Please stop dropping biscuit crumbs into mine.</p></details>
-                  </section>
-                </div>
-                <p class="news-ribbon">PUZZLE DESK / Original clues for this edition. No account, no clock, no competition.</p>
-              </template>
-
-              <template v-else>
-                <div class="back-heading"><p class="kicker">SMALL NOTICES. UNREASONABLY BIG FEELINGS.</p><h1>Classified information.</h1><p class="standfirst">Everything you never knew you didn’t need.</p></div>
-                <div class="classifieds">
-                  <section v-for="notice in NEWSPAPER_CLASSIFIEDS" :key="notice.label">
-                    <span class="notice-label">{{ notice.label }}</span><h2>{{ notice.title }}</h2><p>{{ notice.text }}</p>
-                  </section>
-                </div>
-                <div class="comic-heading"><h2>Overengineered.</h2><span>A SMALL COMIC ABOUT A VERY SIMPLE PROBLEM</span></div>
-                <HomeNewspaperIllustration kind="comic" />
-                <div class="letters-desk">
-                  <section><p class="kicker">LETTERS TO THE EDITOR</p><h2>“Is the $80 million real?”</h2><p>Dear reader, the funding is fictional. The ambition, friendship and questionable sleep schedule are entirely believable. This is a paper for a laugh, not a financial announcement.</p><p class="signed">— The very imaginary editorial board</p></section>
-                  <section class="last-word"><p class="kicker">THE LAST WORD</p><p class="closing-line">Good news.<br>You can put<br>your phone down.</p><p>Or this paper. There’s a whole room waiting.</p></section>
-                </div>
-                <p class="news-ribbon">END OF EDITION / All inner-page stories, illustrations and clues are original fiction. Thanks for reading.</p>
-              </template>
-            </template>
-          </article>
+      <header class="reader-bar">
+        <span class="reader-label">The Fun Edition <i>·</i> <span>three sheets, six sides</span></span>
+        <div>
+          <button v-if="canZoom" :aria-pressed="closer" @click="toggleCloser">{{ closer ? 'Whole paper −' : 'Read closer +' }}</button>
+          <button class="close-paper" aria-label="Close newspaper" @click="close"><span class="close-label">Put it down</span><span aria-hidden="true">×</span></button>
         </div>
-        <footer class="reader-navigation">
-          <button :disabled="page === 0" aria-label="Previous newspaper page" @click="go(page - 1)"><span aria-hidden="true">←</span> Back</button>
-          <div aria-live="polite"><b>{{ current.short }} <i>·</i> {{ page + 1 }} / 6</b><span>Sheet {{ Math.floor(page / 2) + 1 }} · {{ page % 2 ? 'reverse' : 'front' }}</span></div>
-          <button :disabled="page === 5" aria-label="Next newspaper page" @click="go(page + 1)">{{ page % 2 ? 'Next sheet' : 'Turn over' }} <span aria-hidden="true">→</span></button>
-        </footer>
+      </header>
+
+      <div ref="stage" class="stage" :class="{ compact: layout.compact, closer, ready }" tabindex="0" autofocus aria-label="Newspaper, scroll to read"
+        @click.self="close" @pointerdown="swipeStart" @pointerup="swipeEnd" @pointercancel="swipe = null">
+        <template v-if="rendered">
+          <div v-if="layout.compact" class="galley" :class="{ arriving: unfolding }">
+            <Transition :name="direction > 0 ? 'leaf-next' : 'leaf-back'" mode="out-in">
+              <HomeNewspaperPage :key="page" :index="page" compact corners="none" :unfolding="unfolding && page === 0" />
+            </Transition>
+          </div>
+          <div v-else class="book-box" :class="{ arriving: unfolding }" :style="boxStyle">
+            <div class="book" :style="bookStyle">
+              <div v-for="leaf in LEAVES" :key="leaf" class="leaf" :class="{ turned: leaf - 1 < flipped, turning: turning.includes(leaf - 1) }" :style="leafStyle(leaf - 1)">
+                <div class="face front" :class="{ unfolding: unfolding && leaf === 1 }" :inert="!inView(leaf * 2 - 2)">
+                  <HomeNewspaperPage :index="leaf * 2 - 2" :corners="spread ? 'outer' : 'both'" :unfolding="unfolding && leaf === 1" @turn="turn" />
+                </div>
+                <div class="face back" :inert="!inView(leaf * 2 - 1)">
+                  <HomeNewspaperPage :index="leaf * 2 - 1" :corners="spread ? 'outer' : 'both'" @turn="turn" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
+
+      <footer class="reader-bar reader-turns">
+        <button :disabled="page === 0" aria-label="Previous newspaper page" @click="turn(-1)"><span aria-hidden="true">←</span> Back</button>
+        <nav class="edition-index" aria-label="Newspaper sections">
+          <button v-for="(item, index) in NEWSPAPER_PAGES" :key="item.kind" :aria-current="inView(index) ? 'page' : undefined" @click="go(index)">
+            <span>{{ index + 1 }}</span><b>{{ item.kind === 'cover' ? 'Front' : item.kind === 'back' ? 'Back' : item.short }}</b>
+          </button>
+        </nav>
+        <button :disabled="atEnd" aria-label="Next newspaper page" @click="turn(1)">{{ nextLabel }} <span aria-hidden="true">→</span></button>
+      </footer>
     </dialog>
   </Teleport>
 </template>
 
 <style scoped>
-.newspaper-reader{--paper:#f5f3ed;--ink:#232321;--rule:#b5b3a9;margin:auto;padding:0;border:0;background:transparent;color:var(--ink);width:min(960px,calc(100vw - 40px));max-width:none;max-height:none;overflow:visible}
-.newspaper-reader::backdrop{background:rgb(11 13 13 / .86)}
+.newspaper-reader{position:fixed;inset:var(--visual-top,0px) 0 auto;width:100%;height:var(--visual-height,100dvh);max-width:none;max-height:none;margin:0;border:0;overflow:hidden;color:#e9e6dc;
+  padding:max(0px,env(safe-area-inset-top)) max(0px,env(safe-area-inset-right)) max(0px,env(safe-area-inset-bottom)) max(0px,env(safe-area-inset-left));
+  background:radial-gradient(ellipse at 50% 42%,rgb(58 52 42 / .5),transparent 68%)}
+.newspaper-reader[open]{display:grid;grid-template-rows:auto minmax(0,1fr) auto;animation:reader-in .3s ease-out}
+.newspaper-reader::backdrop{background:rgb(9 10 10 / .93);animation:reader-in .3s ease-out}
+.newspaper-reader.leaving,.newspaper-reader.leaving::backdrop{opacity:0;transition:opacity .22s ease-in}
+.newspaper-reader.leaving .stage{transform:translateY(26px) scale(.97);transition:transform .22s ease-in}
 .newspaper-reader :is(span,b,i){font-family:inherit}
-.newspaper-reader :deep(::selection){color:#f5f3ed;background:#232321}
-.news-sheet .puzzle-number{font-family:Georgia,'Times New Roman',serif}
-.sheet-scroll{scroll-behavior:auto;overflow-x:hidden!important}.sheet-scroll:has(.enlarged){overflow-x:auto!important}
-.reader-frame{display:flex;flex-direction:column;height:min(1250px,calc(100dvh - 32px));box-shadow:0 20px 100px #0009;background:var(--paper)}
-.reader-tools,.reader-navigation{display:flex;justify-content:space-between;align-items:center;flex-shrink:0;gap:12px;padding:6px 24px;font:10px/1.5 monospace;letter-spacing:.055em}
-.reader-tools{background:#242522;color:var(--paper)}.reader-label{font-size:9px}.reader-label i{font-style:normal;margin:0 7px;color:#aaa99f}.reader-tools>div{display:flex;align-items:center;gap:24px}
-button{min-height:40px;padding:5px 3px;cursor:pointer;background:none;border:0;color:inherit;font:inherit;letter-spacing:inherit}
-button:hover:not(:disabled){text-decoration:underline;text-underline-offset:4px}button:focus-visible,summary:focus-visible{outline:2px solid currentColor;outline-offset:2px}button:disabled{opacity:.25;cursor:default}
-.reader-tools button{font-size:11px}.close-paper{display:flex;align-items:center;gap:12px}.close-paper>span:last-child{font:27px Georgia,serif}
-.edition-index{display:flex;flex-shrink:0;padding:0 24px;justify-content:space-between;border-bottom:1px solid var(--ink);gap:5px}
-.edition-index button{font:11px/1.3 Georgia,serif;position:relative;min-height:42px;white-space:nowrap}.edition-index button span{font:9px monospace;color:#79796d;margin-right:5px}.edition-index button[aria-current=page]{font-weight:700}.edition-index button[aria-current=page]::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--ink)}
-.sheet-scroll{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#98988e var(--paper);outline-offset:-3px}
-.news-sheet{padding:24px 42px 26px;animation:page-arrive .24s ease-out;transform-origin:left center}.news-sheet.backwards{transform-origin:right center}
-.news-sheet :is(h1,h2,h3,p,blockquote,summary,figcaption){font-family:Georgia,'Times New Roman',serif}
-.edition-line,.issue-line{display:flex;justify-content:space-between;align-items:center;gap:15px;font:9px/1.4 Georgia,serif;letter-spacing:.04em;text-transform:uppercase}
-.edition-line{padding-bottom:6px;border-bottom:1px solid var(--ink)}.edition-line>span:last-child{font-weight:700}
-.masthead-name{font:700 clamp(36px,6.8vw,57px)/1.16 Georgia,'Times New Roman',serif;letter-spacing:-.055em;text-align:center;padding:5px 0 9px}
-.issue-line{padding:6px 0;border-top:3px double var(--ink);border-bottom:1px solid var(--ink)}.issue-line b{font-size:11px}
-.news-sheet .kicker{font:700 9px/1.5 Georgia,serif;letter-spacing:.065em;margin:0 0 9px;text-transform:uppercase}
-.lead-heading{text-align:center;padding:20px 0 18px}
-h1{font-size:clamp(32px,4.5vw,52px);line-height:1.02;font-weight:700;letter-spacing:-.055em;white-space:pre-line;margin:0 0 13px;text-wrap:balance}
-.standfirst{font-size:17px;line-height:1.4;margin:0;font-style:italic;text-wrap:pretty}
-.editorial-figure{margin:0 0 16px;border-block:1px solid var(--ink);padding:8px 0}
-figcaption{font-size:10px;line-height:1.4;margin:7px 0 0;display:flex;justify-content:space-between;gap:16px}figcaption>span{font-style:italic;flex-shrink:0}
-.news-sheet .byline{font-size:10px;font-weight:700;font-variant:small-caps;letter-spacing:.025em;border-bottom:1px solid var(--rule);padding-bottom:6px;margin:0 0 9px}
-.story-columns{columns:2;column-gap:26px;column-rule:1px solid var(--rule)}
-.story-columns p{font-size:14px;line-height:1.53;margin:0 0 9px;text-align:justify;hyphens:auto}.story-columns p:first-child::first-letter{float:left;font-size:42px;line-height:.84;padding:5px 5px 0 0;font-weight:700}
-blockquote{font-size:clamp(22px,3vw,29px);font-weight:700;font-style:italic;line-height:1.18;text-align:center;letter-spacing:-.025em;border-block:3px double var(--ink);padding:13px 18px;margin:20px 0}
-.briefs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}.briefs section+section{border-left:1px solid var(--rule);padding-left:20px}
-.brief-number,.notice-label{font:9px/1.4 monospace;letter-spacing:.075em;display:block;margin:0 0 7px}
-h2{font-size:23px;line-height:1.08;font-weight:700;letter-spacing:-.03em;margin:0 0 9px}.briefs p,.classifieds p,.letters-desk p,.puzzle-extras p{font-size:14px;line-height:1.5;margin:0}
-.news-sheet .news-ribbon{font:9px/1.65 monospace;letter-spacing:.025em;border-top:1px solid var(--ink);padding-top:11px;margin:22px 0 0}
-.puzzle-heading{display:flex;gap:22px;align-items:center;padding:23px 0 26px}.puzzle-number{font:italic 100px/.9 Georgia,serif;letter-spacing:-.1em;border-right:1px solid var(--ink);padding-right:24px}.puzzle-heading h1{font-size:clamp(32px,4.3vw,47px);margin-bottom:9px}.puzzle-heading .standfirst{font-size:14px}
-.puzzle-extras{margin-top:26px;padding-top:20px;border-top:3px double var(--ink);display:grid;grid-template-columns:1fr 1fr;gap:28px}.puzzle-extras>section+section{border-left:1px solid var(--rule);padding-left:28px}.puzzle-extras .letter-jumble{font:700 27px/1.4 Georgia,serif;letter-spacing:.2em;margin:8px 0}.puzzle-extras details{margin-top:8px}.puzzle-extras summary{font-size:12px;min-height:38px;padding:9px 0;cursor:pointer;font-style:italic}.puzzle-extras details p{font-size:13px;font-style:italic;padding-bottom:10px}
-.back-heading{text-align:center;padding:25px 0 20px}.back-heading h1{font-size:clamp(34px,5vw,52px)}
-.classifieds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:3px double var(--ink);border-bottom:1px solid var(--ink)}
-.classifieds section{padding:16px 18px 18px 0}.classifieds section:nth-child(3n+2),.classifieds section:nth-child(3n+3){border-left:1px solid var(--rule);padding-left:18px}.classifieds section:nth-child(n+4){border-top:1px solid var(--rule)}.classifieds section:nth-child(3n){padding-right:0}.classifieds h2{font-size:22px}.notice-label{font-size:8px}
-.comic-heading{display:flex;align-items:baseline;justify-content:space-between;gap:15px;padding:20px 0 10px}.comic-heading h2{font-style:italic;font-size:27px;margin:0}.comic-heading>span{font:8px/1.4 monospace;letter-spacing:.04em}
-.letters-desk{display:grid;grid-template-columns:1.1fr 1fr;gap:30px;padding-top:25px}.letters-desk>section+section{border-left:1px solid var(--rule);padding-left:30px}.letters-desk .signed{font-size:12px;font-style:italic;margin-top:10px}.last-word .closing-line{font-size:36px;line-height:1;font-weight:700;letter-spacing:-.04em;margin:4px 0 10px}
-.cover-sheet{padding:16px 20px 10px;min-height:100%;display:flex;justify-content:center;align-items:flex-start}
-.cover-image{margin:0;max-width:100%}.cover-image img{display:block;width:auto;height:auto;max-height:calc(100dvh - 237px);max-width:100%;margin:0 auto;box-shadow:0 2px 9px #0002}.cover-image.enlarged{width:854px;max-width:none;flex-shrink:0}.cover-image.enlarged img{width:854px;max-width:none;max-height:none}.cover-image figcaption{font:9px/1.5 monospace;margin-top:9px;flex-wrap:wrap;gap:2px 16px}.cover-fallback{max-width:560px;padding:45px 25px}.cover-fallback p{font-size:17px;line-height:1.5;margin-top:25px}
-.reader-navigation{border-top:1px solid var(--rule);padding-block:8px}.reader-navigation>div{text-align:center}.reader-navigation b{display:block;font-size:11px;font-weight:400}.reader-navigation i{font-style:normal;margin:0 4px}.reader-navigation>div>span{display:block;font-size:9px;color:#737367;letter-spacing:.025em}.reader-navigation>button{font-size:12px;min-width:105px}.reader-navigation>button:first-child{text-align:left}.reader-navigation>button:last-child{text-align:right}
-@keyframes page-arrive{from{opacity:.5;transform:translateX(5px)}to{opacity:1;transform:none}}
-@media(min-height:1282px){.cover-image img{max-height:1013px}}
-@media(max-width:650px){
-  .newspaper-reader{width:calc(100vw - 16px)}.reader-frame{height:calc(100dvh - 16px)}.reader-tools,.reader-navigation{padding:5px 13px}.reader-label{font-size:8px}.reader-label i,.reader-label{letter-spacing:0}.reader-tools>div{gap:14px}.reader-tools button{font-size:10px}.close-label{display:none}.reader-label{max-width:135px;line-height:1.5}.reader-label i{margin:0 2px}
-  .edition-index{padding:0 12px;gap:7px;overflow:auto}.edition-index button{font-size:10px;min-height:42px}.edition-index button span{display:none}
-  .news-sheet{padding:18px 20px 22px}.edition-line,.issue-line{font-size:7px;gap:8px}.edition-line>span:last-child{text-align:right}.masthead-name{font-size:37px}.lead-heading{padding:17px 0}.news-sheet .kicker{font-size:8px}h1{font-size:34px}.standfirst{font-size:15px}.story-columns{columns:1}.story-columns p{font-size:15px;line-height:1.6;text-align:left}
-  figcaption{font-size:9px;display:block}figcaption>span{display:block;margin-top:3px}.briefs{grid-template-columns:1fr;gap:16px}.briefs section+section{border-left:0;border-top:1px solid var(--rule);padding:16px 0 0}.briefs p,.classifieds p,.letters-desk p,.puzzle-extras p{font-size:15px}.brief-number{font-size:8px}.briefs h2{font-size:25px}
-  .puzzle-heading{gap:15px;padding:23px 0}.puzzle-number{font-size:57px;padding-right:16px;letter-spacing:-.08em}.puzzle-heading h1{font-size:28px}.puzzle-heading .standfirst{font-size:13px}
-  .puzzle-extras{grid-template-columns:1fr;gap:19px}.puzzle-extras>section+section{border-left:0;border-top:1px solid var(--rule);padding:18px 0 0}
-  .classifieds{grid-template-columns:1fr 1fr}.classifieds section{padding:14px 14px 16px 0!important;border:0!important}.classifieds section:nth-child(2n){border-left:1px solid var(--rule)!important;padding:14px 0 16px 14px!important}.classifieds section:nth-child(n+3){border-top:1px solid var(--rule)!important}.classifieds h2{font-size:22px}.classifieds p{font-size:14px}
-  .comic-heading{display:block}.comic-heading>span{display:block;margin-top:7px;font-size:7px}.letters-desk{grid-template-columns:1fr;gap:20px}.letters-desk>section+section{border-left:0;border-top:1px solid var(--rule);padding:18px 0 0}.last-word .closing-line{font-size:33px}
-  .cover-sheet{padding:10px 8px}.cover-image img{max-height:calc(100dvh - 191px)}.cover-image.enlarged{margin-right:0;margin-left:0}.cover-sheet:has(.enlarged){justify-content:flex-start}.cover-image figcaption{font-size:8px}.reader-navigation>button{font-size:11px;min-width:80px}.reader-navigation b{font-size:10px}.reader-navigation>div>span{font-size:8px}
-}
-@media(prefers-reduced-motion:reduce){.news-sheet{animation:none}}
 
-.newspaper-reader{top:var(--visual-top,0px);bottom:auto;margin-block:12px;max-height:calc(var(--visual-height,100dvh) - 24px);}
-.reader-frame{height:min(1250px,calc(var(--visual-height,100dvh) - 24px));}
-.cover-sheet{flex-direction:column;align-items:center;justify-content:flex-start;}
-.cover-transcript{width:100%;max-width:650px;margin:16px auto 0;border-top:1px solid var(--rule);}
-.cover-transcript summary{font:italic 16px/1.4 Georgia,serif;min-height:48px;padding:14px 0;cursor:pointer;}
-.cover-transcript>div{padding:12px 12px 24px;}.cover-transcript p{font:16px/1.65 Georgia,serif;margin:16px 0;}.cover-transcript h1{font-size:34px;}.cover-transcript h2{margin-top:22px;}
-.reader-tools{flex-shrink:0;}.reader-tools button,.edition-index button{min-height:44px;}.close-paper{min-width:44px;justify-content:center;}
-.sheet-scroll{touch-action:pan-x pan-y pinch-zoom;}
-@media(max-width:650px){
- .newspaper-reader{width:100%;max-height:none;margin:0;}
- .reader-frame{height:var(--visual-height,100dvh);padding:max(0px,env(safe-area-inset-top)) max(0px,env(safe-area-inset-right)) max(0px,env(safe-area-inset-bottom)) max(0px,env(safe-area-inset-left));}
- .reader-tools{padding:2px 12px;}.reader-tools>div{gap:4px;}.reader-label{font-size:9px;max-width:120px;}.reader-tools button{font-size:12px;}
- .edition-index{gap:16px;justify-content:flex-start;padding:0 14px;scrollbar-width:none;}.edition-index button{font-size:12px;}
- .news-sheet{padding:16px;}.news-sheet.cover-sheet{padding:8px 10px 16px;}.cover-image img{width:100%;max-height:none;}.cover-image.enlarged{width:854px;align-self:flex-start;}.cover-image.enlarged img{width:854px;}
- .masthead-name{font-size:clamp(29px,8.6vw,45px);white-space:nowrap;}.lead-heading h1{font-size:clamp(30px,8vw,38px);}
- .puzzle-heading{padding:14px 0 20px;}.puzzle-number{display:none;}.puzzle-heading h1{font-size:30px;}.puzzle-heading h1 br{display:none;}
- .reader-navigation>button{min-width:70px;min-height:44px;}.reader-navigation{padding:2px 12px;}.reader-navigation>div>span{display:none;}
- .classifieds{grid-template-columns:1fr;}.classifieds section{padding:16px 0!important;border-left:0!important;}.classifieds section:nth-child(2n){padding:16px 0!important;border-left:0!important;}.classifieds section+section{border-top:1px solid var(--rule)!important;}
-}
-@media(max-height:500px) and (min-width:651px){.newspaper-reader{margin:0 auto;width:100%;}.reader-frame{height:var(--visual-height,100dvh);}.reader-tools{padding-block:0;}.reader-navigation{padding-block:0;}}
+.reader-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:4px 22px;font:500 12px/1.4 'Roboto Serif',Georgia,serif;font-stretch:90%;letter-spacing:.03em}
+.reader-bar>div{display:flex;align-items:center;gap:22px}
+.reader-label{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#a9a69b}.reader-label i{font-style:normal;margin:0 5px}
+button{min-height:44px;padding:5px 4px;cursor:pointer;background:none;border:0;color:inherit;font:inherit;letter-spacing:inherit}
+button:hover:not(:disabled){text-decoration:underline;text-underline-offset:5px}button:focus-visible{outline:2px solid currentColor;outline-offset:2px}button:disabled{opacity:.28;cursor:default}
+.close-paper{display:flex;align-items:center;gap:10px}.close-paper>span:last-child{font-size:27px;line-height:1}
+.reader-turns>button{min-width:128px;font-size:13px;white-space:nowrap}.reader-turns>button:first-child{text-align:left}.reader-turns>button:last-child{text-align:right}
+.edition-index{display:flex;gap:4px 20px;justify-content:center;flex-wrap:wrap}
+.edition-index button{position:relative;font-size:12px;color:#a9a69b;white-space:nowrap}.edition-index button span{font-size:9px;margin-right:6px;opacity:.7}.edition-index button b{font-weight:500}
+.edition-index button[aria-current=page]{color:#f3f0e6}.edition-index button[aria-current=page]::after{content:'';position:absolute;left:0;right:0;bottom:8px;height:1px;background:currentColor}
 
-.edition-index button .edition-full{font:inherit;color:inherit;margin:0;}.edition-index button .edition-compact{display:none;}
-@media(max-width:650px){.edition-index{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;padding:0 10px;overflow:visible;}.edition-index button{min-width:0;font-size:11px;letter-spacing:0;padding-inline:0;}.edition-index button .edition-full{display:none;}.edition-index button .edition-compact{display:inline;font:inherit;color:inherit;margin:0;}}
+.stage{min-height:0;display:flex;overflow:hidden auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#6f6c63 transparent;outline:0;touch-action:pan-x pan-y pinch-zoom;padding:10px 16px}
+.stage:focus-visible{outline:0}
+.stage>*{margin:auto;visibility:hidden}.stage.ready>*{visibility:visible}
+.book-box{position:relative;flex-shrink:0}
+.book{position:absolute;left:0;top:0;width:1440px;height:1080px;transform-origin:0 0;perspective:3200px;transition:transform .9s cubic-bezier(.5,.05,.2,1)}
+/* Every leaf hinges on the fold in the middle of the spread. */
+.leaf{position:absolute;left:720px;top:0;width:720px;height:1080px;transform-origin:left center;transform-style:preserve-3d;transition:transform .9s cubic-bezier(.5,.05,.2,1)}
+.leaf.turned{transform:rotateY(-180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;box-shadow:0 18px 50px rgb(0 0 0 / .55),0 2px 6px rgb(0 0 0 / .4)}
+.face.back{transform:rotateY(180deg)}
+.face.unfolding{box-shadow:none}
+/* While the front page drops open, nothing underneath may show through the fold. */
+.book-box.arriving .leaf+.leaf{visibility:hidden}
+.leaf.turning .face{animation:leaf-shade .9s ease-in-out}
+.book-box.arriving{animation:paper-arrive .8s cubic-bezier(.2,.75,.2,1) both}
+.galley{width:100%;max-width:560px;perspective:1800px}
+.galley.arriving{animation:paper-arrive .8s cubic-bezier(.2,.75,.2,1) both}
+.galley>:deep(.np-page){box-shadow:0 12px 40px rgb(0 0 0 / .55)}
+.stage.compact{padding:6px 8px 14px;align-items:flex-start}.stage.compact>*{margin:0 auto}
+.stage.compact.closer{overflow:auto}.stage.compact.closer .galley{width:854px;max-width:none;flex-shrink:0;margin:0}
+.leaf-next-leave-active,.leaf-back-leave-active{transition:transform .2s ease-in,opacity .2s ease-in}.leaf-next-enter-active,.leaf-back-enter-active{transition:transform .32s cubic-bezier(.2,.7,.2,1),opacity .25s ease-out}
+.leaf-next-leave-to,.leaf-back-enter-from{transform-origin:left center;transform:rotateY(-58deg);opacity:0}
+.leaf-next-enter-from,.leaf-back-leave-to{transform-origin:right center;transform:rotateY(58deg);opacity:0}
+@keyframes reader-in{from{opacity:0}}
+@keyframes paper-arrive{from{opacity:0;transform:translateY(90px) rotate(-5deg) scale(.82)}55%{opacity:1}to{opacity:1;transform:none}}
+@keyframes leaf-shade{50%{filter:brightness(.72)}}
+@media(max-width:699px){
+  .reader-bar{padding:0 12px}.reader-label{font-size:9px;letter-spacing:.12em}.reader-label span,.close-label{display:none}.reader-bar>div{gap:8px}
+  .reader-turns>button{min-width:74px}.edition-index{gap:0;flex-wrap:nowrap}.edition-index button{min-width:30px;font-size:12px}.edition-index button b{display:none}.edition-index button span{font-size:12px;margin:0;opacity:1}.edition-index button[aria-current=page]::after{left:8px;right:8px}
+}
+@media(max-height:520px){.reader-bar{padding-block:0}.reader-bar button{min-height:36px}}
+@media(prefers-reduced-motion:reduce){.newspaper-reader[open],.newspaper-reader::backdrop,.book-box.arriving,.galley.arriving,.leaf.turning .face{animation:none}.book,.leaf,.leaf-next-leave-active,.leaf-back-leave-active,.leaf-next-enter-active,.leaf-back-enter-active{transition:none}}
 </style>

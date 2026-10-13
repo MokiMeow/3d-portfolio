@@ -4,7 +4,7 @@ defineProps<{ kind: 'city' | 'tech' | 'sport' | 'comic' }>();
 
 <template>
   <!-- Original ink illustrations: sharp at any zoom, no grain filter or large image downloads. -->
-  <svg v-if="kind === 'city'" viewBox="0 0 760 300" role="img" aria-label="An auto waits at a signal beside a chai stall. Its driver has time for another cup." class="editorial-ink">
+  <svg v-if="kind === 'city'" viewBox="0 0 760 300" role="img" aria-label="An auto waits at a signal beside a chai stall. Its driver has time for another cup." class="editorial-ink" preserveAspectRatio="xMidYMax meet">
     <g class="fine" opacity=".45">
       <path d="M0 150H760M35 150V49H133V150M145 150V23H228V150M243 150V75H312V150M495 150V60H565V150M581 150V32H687V150M706 150V80H760" />
       <path v-for="n in 5" :key="n" :d="`M48 ${55 + n * 15}H119 M155 ${30 + n * 18}H217 M591 ${40 + n * 19}H674`" />
@@ -30,7 +30,7 @@ defineProps<{ kind: 'city' | 'tech' | 'sport' | 'comic' }>();
     <g class="caption"><text x="390" y="38" text-anchor="middle">JUST FIVE MINUTES.</text><text x="390" y="60" text-anchor="middle" class="small">SAME AS THE LAST FIVE.</text><text x="605" y="195" text-anchor="middle">CHAI</text><text x="605" y="228" text-anchor="middle" class="small paper-text">NO Wi-Fi.</text><text x="605" y="244" text-anchor="middle" class="small paper-text">TALK TO PEOPLE.</text><text x="357" y="224" text-anchor="end" class="small paper-text">ON THE WAY</text></g>
   </svg>
 
-  <svg v-else-if="kind === 'tech'" viewBox="0 0 760 300" role="img" aria-label="A robot and a very untidy computer desktop, with folders named final, final two, and actually final." class="editorial-ink">
+  <svg v-else-if="kind === 'tech'" viewBox="0 0 760 300" role="img" aria-label="A robot and a very untidy computer desktop, with folders named final, final two, and actually final." class="editorial-ink" preserveAspectRatio="xMidYMax meet">
     <defs><pattern id="tech-hatch" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M0 6 6 0" stroke="currentColor" stroke-width=".6" /></pattern></defs>
     <g class="line">
       <path d="M58 251H710M98 252V291M665 252V291" /><path fill="url(#tech-hatch)" d="M81 254H689V264H81Z" />
@@ -51,7 +51,7 @@ defineProps<{ kind: 'city' | 'tech' | 'sport' | 'comic' }>();
     <g class="caption"><text x="558" y="33" text-anchor="middle">I HAVE ORGANISED EVERYTHING.</text><text x="558" y="51" text-anchor="middle" class="small">PLEASE DO NOT OPEN THE FOLDERS.</text><text x="544" y="185" text-anchor="middle" class="small">R&amp;D UNIT 01</text></g>
   </svg>
 
-  <svg v-else-if="kind === 'sport'" viewBox="0 0 760 300" role="img" aria-label="A gully cricket batter looks up to a neighbour on the balcony, waiting for her decision." class="editorial-ink">
+  <svg v-else-if="kind === 'sport'" viewBox="0 0 760 300" role="img" aria-label="A gully cricket batter looks up to a neighbour on the balcony, waiting for her decision." class="editorial-ink" preserveAspectRatio="xMidYMax meet">
     <defs><pattern id="sport-hatch" width="7" height="7" patternUnits="userSpaceOnUse"><path d="M0 7 7 0" stroke="currentColor" stroke-width=".6" /></pattern></defs>
     <g class="line">
       <path class="fine" d="M0 270H760M26 288H230M430 288H661M457 272V10H722V272M457 185H721" />
@@ -85,9 +85,12 @@ defineProps<{ kind: 'city' | 'tech' | 'sport' | 'comic' }>();
 </template>
 
 <style scoped>
-.editorial-ink text{font-family:Georgia,'Times New Roman',serif}
-.editorial-ink text{stroke:none}
+.editorial-ink text{font-family:'Roboto Serif',Georgia,'Times New Roman',serif;stroke:none}
 .comic-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 @media(max-width:520px){.comic-strip{grid-template-columns:1fr;max-width:300px;margin:auto;gap:14px}}
-.editorial-ink{width:100%;height:auto;display:block;color:#272724;background:#eeede6}.line{stroke:currentColor;stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round;fill:none}.fine{stroke:currentColor;stroke-width:1;fill:none}.paper{fill:#eeede6}.ink{fill:currentColor}.caption{fill:currentColor;font:700 14px Georgia,'Times New Roman',serif;letter-spacing:.3px}.small{font-size:11px}.tiny{font-size:9px;letter-spacing:0}.paper-text{fill:#eeede6;paint-order:stroke;stroke:#272724;stroke-width:3px}.comic-ink{background:transparent}.comic-ink .paper{fill:#f5f3ed}
+/* Printed plates: black line work over a halftone tint, like a picture block on newsprint. */
+.editorial-ink{width:100%;height:auto;display:block;color:var(--ink,#1c1b18);background:radial-gradient(circle at 1.5px 1.5px,rgb(28 27 24 / .3) .65px,transparent 1.05px) 0 0/4px 4px,var(--tint,#d9d6cc)}
+.line{stroke:currentColor;stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round;fill:none}.fine{stroke:currentColor;stroke-width:1;fill:none}.paper{fill:#efede6}.ink{fill:currentColor}
+.caption{fill:currentColor;font-weight:800;font-size:14px;font-stretch:78%;letter-spacing:.4px}.small{font-size:11px}.tiny{font-size:9px;letter-spacing:0}.paper-text{fill:#efede6;paint-order:stroke;stroke:#1c1b18;stroke-width:3px}
+.comic-ink{background:transparent}.comic-ink .paper{fill:var(--paper,#e6e4dc)}
 </style>

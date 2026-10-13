@@ -9,6 +9,8 @@ export const NEWSPAPER_PAGES = [
     title: 'Man leaves early.\nReaches at the usual time.',
     subtitle: 'A brave experiment in Bengaluru timekeeping ends exactly where everybody expected.',
     byline: 'Our entirely fictional city correspondent',
+    stat: { figure: '40 MIN', label: 'Head start. Time saved: none.' },
+    subhead: 'Manager asks: could you arrive yesterday?',
     paragraphs: [
       'BENGALURU — A local commuter set his alarm forty minutes earlier on Tuesday, only to arrive at the office at his regular time. “The traffic also left early,” he told this newspaper, looking respectfully at a signal he now considers a colleague.',
       'The journey included three podcasts, one career rethink and a meaningful exchange of eye contact with the same auto driver at seven consecutive junctions. By the fifth signal, they were discussing a joint birthday celebration.',
@@ -29,6 +31,8 @@ export const NEWSPAPER_PAGES = [
     title: 'AI does every task.\nExcept naming the file.',
     subtitle: 'Breakthrough system saves work as final_final_REAL_final_v7. Industry feels seen.',
     byline: 'The desk of advanced guesswork',
+    stat: { figure: '23 MIN', label: 'Spent naming one folder' },
+    subhead: 'Office printer declares independence',
     paragraphs: [
       'LAB REPORT — An experimental assistant has written a thousand lines of code, organised a calendar and summarised an unread document. It then spent twenty-three minutes deciding whether to call a folder “new” or “new2”.',
       'The research team called this a landmark moment. “We were looking for human-like intelligence,” said a fictional spokesperson. “We have successfully reproduced human-like desktop management.” A second model was summoned to locate the file. It created a duplicate.',
@@ -49,6 +53,8 @@ export const NEWSPAPER_PAGES = [
     title: 'Third umpire is aunty\non the second floor.',
     subtitle: 'Gully cricket adopts a review system. Her decision is final. So is dinner at eight.',
     byline: 'Our boundary-wall correspondent',
+    stat: { figure: '84*', label: 'Street XI, approximately' },
+    subhead: 'Bat owner goes home. Play suspended.',
     paragraphs: [
       'SPORTS DESK — After a disputed one-tip-one-hand catch, the lane appointed a neutral observer: the neighbour who had been watching the entire match while hanging laundry. She immediately overturned three decisions and asked who had hit her flowerpot.',
       'The new rules are clear. The scooter is four, the terrace is six and the locked house is “you hit it, you get it”. A ball landing in the pressure-cooker whistle zone may be declared dinner.',

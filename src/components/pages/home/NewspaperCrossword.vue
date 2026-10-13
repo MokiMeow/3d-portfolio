@@ -151,30 +151,30 @@ function clear() {
 </template>
 
 <style scoped>
-.crossword{color:#232321;--ink:#232321;--paper:#f5f3ed;font-family:Georgia,'Times New Roman',serif}
+.crossword{color:var(--ink,#1c1b18);font-family:inherit}
 .crossword :is(span,b,em){font-family:inherit}
-.current-clue{font-family:Georgia,'Times New Roman',serif}
-input::selection{color:#f5f3ed;background:#232321}
+.current-clue{font-family:'Roboto Serif',Georgia,serif}
+input::selection{color:var(--paper,#e6e4dc);background:var(--ink,#1c1b18)}
 .puzzle-layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:28px;align-items:start}
-.grid-instruction{font:12px/1.5 Georgia,serif;margin:0 0 12px}
+.grid-instruction{font:12px/1.5 'Roboto Serif',Georgia,serif;margin:0 0 12px}
 .crossword-grid{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:1px;background:var(--ink);border:2px solid var(--ink);scroll-margin-top:12px}
-.square{aspect-ratio:1;position:relative;background:var(--paper);min-width:0}
-.blocked{background:var(--ink)}.square.selected{background:#deddd4}.square.active{box-shadow:inset 0 0 0 2px var(--ink)}
-.cell-number{position:absolute;left:3px;top:1px;font:10px/1.1 Georgia,serif;pointer-events:none;z-index:1}
-input{display:block;border:0;outline:0!important;box-shadow:none!important;border-radius:0;appearance:none;width:100%;height:100%;min-width:0;background:transparent;padding:7px 0 0;color:var(--ink);font:700 clamp(16px,2.8vw,25px)/1 Georgia,serif;text-align:center;caret-color:var(--ink);user-select:text}
+.square{aspect-ratio:1;position:relative;background:#efede6;min-width:0}
+.square.blocked{background:var(--ink)}.square.selected{background:#d3d0c5}.square.active{box-shadow:inset 0 0 0 2px var(--ink)}
+.cell-number{position:absolute;left:3px;top:1px;font:10px/1.1 'Roboto Serif',Georgia,serif;pointer-events:none;z-index:1}
+input{display:block;border:0;outline:0!important;box-shadow:none!important;border-radius:0;appearance:none;width:100%;height:100%;min-width:0;background:transparent;padding:7px 0 0;color:var(--ink);font:700 clamp(16px,2.8vw,25px)/1 'Roboto Serif',Georgia,serif;text-align:center;caret-color:var(--ink);user-select:text}
 input:focus-visible{outline:2px solid var(--ink)!important;outline-offset:-3px}.incorrect input{text-decoration:underline double;text-underline-offset:4px}
 button{cursor:pointer;color:inherit;background:none;border:0;font:inherit;text-align:left;border-radius:0}
 button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .current-clue{width:100%;display:flex;flex-direction:column;gap:5px;padding:12px 0;min-height:74px;border-bottom:1px solid #a8a79f;font-size:14px;line-height:1.4}
-.current-clue b{font:700 10px/1.3 monospace;text-transform:uppercase;letter-spacing:.08em}
+.current-clue b{font:700 10px/1.3 'Roboto Serif',Georgia,serif;text-transform:uppercase;letter-spacing:.08em}
 .current-clue:hover b{text-decoration:underline}
 .puzzle-tools{display:flex;flex-wrap:wrap;gap:2px 18px;border-bottom:1px solid #a8a79f}
-.puzzle-tools button{font:11px/1.4 monospace;min-height:44px;text-decoration:underline;text-underline-offset:4px}
-.puzzle-status{font:italic 14px/1.5 Georgia,serif;min-height:42px;margin:13px 0 6px}
-.keyboard-note{font:10px/1.6 monospace;color:#66665d;margin:0}
+.puzzle-tools button{font:11px/1.4 'Roboto Serif',Georgia,serif;min-height:44px;text-decoration:underline;text-underline-offset:4px}
+.puzzle-status{font:600 13px/1.5 'Roboto Serif',Georgia,serif;min-height:42px;margin:13px 0 6px}
+.keyboard-note{font:10px/1.6 'Roboto Serif',Georgia,serif;color:#66665d;margin:0}
 .clue-columns{display:grid;grid-template-columns:1fr;gap:18px}
-.clue-columns h3{margin:0 0 5px;border-block:1px solid var(--ink);padding:5px 0;font:700 18px/1.2 Georgia,serif;text-transform:capitalize;display:flex;justify-content:space-between}
-ol{list-style:none;margin:0;padding:0}.clue-columns button{display:flex;gap:8px;width:100%;padding:7px 4px;font:13px/1.35 Georgia,serif;min-height:39px}.clue-columns button b{flex:0 0 15px}.clue-columns button em{font-style:normal;white-space:nowrap}.clue-columns button[aria-current=true]{background:#deddd4}.clue-columns button:hover span{text-decoration:underline;text-underline-offset:3px}
+.clue-columns h3{margin:0 0 5px;border-block:1px solid var(--ink);padding:5px 0;font:700 18px/1.2 'Roboto Serif',Georgia,serif;text-transform:capitalize;display:flex;justify-content:space-between}
+ol{list-style:none;margin:0;padding:0}.clue-columns button{display:flex;gap:8px;width:100%;padding:7px 4px;font:13px/1.35 'Roboto Serif',Georgia,serif;min-height:39px}.clue-columns button b{flex:0 0 15px}.clue-columns button em{font-style:normal;white-space:nowrap}.clue-columns button[aria-current=true]{background:rgb(28 27 24 / .13)}.clue-columns button:hover span{text-decoration:underline;text-underline-offset:3px}
 @media(max-width:650px){.puzzle-layout{grid-template-columns:1fr;gap:24px}.grid-column{max-width:440px;width:100%;margin:auto}.clue-columns{grid-template-columns:1fr 1fr;gap:20px}.clue-columns button{font-size:14px;min-height:44px}.grid-instruction{font-size:13px}input{font-size:22px}.cell-number{font-size:9px}}
 @media(max-width:360px){.clue-columns{grid-template-columns:1fr}.cell-number{font-size:8px}input{font-size:19px}}
 </style>
