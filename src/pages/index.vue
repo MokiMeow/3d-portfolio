@@ -4,6 +4,7 @@ import { HomeExperience } from "~/experiences/home";
 
 // STATIC
 import { events, pages } from "~/static";
+import { initialAtelierState, type AtelierState } from "~/common/models/atelier.model";
 
 // DATA
 const appCanvasId = "home-experience";
@@ -20,6 +21,9 @@ const isFreeCamera = useState<boolean>("isFreeCamera", () => false);
 const isFocusMode = useState<boolean>("isFocusMode", () => false);
 const isMarkersDisplayed = useState<boolean>("isMarkersDisplayed", () => false);
 const isSoundMuted = useState<boolean>("isSoundMuted", () => true);
+const atelierState = useState<AtelierState>("atelierState", initialAtelierState);
+const route = useRoute();
+const isAtelier = computed(() => atelierState.value.view !== "workroom" && route.path === "/");
 
 // EVENTS;
 const onUiReady = () => {
@@ -142,6 +146,7 @@ onBeforeRouteUpdate((route) => {
 <template>
 	<main
 		class="relative overflow-hidden group-data-[device=pc]:h-screen w-safe h-safe bg-dark"
+		:class="{ 'atelier-active': isAtelier }"
 	>
 		<LazyHomeLoader />
 
@@ -155,19 +160,20 @@ onBeforeRouteUpdate((route) => {
 				isFreeCamera ? 'pointer-events-none' : ''
 			}`"
 		>
-			<LazyGHeader class="px-4 pt-5 sm:pt-0 sm:px-0" />
+			<LazyGHeader class="lab-heading px-4 pt-5 sm:pt-0 sm:px-0" />
 
 			<section class="flex flex-col flex-1 sm:flex-row">
-				<LazyHomeNav />
+				<LazyHomeNav v-show="!isAtelier" />
 				<LazyNuxtPage class="w-full h-full" />
 			</section>
 
-			<LazyHomeFooter />
+			<LazyHomeFooter v-show="!isAtelier" />
 		</LazyGContainer>
 
 		<LazyHomeBoardNoteDialog />
 		<LazyHomeProjectsPanel />
 		<LazyHomeLabDeviceDialog />
+		<LazyHomeAtelierControls />
 	</main>
 </template>
 
@@ -177,4 +183,8 @@ main {
 		user-select: none;
 	}
 }
+</style>
+
+<style>
+@media (max-width: 700px) { .atelier-active .lab-heading { visibility: hidden; } }
 </style>

@@ -27,7 +27,34 @@ lighting, camera tour, furniture and Skills scene remain in place.
 
 Flash UI is replaced by **Inference Score**, linked to `MokiMeow/nutllm`. This
 interprets the spoken “Nutella” as NutLLM, consistent with the existing portfolio.
-The Discord plaque uses a crisp white Clyde mark on its blurple face.
+Discord now uses the original, freestanding Clyde silhouette with beveled edges
+and eye cutouts. The square backing has been removed. Its missing baked-mesh
+normals are generated once before applying the blue face shading.
+
+## Connected atelier
+
+From Home, choose **Step into the atelier**. A second physical room unfolds beside
+the original workroom, with three visitor-controlled camera views. Drag to orbit
+freely, including full horizontal rotation. Workroom restores the original view
+and hides the extension; leaving Home also resets the room view.
+
+- The drawing table and framed print cycle through Orbit, Rhythm and Field.
+- Ceramic ink wells cycle Clay & ink, Moss & cream and Blue hour palettes.
+- The ruler switches between composition and construction outlines.
+- The press animates a paper print. **Save your print** downloads the current
+  original composition as a 1400 × 980 PNG; nothing is uploaded.
+- The turntable and speaker grilles control the existing lab audio. Its audio
+  source moves to the record player while the atelier is visible.
+- The reading light toggles its bulb and soft floor glow.
+- Every object action also has a keyboard-accessible, touch-sized control.
+
+The furniture, joinery, rug, plant, artwork and lighting accents are procedural.
+Geometry is constructed on first entry. Repeated floorboards and slats are
+instanced, static furniture is batched by material, and animated/clickable pieces
+stay independent. There are no new model downloads, real-time lights, shadow
+maps, or dependencies. Anime.js drives the reveal, print and small object
+responses. The existing GSAP navigation handles camera travel. Reduced motion
+skips decorative motion and makes camera travel nearly immediate.
 
 ## Media and performance
 
@@ -38,7 +65,12 @@ edited walkthroughs, not live feeds. Together they are about 633 KB.
 
 Screen videos pause off the Home route, when the page is hidden, and for reduced
 motion. WebGL and portal rendering hold the last room frame while a device dialog
-is open. Devices load on demand. YouTube is mounted only after Play and removed
+is open. Phone, glasses and terminal interfaces are bundled with their dialog,
+so opening a device cannot request an old, separately named child chunk. The
+previous blank dialog was reproduced as a missing JavaScript chunk from a stale
+preview server after a rebuild. An error boundary provides a reload action if
+device rendering fails. Always restart the production server after rebuilding.
+YouTube is mounted only after Play and removed
 when the glasses close. Drawer meshes are separated once during construction,
 share the original UV/normal buffers, and preserve the baked materials. No new
 lighting passes, physics engine, runtime dependencies or background AI calls
@@ -47,7 +79,7 @@ were added. Short drawer/controller motion respects reduced motion.
 ## Checks
 
 ```sh
-node --test scripts/mesh-parts.test.cjs
+node --test scripts/mesh-parts.test.cjs scripts/camera-damping.test.cjs
 pnpm typecheck
 pnpm build
 ```
@@ -56,4 +88,10 @@ The geometry tests check triangle preservation, indexed/non-indexed inputs,
 UV/normal preservation, world transforms, ray picking after a part moves, and
 cleanup. Browser checks cover drawer open/close, continuous contact orbit,
 phone/messages, script-URL rejection, device modal isolation, terminal commands,
-and a 390-pixel layout. Actual low-end-device frame rates were not measured.
+and a 390-pixel layout. Additional checks cover direct atelier object picking,
+camera-view changes, shared artwork updates, physical printing and PNG download.
+Camera damping tests cover long/invalid frame deltas and equivalent convergence
+at 30/60/120 fps. Actual low-end-device frame rates were not measured.
+
+Checkpoints: `9158707` before these fixes and `ef5f5dd` for the standalone
+Discord/device fixes, before the atelier expansion.

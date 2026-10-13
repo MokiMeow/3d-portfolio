@@ -1,6 +1,7 @@
 import { Spherical, Vector3 } from "three";
 import normalizeWheel from "normalize-wheel";
 import gsap from "gsap";
+import { cameraDamping } from "~/utils/camera-damping";
 
 // EXPERIENCE
 import { HomeExperience } from "./";
@@ -527,32 +528,30 @@ export class Navigation extends ExperienceBasedBlueprint {
 		this._view.zoom.delta = 0;
 
 		// Smoothing
+		// A background tab can resume with a multi-second delta. Linear delta
+		// multiplication used to overshoot, eventually feeding NaN to Web Audio.
+		const sphereEase = cameraDamping(this._view.spherical.smoothing, this._appTime.delta);
+		const targetEase = cameraDamping(this._view.target.smoothing, this._appTime.delta);
 		this._view.spherical.smoothed.radius +=
 			(this._view.spherical.value.radius -
 				this._view.spherical.smoothed.radius) *
-			this._view.spherical.smoothing *
-			this._appTime.delta;
+			sphereEase;
 		this._view.spherical.smoothed.phi +=
 			(this._view.spherical.value.phi - this._view.spherical.smoothed.phi) *
-			this._view.spherical.smoothing *
-			this._appTime.delta;
+			sphereEase;
 		this._view.spherical.smoothed.theta +=
 			(this._view.spherical.value.theta - this._view.spherical.smoothed.theta) *
-			this._view.spherical.smoothing *
-			this._appTime.delta;
+			sphereEase;
 
 		this._view.target.smoothed.x +=
 			(this._view.target.value.x - this._view.target.smoothed.x) *
-			this._view.target.smoothing *
-			this._appTime.delta;
+			targetEase;
 		this._view.target.smoothed.y +=
 			(this._view.target.value.y - this._view.target.smoothed.y) *
-			this._view.target.smoothing *
-			this._appTime.delta;
+			targetEase;
 		this._view.target.smoothed.z +=
 			(this._view.target.value.z - this._view.target.smoothed.z) *
-			this._view.target.smoothing *
-			this._appTime.delta;
+			targetEase;
 
 		const viewPosition = new Vector3();
 		viewPosition.setFromSpherical(this._view.spherical.smoothed);
