@@ -41,13 +41,16 @@ the objects also respond directly in the guided view. The camera icon unlocks
 continuous horizontal orbit, with a wider zoom/pan range. The guided camera
 fits the full floor plan at portrait widths.
 
-Both extensions use the original tile level (y=0.341), a continuous foundation,
-matching wall heights, and samples of the existing tile and wood atlases. The
+Both extensions use the measured original tile level (y=0.339813), a continuous
+foundation and matching wall heights. Tile faces use the source atlas and copied
+UVs at full resolution, with the original 1.5345 × 1.521 spacing and grout width. The
 printer and paper storage sit against the back wall. The listening nook has a
 clear passage, low bookcase, record console, seating and a reading light.
 The original wall switch dims the new rooms through the same night uniform.
-Exterior backing surfaces close the original cutaway for rear views; the old
-window scenery/depth masks are hidden when viewing from behind the home.
+Exterior backing surfaces, continuous coping, plinths and window reveals close
+the original cutaway for rear views. The old invisible scenery depth masks have
+been removed. Scenery fragments are clipped to sightlines passing through the
+actual window opening, so they cannot punch holes into the walls during orbit.
 
 - The drawing table and framed print cycle through Orbit, Rhythm and Field.
 - Ceramic ink wells cycle Clay & ink, Moss & cream and Blue hour palettes.
@@ -64,7 +67,13 @@ The furniture, joinery, rug, plant, artwork and lighting accents are procedural.
 Geometry is constructed once with Home. Floor tiles are instanced, static
 furniture is batched by material, and animated/clickable pieces stay independent.
 Texture samples are made once from assets already loaded for the original room.
-There are no new model downloads, realtime lights, shadow maps or dependencies.
+There are no new model downloads, shadow-map passes or dependencies. Added
+furniture uses MeshStandardMaterial, a hemisphere and two directional lights,
+with a small PMREM probe generated once from RoomEnvironment. Baked materials
+on the original room keep their existing colour pipeline. Textures use bounded
+anisotropic filtering; linen and plaster maps are shared. Metal highlights,
+turned ceramics, cloth folds and welts, leaf veins, printer controls and vents,
+book covers/pages/spines, joinery and turntable components remain legible nearby.
 Anime.js drives printing and small object responses. Reduced motion disables
 those decorative responses and record rotation, and completes printing instantly.
 
@@ -111,3 +120,10 @@ Checkpoints: `9158707` before these fixes and `ef5f5dd` for the standalone
 Discord/device fixes, before the atelier expansion.
 
 Room integration checkpoint: `374e191` preserves the previous atelier version.
+
+Detail correction checkpoint: `b087580` preserves the integrated room before
+the material/geometry pass. The Home free-camera minimum radius is now 1.5.
+Visual inspection covers eight azimuths plus top/low rear views, the floor join,
+and close-ups of the drafting desk, printer, turntable, sofa, lamp, books, plant,
+ceramics and framed artwork. Temporary audit UI and portrait wrappers are removed
+from the delivered build.

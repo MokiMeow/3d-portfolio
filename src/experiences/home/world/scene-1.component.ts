@@ -1,5 +1,4 @@
 import {
-	BackSide,
 	Color,
 	Material,
 	Mesh,
@@ -19,6 +18,7 @@ import {
 	SRGBColorSpace,
 } from "three";
 import gsap from "gsap";
+import { clipSceneryToWindow } from "./window-portal";
 
 // BLUEPRINTS
 import { SceneComponentBlueprint } from "../blueprints/scene-component.blueprint";
@@ -83,7 +83,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 
 	public readonly navigationLimits: ViewLimits = {
 		spherical: {
-			radius: { min: 5, max: 65 },
+			radius: { min: 1.5, max: 65 },
 			phi: { min: 0.12, max: Math.PI * 0.48 },
 			theta: { min: 0, max: Math.PI * 0.5 },
 			enabled: true,
@@ -134,8 +134,6 @@ export class Scene1Component extends SceneComponentBlueprint {
 	public phoneScreen?: Mesh;
 	public monitorAScreen?: Mesh;
 	public monitorBScreen?: Mesh;
-	public treeOutside?: Object3D;
-	private readonly _windowScenery: Mesh[] = [];
 	public coffeeSteam?: Mesh;
 	private readonly _boardNotes: Mesh[] = [];
 	private _deskProps?: ReturnType<typeof createDeskProps>;
@@ -254,7 +252,6 @@ export class Scene1Component extends SceneComponentBlueprint {
 					for (let i = 0; i < keys.length; i++) {
 						keys[i];
 						results[`tree_cube_${keys[i]}`] = "tree";
-						results[`tree_cube_${keys[i]}_clone`] = "tree_outside";
 					}
 
 					return results;
@@ -347,18 +344,6 @@ export class Scene1Component extends SceneComponentBlueprint {
 		if (item.name === "scene_1_phone_screen") this.phoneScreen = item;
 		if (item.name === "monitor_a_screen") this.monitorAScreen = item;
 		if (item.name === "monitor_b_screen") this.monitorBScreen = item;
-		if (item.name === "tree" || (/^tree_cube_/.test(item.name) && !/_clone$/.test(item.name)))
-			this._windowScenery.push(item);
-
-		if (
-			new RegExp(/^tree_cube_/, "ig").test(item.name) &&
-			!new RegExp(/_clone$/, "ig").test(item.name)
-		) {
-			const clone = item.clone();
-			clone.name = `${clone.name}_clone`;
-
-			this.treeOutside?.add(clone);
-		}
 	}
 
 	protected _getAvailableMaterials(): Materials {
@@ -390,6 +375,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 			map: availableTextures.scene_1_tree_baked_texture,
 			transparent: true,
 		});
+		if (availableMaterials.tree instanceof MeshBasicMaterial) clipSceneryToWindow(availableMaterials.tree);
 		availableMaterials.room = new ShaderMaterial({
 			uniforms: {
 				uBakedTexture: {
@@ -446,10 +432,6 @@ export class Scene1Component extends SceneComponentBlueprint {
 			transparent: true,
 			depthWrite: false,
 		});
-		availableMaterials.tree_outside = new MeshBasicMaterial({
-			colorWrite: false,
-			side: BackSide,
-		});
 
 		return availableMaterials;
 	}
@@ -458,12 +440,10 @@ export class Scene1Component extends SceneComponentBlueprint {
 		this._fitHomeCamera();
 		window.addEventListener("resize", this._fitHomeCamera);
 		super.construct(() => {
-			this.treeOutside = new Object3D();
 			(this.keyboards = new Object3D()).position.set(-1.5, 1.2, -1.1);
 			(this.fixedComputer = new Object3D()).position.set(0, 1, -3);
 
 			this.modelScene?.add(
-				this.treeOutside,
 				this.keyboards,
 				this.fixedComputer
 			);
@@ -482,6 +462,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 				room: this._loader?.availableTextures.scene_1_no_lights_baked_texture,
 				wood: this._loader?.availableTextures.scene_1_woods_no_lights_baked_texture,
 				night: this._night,
+				renderer: this._experience.app.renderer.instance,
 			});
 			this._atelier.refresh(this._atelierState.value);
 		}
@@ -677,7 +658,6 @@ export class Scene1Component extends SceneComponentBlueprint {
 
 	public destruct() {
 		window.removeEventListener("resize", this._fitHomeCamera);
-		this._windowScenery.length = 0;
 		this._atelier?.dispose();
 		this._atelier = undefined;
 		this._atelierState.value = initialAtelierState();
@@ -899,12 +879,6 @@ export class Scene1Component extends SceneComponentBlueprint {
 	}
 
 	public update(): void {
-		// The baked scenery behind the window has invisible depth masks for the
-		// original quarter-turn view. From behind the home they would punch a
-		// hole through the new exterior, so keep that window effect interior-facing.
-		const seesWindowScenery = (this._camera?.instance.position.z ?? 0) > -3.1;
-		if (this.treeOutside) this.treeOutside.visible = seesWindowScenery;
-		for (const mesh of this._windowScenery) mesh.visible = seesWindowScenery;
 		const lofi = this._experience.sound?.lofi_audio;
 		const audioAnchor = this._atelier?.root.visible ? this._atelier.recordAnchor : this.fixedComputer;
 		if (lofi && audioAnchor && lofi.parent !== audioAnchor) {
