@@ -6,7 +6,9 @@ import { createAmbience } from './vision/ambience';
 import VisionEnvironment from './vision/VisionEnvironment.vue';
 import VisionIcon from './vision/VisionIcon.vue';
 import SpatialWidgets from './vision/SpatialWidgets.vue';
-import SiriOrb from './vision/SiriOrb.vue';
+import JarvisOrb from './vision/jarvis/JarvisOrb.vue';
+import { useJarvis } from './vision/jarvis/useJarvis';
+import type { JarvisAction } from './vision/jarvis/brain';
 import Spotlight, { type SpotlightResult } from './vision/Spotlight.vue';
 
 type Win = { id: VisionAppId; x: number; y: number; w: number; h: number; z: number; locked?: boolean; full?: { x: number; y: number; w: number; h: number } };
@@ -58,14 +60,14 @@ const TIPS = [
   { key: 'move', title: 'Move, resize and close', text: 'Drag the bar under a window to move it. Drag a corner to resize. The × beside the bar closes it.' },
   { key: 'home', title: 'Go back Home', text: 'Press Home in the dock, press the Digital Crown, or hit Esc. Esc closes the front window first.' },
   { key: 'place', title: 'Step into a place', text: 'Pick an Environment, then turn the Digital Crown or scroll on it for more or less of it. Drag the scenery to look around.' },
-  { key: 'siri', title: 'Search, widgets and Siri', text: 'Press Ctrl + Space or / to search anything. Pin widgets from Control Center. Hold the Digital Crown, or press Alt + Space, for Siri.' },
+  { key: 'siri', title: 'Search, widgets and JARVIS', text: 'Press Ctrl + Space or / to search anything. Pin widgets from Control Center. Tap the gold orb, press Alt + Space or J, or hold the Digital Crown, for JARVIS.' },
 ];
 /** Space kept clear at the bottom for the dock, so a window's bar never hides behind it. */
 const DOCK = 96;
 // Windows live below the row of hardware pills and the clock, never underneath them.
 const TOP = 72;
 
-useHead({ link: [{ rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap' }] });
+useHead({ link: [{ rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap' }] });
 
 const booting = ref(true);
 const homeOpen = ref(true);
@@ -111,11 +113,33 @@ let noteTimer = 0, clockTimer = 0, bootTimer = 0, flashTimer = 0, glide = 0;
 let watcher: ResizeObserver | undefined;
 
 function focus(win: Win) { if (win.z !== top) win.z = ++top; }
+const gliding = ref(false);
+const scanning = ref<VisionAppId | null>(null);
+let glideTimer = 0, scanTimer = 0;
+function glideWindows() { gliding.value = true; clearTimeout(glideTimer); glideTimer = window.setTimeout(() => { gliding.value = false; }, 760); }
+/** Tile every unlocked window into a tidy grid, each keeping its own proportions. */
+function arrange() {
+  const list = windows.value.filter(win => !win.locked);
+  if (!list.length) return;
+  glideWindows();
+  const fit = room(), n = list.length, cols = n === 1 ? 1 : n <= 4 ? 2 : 3, rows = Math.ceil(n / cols), gap = 18;
+  const cellW = (fit.w - gap * (cols - 1)) / cols, cellH = (fit.h - gap * (rows - 1)) / rows;
+  list.forEach((win, index) => {
+    const [aw, ah] = VISION_APPS.find(item => item.id === win.id)!.size;
+    const scale = Math.min(1, cellW / aw, cellH / ah);
+    win.full = undefined;
+    win.w = Math.round(Math.max(Math.min(320, cellW), aw * scale)); win.h = Math.round(Math.max(Math.min(260, cellH), ah * scale));
+    const col = index % cols, row = Math.floor(index / cols);
+    win.x = Math.round((view.w - fit.w) / 2 + col * (cellW + gap) + (cellW - win.w) / 2);
+    win.y = Math.round(TOP + row * (cellH + gap) + (cellH - win.h) / 2);
+  });
+}
 function room() { return { w: view.w - (compact.value ? 12 : 56), h: view.h - TOP - DOCK - 58 }; }
 function open(id: VisionAppId) {
   const existing = windows.value.find(item => item.id === id);
   homeOpen.value = false; control.value = false; help.value = false;
   if (existing) { focus(existing); return; }
+  if (!jarvisActing) jarvis.remark('app', id);
   const [width, height] = VISION_APPS.find(item => item.id === id)!.size, fit = room();
   const w = Math.min(width, fit.w), h = Math.min(height, fit.h), step = windows.value.length % 4;
   windows.value.push({ id, w, h, x: Math.max(6, (view.w - w) / 2 + step * 28), y: Math.max(TOP, TOP + (fit.h - h) / 2 + step * 18), z: ++top });
@@ -209,6 +233,8 @@ const SCRIPT: [number, VisionAppId, string, string][] = [
 ];
 let scriptTimers: number[] = [];
 function toast(text: string) {
+  // JARVIS says what he is doing; a toast repeating it would be noise.
+  if (jarvisActing) return;
   note.value = text;
   clearTimeout(noteTimer);
   noteTimer = window.setTimeout(() => { note.value = ''; }, 3600);
@@ -228,6 +254,7 @@ let viewHinted = false;
 function setViewOnly(on: boolean) {
   if (viewOnly.value === on) return;
   viewOnly.value = on;
+  if (on && !jarvisActing) jarvis.remark('view');
   document.documentElement.classList.toggle('lab-vision-view', on);
   if (!on) return;
   control.value = false; help.value = false; closeMenu.value = null; spotlight.value?.hide();
@@ -240,6 +267,7 @@ function pickPlace(id: VisionEnvironmentId) {
   else if (id !== 'room') homeOpen.value = false;
 }
 function setEnvironment(id: VisionEnvironmentId) {
+  if (!jarvisActing) jarvis.remark('place', id);
   if (id === 'room') { glideTo(0); toast('Back in the room.'); return; }
   const already = environment.value === id && immersion.value > 0.9;
   environment.value = id; lastPlace = id;
@@ -280,6 +308,7 @@ function capture() {
   toast('Captured. Saved to Photos, in spirit.');
 }
 function recenter() {
+  glideWindows();
   const fit = room();
   windows.value.forEach((win, index) => { if (win.locked) return; win.full = undefined; win.w = Math.min(win.w, fit.w); win.h = Math.min(win.h, fit.h); win.x = Math.max(6, (view.w - win.w) / 2 + (index % 4) * 28); win.y = Math.max(TOP, TOP + (fit.h - win.h) / 2 + (index % 4) * 18); });
   place.value?.recentre();
@@ -379,7 +408,7 @@ function crownDown(event: PointerEvent) {
   (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
   // Holding the Digital Crown calls Siri.
   clearTimeout(crownHold);
-  crownHold = window.setTimeout(() => { if (!crownMoved && crownY !== null) { crownHeld = true; siri.value?.activate(); } }, 650);
+  crownHold = window.setTimeout(() => { if (!crownMoved && crownY !== null) { crownHeld = true; void jarvisOrb.value?.talk(); } }, 650);
 }
 function crownMove(event: PointerEvent) {
   if (crownY === null) return;
@@ -390,26 +419,68 @@ function crownUp() { clearTimeout(crownHold); if (crownY !== null && !crownMoved
 
 /* Widgets in the room and Siri. */
 const widgets = ref<InstanceType<typeof SpatialWidgets>>();
-const siri = ref<InstanceType<typeof SiriOrb>>();
+const jarvisOrb = ref<InstanceType<typeof JarvisOrb>>();
 const APP_IDS = new Set<string>(VISION_APPS.map(item => item.id));
-type SiriCommand = Parameters<NonNullable<InstanceType<typeof SiriOrb>['$props']['onCommand']>>[0];
-function siriCommand(command: SiriCommand) {
-  switch (command.type) {
-    case 'open': if (APP_IDS.has(command.app)) open(command.app as VisionAppId); break;
-    case 'environment': if (VISION_ENVIRONMENTS.some(item => item.id === command.id)) { homeOpen.value = false; setEnvironment(command.id as VisionEnvironmentId); } break;
-    case 'immersion': if (environment.value === 'room' && command.value > 0) environment.value = lastPlace; glideTo(Math.max(0, Math.min(1, command.value))); break;
-    case 'immersionBy': turnCrown(command.delta); break;
-    case 'home': goHome('apps'); break;
-    case 'closeAll': closeAll(); break;
-    case 'widgets': control.value = false; widgets.value?.openGallery(); break;
-    case 'capture': capture(); break;
-    case 'dark': dark.value = command.on; break;
+/** 'open' while the full JARVIS display covers the view, 'docked' when it has stepped aside. */
+const jarvisCore = ref<'closed' | 'open' | 'docked'>('closed');
+let jarvisActing = false, jarvisActingTimer = 0;
+const jarvis = useJarvis({
+  context: () => ({
+    now: new Date(),
+    place: inside.value ? { id: here.value.id, name: here.value.name } : { id: 'room', name: 'My Room' },
+    immersion: inside.value ? immersion.value : 0,
+    open: windows.value.map(win => ({ id: win.id, name: NAMES[win.id] })),
+    front: front.value ? { id: front.value.id, name: NAMES[front.value.id] } : null,
+    dark: dark.value, viewOnly: viewOnly.value, focusMode: focusMode.value,
+    apps: VISION_APPS, environments: VISION_ENVIRONMENTS, objects: 0,
+  }),
+  act: jarvisAct,
+});
+const jarvisStatus = computed(() => ({ place: inside.value ? here.value.name : 'My Room', immersion: inside.value ? immersion.value : 0, windows: windows.value.length, front: front.value ? NAMES[front.value.id] : '' }));
+/** Everything JARVIS can do to the headset. Returns an extra line for him to say, when there is one. */
+async function jarvisAct(action: JarvisAction): Promise<string | void> {
+  jarvisActing = true;
+  clearTimeout(jarvisActingTimer);
+  jarvisActingTimer = window.setTimeout(() => { jarvisActing = false; }, 900);
+  const aside = () => jarvisOrb.value?.stepAside();
+  switch (action.type) {
+    case 'open': if (APP_IDS.has(action.app)) { setViewOnly(false); open(action.app as VisionAppId); aside(); } break;
+    case 'close': close(action.app as VisionAppId); break;
+    case 'closeAll': windows.value = []; homeOpen.value = false; break;
+    case 'environment':
+      if (VISION_ENVIRONMENTS.some(item => item.id === action.id)) { homeOpen.value = false; setEnvironment(action.id as VisionEnvironmentId); if (action.id !== 'room') aside(); }
+      break;
+    case 'immersion': if (environment.value === 'room' && action.value > 0) environment.value = lastPlace; glideTo(Math.max(0, Math.min(1, action.value))); aside(); break;
+    case 'immersionBy': turnCrown(action.delta); break;
+    case 'home': goHome('apps'); aside(); break;
+    case 'widgets': control.value = false; widgets.value?.openGallery(); aside(); break;
+    case 'capture': aside(); await new Promise(resolve => window.setTimeout(resolve, 700)); capture(); break;
+    case 'dark': dark.value = action.on; break;
+    case 'viewOnly':
+      if (action.on) { await jarvisOrb.value?.close(); setViewOnly(true); } else setViewOnly(false);
+      break;
+    case 'arrange': setViewOnly(false); homeOpen.value = false; arrange(); aside(); break;
+    case 'search': open('safari'); aside(); break;
+    case 'recentre': recenter(); break;
+    case 'sound': if (sound.value !== action.on) toggleSound(); break;
+    case 'focusMode': focusMode.value = action.on; break;
+    case 'scan': {
+      const win = front.value;
+      if (!win) break;
+      aside(); focus(win);
+      scanning.value = win.id; clearTimeout(scanTimer); scanTimer = window.setTimeout(() => { scanning.value = null; }, 1700);
+      await new Promise(resolve => window.setTimeout(resolve, 900));
+      break;
+    }
+    case 'spawn': case 'clearSpace': case 'gravity':
+      return 'The fabrication bay is still being assembled, {a}.';
   }
 }
 function siriKey(event: KeyboardEvent) {
-  if (event.altKey && event.code === 'Space') { event.preventDefault(); siri.value?.activate(); return; }
+  if (event.altKey && event.code === 'Space') { event.preventDefault(); jarvisOrb.value?.activate(); return; }
   // Spotlight: Ctrl or Command + Space, or / when nothing is being typed.
   const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || (event.target as HTMLElement | null)?.isContentEditable;
+  if (!typing && !event.ctrlKey && !event.metaKey && !event.altKey && (event.key === 'j' || event.key === 'J') && !booting.value) { event.preventDefault(); if (viewOnly.value) setViewOnly(false); void jarvisOrb.value?.talk(); return; }
   if (!typing && !event.ctrlKey && !event.metaKey && !event.altKey && (event.key === 'v' || event.key === 'V') && !booting.value) { event.preventDefault(); setViewOnly(!viewOnly.value); return; }
   if (((event.ctrlKey || event.metaKey) && event.code === 'Space') || (event.key === '/' && !typing)) { event.preventDefault(); openSpotlight(); }
 }
@@ -429,7 +500,7 @@ function spotlightPick(result: SpotlightResult) {
       else if (result.id === 'recentre') recenter();
       else if (result.id === 'closeAll') closeAll();
       else if (result.id === 'widgets') widgets.value?.openGallery();
-      else if (result.id === 'siri') siri.value?.activate();
+      else if (result.id === 'siri') void jarvisOrb.value?.talk();
       else goHome('apps');
   }
 }
@@ -467,10 +538,11 @@ onMounted(() => {
   window.addEventListener('keydown', siriKey);
   let welcomed = false;
   try { welcomed = localStorage.getItem('lab-vision-welcomed') === '1'; } catch { /* ignore */ }
-  bootTimer = window.setTimeout(() => { booting.value = false; if (!welcomed) help.value = true; }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 2600);
+  bootTimer = window.setTimeout(() => { booting.value = false; if (!welcomed) help.value = true; else window.setTimeout(() => jarvis.remark('greet'), 1400); }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 2600);
   scriptTimers = SCRIPT.map(([seconds, app, title, body]) => window.setTimeout(() => notify(app, title, body), seconds * 1000));
 });
 onBeforeUnmount(() => {
+  jarvis.dispose();
   document.documentElement.classList.remove('lab-vision-on', 'lab-vision-view');
   if (labDeviceBack.handler === back) labDeviceBack.handler = null;
   watcher?.disconnect();
@@ -484,7 +556,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="visor" class="visor" :class="{ booting, solid: reduceTransparency, compact, inside, looking, 'cc-open': control, 'home-open': homeOpen, 'view-only': viewOnly }" :style="{ '--tx': tilt.x, '--ty': tilt.y }" @pointermove="look">
+  <div ref="visor" class="visor" :class="{ booting, solid: reduceTransparency, compact, inside, looking, 'cc-open': control, 'home-open': homeOpen, 'view-only': viewOnly, 'jarvis-open': jarvisCore === 'open', 'jarvis-docked': jarvisCore === 'docked' }" :style="{ '--tx': tilt.x, '--ty': tilt.y }" @pointermove="look">
     <VisionEnvironment :id="environment" ref="place" :immersion="immersion" :dark="dark" class="place" />
     <i class="dimmer" :style="{ opacity: dim }" />
     <i class="gaze" />
@@ -494,7 +566,7 @@ onBeforeUnmount(() => {
       <SpatialWidgets v-if="!booting" ref="widgets" :now="now" :compact="compact" :dark="dark" :immersed="inside && immersion > 0.95" @open="openFromWidget" />
       <!-- Windows -->
       <TransitionGroup name="window">
-        <section v-for="win in windows" :key="win.id" class="window" :class="{ front: front === win, behind: homeOpen }" :aria-label="NAMES[win.id]"
+        <section v-for="win in windows" :key="win.id" class="window" :class="{ front: front === win, behind: homeOpen, gliding, scanning: scanning === win.id }" :aria-label="NAMES[win.id]"
           :style="{ left: `${win.x}px`, top: `${win.y}px`, width: `${win.w}px`, height: `${win.h}px`, zIndex: win.z }" @pointerdown.capture="focus(win)">
           <div class="glass"><component :is="VIEWS[win.id]" :compact="compact" /></div>
           <div class="grip-row">
@@ -600,7 +672,7 @@ onBeforeUnmount(() => {
     </Transition>
 
     <Spotlight ref="spotlight" :apps="VISION_APPS" :environments="VISION_ENVIRONMENTS" :people="PEOPLE" :compact="compact" @pick="spotlightPick" />
-    <SiriOrb v-if="!booting" ref="siri" :apps="VISION_APPS" :environments="VISION_ENVIRONMENTS" :compact="compact" :sound="sound" @command="siriCommand" />
+    <JarvisOrb v-if="!booting" ref="jarvisOrb" :jarvis="jarvis" :compact="compact" :status="jarvisStatus" @core="jarvisCore = $event" />
 
     <!-- Control Centre -->
     <button class="status" :aria-expanded="control" aria-label="Control Centre" @click="control = !control; help = false"><b>{{ time }}</b><i /></button>
@@ -628,7 +700,7 @@ onBeforeUnmount(() => {
             <button aria-label="Capture" @click="capture"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2" /><circle cx="12" cy="12" r="4.5" fill="#ff453a" /></svg><span>Capture</span></button>
             <button aria-label="Search" @click="openSpotlight"><svg viewBox="0 0 24 24"><path d="M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm4.8 11.3L20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg><span>Search</span></button>
             <button aria-label="Widgets" @click="control = false; widgets?.openGallery()"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2.5" fill="none" stroke="currentColor" stroke-width="2" /><rect x="13" y="3" width="8" height="8" rx="2.5" fill="none" stroke="currentColor" stroke-width="2" /><rect x="3" y="13" width="18" height="8" rx="2.5" fill="none" stroke="currentColor" stroke-width="2" /></svg><span>Widgets</span></button>
-            <button aria-label="Siri" @click="control = false; siri?.activate()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2" /><path d="M7 12c2-4 3 4 5 0s3 4 5 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg><span>Siri</span></button>
+            <button aria-label="JARVIS" @click="control = false; jarvisOrb?.activate()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="#ffc15a" stroke-width="1.6" /><circle cx="12" cy="12" r="3.6" fill="none" stroke="#ffe2a8" stroke-width="2" /><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3" stroke="#ffc15a" stroke-width="1.4" stroke-linecap="round" /></svg><span>JARVIS</span></button>
             <button aria-label="Recentre" @click="recenter"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="currentColor" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg><span>Recentre</span></button>
           </section>
           <section class="cc-side">
@@ -901,7 +973,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3
 .help .tip-move::after{left:17px;right:17px;top:37px;height:4px;border-radius:2px;background:#fff;animation:slide 2.600s ease-in-out infinite}
 .help .tip-home::before{inset:15px;background:radial-gradient(circle,#fff 2.600px,transparent 3.200px) 0 0/7.330px 7.330px}
 .help .tip-place::before{left:11px;right:11px;bottom:15px;height:16px;background:#fff;clip-path:polygon(0 100%,34% 10%,54% 62%,68% 36%,100% 100%)}
-.help .tip-siri::before{inset:8px;border-radius:50%;background:conic-gradient(from 90deg,#4f8cff,#c14bff,#ff6a3d,#4f8cff);filter:blur(1px);animation:tip-spin 3s linear infinite}
+.help .tip-siri::before{inset:8px;border-radius:50%;background:radial-gradient(circle,#2a1a06 32%,transparent 34%),conic-gradient(from 90deg,#d97b28,#ffc15a,#fff1ca,#ffc15a,#d97b28);box-shadow:0 0 14px #ffb04a;animation:tip-spin 3s linear infinite}
 @keyframes tip-spin{to{transform:rotate(360deg)}}
 .help .tip-place::after{right:14px;top:13px;width:8px;height:8px;border-radius:50%;background:#ffd60a}
 .go{display:block;width:100%;margin-top:18px;height:54px;border-radius:27px;background:#fff;color:#111;font-size:17px;font-weight:600;transition:transform .2s,background .2s}.go:hover{background:#e9e9ee}.go:active{transform:scale(.98)}
@@ -912,7 +984,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3
 /* Notification banners: compact at the top of the view; looking at one opens it up. */
 .notices.below{top:118px}
 .cc-open .toast{top:auto;bottom:112px}
-.cc-open .siri-layer{opacity:0;pointer-events:none;transition:opacity .2s}
+.cc-open .jarvis-layer{opacity:0;pointer-events:none;transition:opacity .2s}
 .compact .toast{font-size:13px;padding:9px 16px;max-width:min(320px,calc(100vw - 24px))}
 /* The Home View sits in front of the room; widgets fall back while it is open. */
 .widget-layer :deep(.placed){transition:opacity .35s ease,filter .25s}
@@ -981,11 +1053,21 @@ button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3
 
 /* Just the view. Windows and the Home View sink back and blur away; the chrome slides off the edges. */
 .window,.home,.widget-layer{transition-property:transform,filter,opacity,scale,visibility;transition-duration:.25s,.3s,.3s,.6s,0s;transition-timing-function:ease-out,ease,ease,cubic-bezier(.2,.8,.2,1),linear}
-.dock,.status,.crown,.top-button,.notices,.siri-layer{transition:translate .6s cubic-bezier(.2,.8,.2,1),opacity .4s ease,top .3s ease}
+.dock,.status,.crown,.top-button,.notices,.jarvis-layer{transition:translate .6s cubic-bezier(.2,.8,.2,1),opacity .4s ease,top .3s ease}
 .view-only :is(.window,.home,.widget-layer){opacity:0;scale:.9;filter:blur(14px);pointer-events:none;visibility:hidden;transition-duration:.25s,.45s,.45s,.6s,0s;transition-delay:0s,0s,0s,0s,.6s}
 .view-only .dock{translate:0 calc(100% + 40px);opacity:0;pointer-events:none}
 .view-only :is(.status,.crown,.top-button){translate:0 -90px;opacity:0;pointer-events:none}
-.view-only :is(.notices,.siri-layer){opacity:0;pointer-events:none}
+.view-only :is(.notices,.jarvis-layer){opacity:0;pointer-events:none}
+/* While JARVIS has the whole view, everything else waits behind him. */
+.jarvis-open :is(.window,.home,.widget-layer){scale:.94;filter:blur(2px) brightness(.75);pointer-events:none}
+.jarvis-open :is(.dock,.status,.crown,.top-button,.notices){opacity:0;pointer-events:none}
+.jarvis-open .dock,.jarvis-docked .dock{translate:0 calc(100% + 40px)}
+.jarvis-docked .dock{opacity:0;pointer-events:none}
+.jarvis-open :is(.status,.crown,.top-button){translate:0 -90px}
+.window.gliding{transition:left .72s cubic-bezier(.2,.8,.2,1),top .72s cubic-bezier(.2,.8,.2,1),width .72s cubic-bezier(.2,.8,.2,1),height .72s cubic-bezier(.2,.8,.2,1),transform .25s ease-out,filter .3s,opacity .3s,scale .6s cubic-bezier(.2,.8,.2,1)}
+.window.scanning::after{content:'';position:absolute;inset:0;border-radius:34px;pointer-events:none;z-index:9;box-shadow:0 0 0 1.5px #ffc15a,0 0 40px rgb(255 160 50 / .45);background:linear-gradient(180deg,transparent 0,transparent calc(var(--scan) - 2px),rgb(255 210 140 / .95) var(--scan),rgb(255 170 60 / .25) calc(var(--scan) + 2px),transparent calc(var(--scan) + 60px));animation:jarvis-scan 1.6s cubic-bezier(.4,0,.2,1) both}
+@property --scan{syntax:'<percentage>';inherits:false;initial-value:0%}
+@keyframes jarvis-scan{0%{--scan:0%;opacity:0}10%{opacity:1}85%{opacity:1}100%{--scan:100%;opacity:0}}
 .view-only .space::before{opacity:0}
 .view-return{position:absolute;left:50%;bottom:24px;translate:-50% 0;z-index:7600;height:40px;padding:0 7px;border-radius:20px;display:flex;align-items:center;color:#fff;background:linear-gradient(180deg,rgb(255 255 255 / .16),rgb(255 255 255 / .05)),rgb(36 38 46 / .32);backdrop-filter:blur(26px) saturate(150%);-webkit-backdrop-filter:blur(26px) saturate(150%);box-shadow:inset 0 1px 0 rgb(255 255 255 / .28),inset 0 0 0 1px rgb(255 255 255 / .14),0 14px 34px rgb(0 0 0 / .28);opacity:.62;transition:opacity .3s,padding .35s cubic-bezier(.2,.8,.2,1),background .3s}
 .view-return i{width:26px;height:26px;display:grid;place-items:center;flex:none}

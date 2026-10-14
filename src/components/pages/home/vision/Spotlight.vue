@@ -40,7 +40,7 @@ const ACTIONS: SpotlightResult[] = [
   { kind: 'action', id: 'recentre', title: 'Recentre', note: 'Bring windows back in front of you' },
   { kind: 'action', id: 'closeAll', title: 'Close all apps', note: 'Clear your space' },
   { kind: 'action', id: 'widgets', title: 'Add a widget', note: 'Pin something to your room' },
-  { kind: 'action', id: 'siri', title: 'Ask Siri', note: 'Hold the Digital Crown or press Alt + Space' },
+  { kind: 'action', id: 'siri', title: 'Talk to JARVIS', note: 'Tap the gold orb, press J, or hold the Digital Crown' },
   { kind: 'action', id: 'home', title: 'Home View', note: 'All your apps' },
 ];
 
