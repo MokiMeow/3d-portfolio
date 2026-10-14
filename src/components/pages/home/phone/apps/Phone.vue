@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import AppGlyph from './AppGlyph.vue';
 import { APP_ICONS as icons } from './icons';
-const tab = ref<string>('Keypad');
+import type { RecentCall, Voicemail } from '../chat/histories';
+const tab = ref<string>('Recents');
 const digits = ref<string>('');
 const search = ref<string>('');
 const caller = ref<string | null>(null);
@@ -50,39 +51,30 @@ const contacts = [
         detail: 'For critical low-chai incidents',
         glyph: 'CH',
         color: '#af9178'
-    }
+    },
+    { name: 'College Gang', detail: 'Group audio · hello, can you hear me?', glyph: 'CG', color: '#ae97bd' },
+    { name: 'Delivery', detail: 'Small bell navigation services', glyph: 'D', color: '#83a8bd' },
+    { name: 'Mom’s Cousin', detail: 'One more small printer question', glyph: 'MC', color: '#688eae' }
 ];
-const recents = ref<Array<{
-    name: string;
-    missed: boolean;
-    label: string;
-}>>([
-    {
-        name: 'Do Not Answer',
-        missed: true,
-        label: 'Today'
-    },
-    {
-        name: 'Amma',
-        missed: false,
-        label: 'Today'
-    },
-    {
-        name: 'Pizza',
-        missed: false,
-        label: 'Yesterday'
-    },
-    {
-        name: 'Landlord (rent)',
-        missed: true,
-        label: 'Yesterday'
-    },
-    {
-        name: 'Chai Hotline',
-        missed: false,
-        label: 'Monday'
-    }
-]);
+const recents = ref<RecentCall[]>([]);
+const voicemails = ref<Voicemail[]>([]);
+const loading = ref(true);
+const loadError = ref(false);
+let disposed = false;
+async function loadHistories() {
+    loading.value = true;
+    loadError.value = false;
+    try {
+        const { phoneHistories } = await import('../chat/histories-phone');
+        if (disposed) return;
+        // Preserve any simulated call made while the history chunk was loading.
+        const history = structuredClone(phoneHistories);
+        recents.value.push(...history.recents);
+        voicemails.value = history.voicemails;
+    } catch { if (!disposed) loadError.value = true; }
+    finally { if (!disposed) loading.value = false; }
+}
+onMounted(loadHistories);
 const filtered = computed(() => contacts.filter(c => c.name.toLowerCase().includes(search.value.toLowerCase())));
 const keys = [
     ['1', ''],
@@ -151,6 +143,7 @@ function call(name?: string) {
     }, 1800);
 }
 onBeforeUnmount(() => {
+    disposed = true;
     if (connector)
         clearTimeout(connector);
     if (ticker)
@@ -234,6 +227,8 @@ onBeforeUnmount(() => {
          />
       </header>
       <main class="main scroll" :class="{keypad:tab==='Keypad'}">
+        <p v-if="loading && tab !== 'Keypad'" class="history-loading" role="status">Opening call history…</p>
+        <button v-if="loadError && tab !== 'Keypad'" class="history-loading" @click="loadHistories">Could not load history. Tap to retry.</button>
         <template v-if="tab==='Keypad'">
           <div class="number">
             <p :style="{fontSize:digits.length>14?'26px':'38px'}">{{ digits }}</p>
@@ -282,8 +277,7 @@ onBeforeUnmount(() => {
             <div>
               <h3 :class="{missed:item.missed}">{{ item.name }}</h3>
               <p>
-                mobile ·
-                {{ item.missed?'missed call':'incoming' }}
+                {{ item.detail ?? (item.missed ? 'mobile · missed call' : 'outgoing · simulated') }}
               </p>
             </div>
             <span>{{ item.label }}</span>
@@ -313,7 +307,7 @@ onBeforeUnmount(() => {
         </template>
         <template v-else-if="tab==='Favourites'">
           <button
-            v-for="contact in contacts.filter(c=>['Amma','Pizza','Chai Hotline'].includes(c.name))"
+            v-for="contact in contacts.filter(c=>['Amma','College Gang','Chai Hotline','Rubber Duck','Pizza'].includes(c.name))"
             :key="contact.name"
             class="row"
             @click="call(contact.name)"
@@ -330,30 +324,18 @@ onBeforeUnmount(() => {
           <p class="empty">A small list of very important calls.</p>
         </template>
         <template v-else>
-          <button
-            v-for="name in ['Landlord (rent)','Do Not Answer','Pizza']"
-            :key="name"
-            class="voicemail row"
-            @click="voicemail=voicemail===name?null:name"
-          >
-            <div>
-              <h3>{{ name }}</h3>
-              <p>
-                Today · 0:
-                {{ name==='Pizza'?'12':'42' }}
-              </p>
-              <p v-if="voicemail===name" class="voice-caption">
-                {{ name==='Pizza'
-              ?'Your pizza is at the gate. It has been there less time than the rider.'
-              :name==='Do Not Answer'
-              ?'Hello. We would like to discuss your imaginary extended warranty.'
-              :'A gentle reminder about rent. This voicemail is also a gentle reminder.' }}
-              </p>
+
+          <article v-for="item in voicemails" :key="item.id" class="voicemail-record">
+            <button class="voicemail row" :aria-expanded="voicemail === item.id" @click="voicemail = voicemail === item.id ? null : item.id">
+              <div><h3>{{ item.name }}</h3><p>{{ item.date }} · {{ item.duration }}</p></div>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="icons[voicemail === item.id ? 'pause' : 'play']" /></svg>
+            </button>
+            <div v-if="voicemail === item.id" class="voicemail-transcript">
+              <small>TRANSCRIPTION · SIMULATED VOICEMAIL</small>
+              <p v-for="(line, index) in item.lines" :key="index">{{ line }}</p>
+              <button @click="call(item.name)">Call back · local simulation</button>
             </div>
-            <svg viewBox="0 0 24 24">
-              <path :d="icons[voicemail===name?'pause':'play']" />
-            </svg>
-          </button>
+          </article>
           <p class="empty">Voicemails are written simulations.</p>
         </template>
       </main>
@@ -1153,4 +1135,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 .call-avatar { background: #203f3d44; }
 
+
+.history-loading { padding:20px; text-align:center; font-size:13px; color:#8e8e93; }
+.voicemail-record { border-bottom:1px solid #e5e5ea; }
+.voicemail-record .row { border-bottom:0; }
+.voicemail-transcript { margin:0 20px 18px; padding:14px; background:#f2f2f7; border-radius:12px; }
+.voicemail-transcript > small { font-size:10px; letter-spacing:.03em; color:#74747c; }
+.voicemail-transcript p { font-size:14px; line-height:1.5; margin-top:8px; }
+.voicemail-transcript button { color:#007aff; font-size:13px; margin-top:8px; padding-inline:0; }
+.recent > span { flex-shrink:0; max-width:76px; font-size:12px; }
 </style>

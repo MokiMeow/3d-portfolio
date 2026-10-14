@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { AiHistory } from '../chat/histories';
 type Bot = 'claude' | 'chatgpt' | 'grok';
 type Turn = {
     from: 'me' | 'bot';
@@ -115,11 +116,39 @@ const busy = ref(false);
 const feed = ref<HTMLElement>();
 const chatsOpen = ref(false);
 const attachmentsOpen = ref(false);
-const archives = ref<Array<{
-    id: number;
-    title: string;
-    turns: Turn[];
-}>>([]);
+const archives = ref<AiHistory[]>([]);
+const pastChats = ref<AiHistory[]>([]);
+const historyLoading = ref(true);
+const historyError = ref(false);
+const activeTitle = ref('');
+let restoredLength = 0;
+let disposed = false;
+let historyVersion = 0;
+async function loadPastChats() {
+    const version = ++historyVersion;
+    const model = props.bot;
+    historyLoading.value = true;
+    historyError.value = false;
+    try {
+        const { aiHistories } = await import('../chat/histories-ai');
+        if (disposed || version !== historyVersion) return;
+        pastChats.value = structuredClone(aiHistories[model]);
+    } catch { if (!disposed && version === historyVersion) historyError.value = true; }
+    finally { if (!disposed && version === historyVersion) historyLoading.value = false; }
+}
+onMounted(loadPastChats);
+watch(() => props.bot, () => {
+    clearInterval(stream);
+    clearTimeout(wait);
+    turns.value = [];
+    archives.value = [];
+    busy.value = false;
+    activeTitle.value = '';
+    draft.value = '';
+    chatsOpen.value = false;
+    attachmentsOpen.value = false;
+    void loadPastChats();
+});
 let archiveId = 0;
 function attach(kind: 'code' | 'question') {
     draft.value = kind === 'code'
@@ -127,12 +156,12 @@ function attach(kind: 'code' | 'question') {
         : 'Is this a quick change? I only need one more button.';
     attachmentsOpen.value = false;
 }
-function restoreChat(saved: {
-    turns: Turn[];
-}) {
+function restoreChat(saved: AiHistory) {
     clearInterval(stream);
     clearTimeout(wait);
     busy.value = false;
+    activeTitle.value = saved.title;
+    restoredLength = saved.turns.length;
     turns.value = saved.turns.map(turn => ({
         ...turn
     }));
@@ -182,10 +211,10 @@ function send(text = draft.value) {
     }, 700);
 }
 function reset() {
-    if (turns.value.length) {
+    if (turns.value.length && (!activeTitle.value || turns.value.length > restoredLength)) {
         archives.value.unshift({
             id: ++archiveId,
-            title: turns.value.find(turn => turn.from === 'me')?.text ?? 'Local chat',
+            title: activeTitle.value || turns.value.find(turn => turn.from === 'me')?.text || 'Local chat',
             turns: turns.value.filter(turn => turn.text).map(turn => ({
                 ...turn
             })),
@@ -195,11 +224,13 @@ function reset() {
     clearTimeout(wait);
     busy.value = false;
     turns.value = [];
+    activeTitle.value = '';
     draft.value = '';
     chatsOpen.value = false;
     attachmentsOpen.value = false;
 }
 onBeforeUnmount(() => {
+    disposed = true;
     clearInterval(stream);
     clearTimeout(wait);
 });
@@ -210,7 +241,7 @@ onBeforeUnmount(() => {
     <header>
       <button
         class="tool"
-        aria-label="Chats, decorative"
+        aria-label="Open past conversations"
         :aria-expanded="chatsOpen"
         @click="chatsOpen = !chatsOpen"
       >
@@ -235,7 +266,8 @@ onBeforeUnmount(() => {
         </svg>
       </button>
     </header>
-    <section v-if="chatsOpen" class="local-chats" aria-label="Local chat history">
+    <button v-if="chatsOpen" class="sidebar-shade" aria-label="Close chat history" @click="chatsOpen = false" />
+    <section v-if="chatsOpen" class="local-chats" @keydown.esc.stop="chatsOpen = false" aria-label="Local chat history">
       <div class="panel-heading">
         <b>Chats on this phone</b>
         <button class="tool" aria-label="Close chat history" @click="chatsOpen = false">
@@ -246,10 +278,12 @@ onBeforeUnmount(() => {
       </div>
       <button v-if="turns.length" class="saved-chat" @click="chatsOpen = false">Current conversation</button>
       <button v-for="saved in archives" :key="saved.id" class="saved-chat" @click="restoreChat(saved)">{{ saved.title }}</button>
-      <p v-if="!turns.length && !archives.length">A clean slate. Your next question goes here.</p>
+      <p v-if="historyLoading" role="status">Opening past conversations…</p>
+      <button v-if="historyError" class="saved-chat" @click="loadPastChats">Could not load past chats. Tap to retry.</button>
+      <button v-for="saved in pastChats" :key="saved.id" class="saved-chat" :class="{chosen:activeTitle === saved.title}" @click="restoreChat(saved)"><b>{{ saved.title }}</b><small>{{ saved.turns[1]?.text.slice(0, 72) }}…</small></button>
       <small>Local parody chats stay here while this app is open.</small>
     </section>
-    <div ref="feed" class="feed" aria-live="polite">
+    <div ref="feed" class="feed" :inert="chatsOpen" aria-live="polite">
       <div v-if="!turns.length" class="welcome">
         <svg v-if="props.bot === 'claude'" class="mark" viewBox="0 0 64 64" aria-hidden="true">
           <g stroke="currentColor" stroke-width="5" stroke-linecap="round">
@@ -269,6 +303,7 @@ onBeforeUnmount(() => {
           <button v-for="chip in bot.chips" :key="chip" @click="send(chip)">{{ chip }}</button>
         </div>
       </div>
+      <p v-if="activeTitle" class="history-title">{{ activeTitle }}</p>
       <template v-for="(turn, index) in turns" :key="index">
         <p v-if="turn.from === 'me'" class="mine">{{ turn.text }}</p>
         <div v-else class="answer">
@@ -289,7 +324,7 @@ onBeforeUnmount(() => {
       <button @click="attach('code')">Code snippet</button>
       <button @click="attach('question')">A quick change</button>
     </div>
-    <form class="composer" @submit.prevent="send()">
+    <form class="composer" :inert="chatsOpen" @submit.prevent="send()">
       <div class="box">
         <input
           v-model="draft"
@@ -839,4 +874,14 @@ header, .composer, .attachment-tray {
     animation: none;
   }
 }
+
+.local-chats { overflow-y:auto; overscroll-behavior:contain; max-height:calc(100% - var(--safe-top,62px) - 130px); }
+.saved-chat { text-align:left; }
+.saved-chat b, .saved-chat small { display:block; }
+.saved-chat small { font-size:11px; font-weight:400; opacity:.65; margin-top:5px; line-height:1.4; }
+.saved-chat.chosen { background:#7f7f7f18; }
+.history-title { font-size:12px; opacity:.6; text-align:center; margin:8px 0 18px; }
+
+.sidebar-shade { position:absolute; inset:calc(var(--safe-top,62px) + 58px) 0 0; background:#0003; z-index:5; width:100%; border-radius:0; }
+.local-chats { position:absolute; top:calc(var(--safe-top,62px) + 58px); bottom:var(--safe-bottom,34px); left:0; width:88%; max-width:320px; max-height:none; z-index:6; box-shadow:8px 0 25px #0002; border-radius:0 18px 18px 0; }
 </style>

@@ -2,15 +2,12 @@
 import { PHONE } from '../phone';
 import { createChatSession, type ReadState } from '../chat/engine';
 import { messagesPersonas } from '../chat/personas';
+import { textParts, vote, percent, type RichMessage } from '../chat/histories';
 const phone = inject(PHONE);
-type Bubble = {
-    from: 'me' | 'them';
-    text: string;
-    who?: string;
-    color?: string;
-    reaction?: string;
-    state?: ReadState;
-    readTime?: string;
+type Bubble = RichMessage & {
+    from: 'me' | 'them'; who?: string;
+    reaction?: string; state?: ReadState; readTime?: string;
+    playing?: boolean; progress?: number;
 };
 type Thread = {
     id: string;
@@ -23,167 +20,34 @@ type Thread = {
     sms?: boolean;
     bubbles: Bubble[];
 };
-// Every thread answers back. The jokes are about software, chai and traffic, never about real people.
-const threads = ref<Thread[]>([
-    {
-        id: 'bot',
-        name: 'Build Bot',
-        initials: 'BB',
-        tint: 'linear-gradient(180deg,#8e9aff,#5b5ce6)',
-        when: 'now',
-        unread: true,
-        bubbles: [
-            {
-                from: 'them',
-                text: 'Hello. I am the phone’s unpaid intern.'
-            },
-            {
-                from: 'them',
-                text: 'In this pretend office, a “quick change” has packed an overnight bag.'
-            },
-        ],
-    },
-    {
-        id: 'amma',
-        name: 'Amma',
-        initials: 'A',
-        tint: 'linear-gradient(180deg,#ffb37a,#ff7a59)',
-        when: '9:41',
-        unread: true,
-        bubbles: [
-            {
-                from: 'them',
-                text: 'Did you eat?'
-            },
-            {
-                from: 'me',
-                text: 'Yes ma'
-            },
-            {
-                from: 'them',
-                text: 'What did you eat?'
-            },
-            {
-                from: 'me',
-                text: '…food'
-            },
-            {
-                from: 'them',
-                text: 'Biscuits are not food. Call me.'
-            },
-        ],
-    },
-    {
-        id: 'chai',
-        name: 'Chai Gang ☕',
-        initials: 'CG',
-        tint: 'linear-gradient(180deg,#f5d36b,#c9892a)',
-        when: '9:12',
-        unread: true,
-        group: true,
-        bubbles: [
-            {
-                from: 'them',
-                who: 'Auto Anna',
-                text: 'Meter or no ride. Final offer.'
-            },
-            {
-                from: 'them',
-                who: 'Rubber Duck',
-                text: 'Quack. (That means: have you tried reading the error?)'
-            },
-            {
-                from: 'them',
-                who: 'Stand-up Timer',
-                text: 'Stand-up in 2 minutes. It will take 45.'
-            },
-            {
-                from: 'me',
-                text: 'On the way'
-            },
-            {
-                from: 'them',
-                who: 'Auto Anna',
-                text: '“On the way” means you are choosing a shirt.'
-            },
-        ],
-    },
-    {
-        id: 'landlord',
-        name: 'Landlord (rent)',
-        initials: 'L',
-        tint: 'linear-gradient(180deg,#b0b6c2,#7d8494)',
-        when: 'Yesterday',
-        bubbles: [
-            {
-                from: 'them',
-                text: 'Rent.'
-            },
-            {
-                from: 'me',
-                text: 'Sent it on the 1st, uncle'
-            },
-            {
-                from: 'them',
-                text: 'Next month rent.'
-            },
-        ],
-    },
-    {
-        id: 'otp',
-        name: 'VM-TOTLBNK',
-        initials: '#',
-        tint: 'linear-gradient(180deg,#a6adb8,#6f7682)',
-        when: 'Monday',
-        sms: true,
-        bubbles: [
-            {
-                from: 'them',
-                text: '483921 is your OTP. Do not share it with anyone. Not even us. We do not know why we are sending it.'
-            },
-            {
-                from: 'them',
-                text: 'Dear customer, your account has been credited with ₹0.00. Thank you for banking with imagination.'
-            },
-            {
-                from: 'them',
-                text: 'Congratulations! You are pre-approved for a loan you did not ask for.'
-            },
-        ],
-    },
-    {
-        id: 'delivery',
-        name: 'Delivery Partner',
-        initials: 'DP',
-        tint: 'linear-gradient(180deg,#7fe0a0,#2fae62)',
-        when: 'Sunday',
-        bubbles: [
-            {
-                from: 'them',
-                text: 'Sir I am outside.'
-            },
-            {
-                from: 'me',
-                text: 'Outside where?'
-            },
-            {
-                from: 'them',
-                text: 'Outside only sir.'
-            },
-            {
-                from: 'them',
-                text: 'Sir which gate? There are 4 gates and a philosophical one.'
-            },
-        ],
-    },
-]);
+const threads = ref<Thread[]>([]);
+const loading = ref(true);
+const loadError = ref(false);
+let disposed = false;
+let nextBubbleId = 200000;
+async function loadHistories() {
+    loading.value = true;
+    loadError.value = false;
+    try {
+        const { messageHistories } = await import('../chat/histories-messages');
+        if (disposed) return;
+        threads.value = structuredClone(messageHistories).map(history => ({ ...history, when: 'Today', unread: ['bot', 'amma', 'chai', 'unknown'].includes(history.id), bubbles: history.messages.map(message => ({ ...message, from: message.mine ? 'me' as const : 'them' as const, who: history.group ? message.sender : undefined, state: message.mine ? 'read' as const : undefined, readTime: message.time })) }));
+        for (const thread of threads.value) {
+            const base = messagesPersonas[thread.id] ?? messagesPersonas[thread.id === 'cousin' ? 'landlord' : 'chai']!;
+            const persona = thread.id === 'cousin' ? { ...base, name: thread.name, members: undefined, replies: { ...base.replies, help: ['Try one page first. The printer is easily overwhelmed.', 'Is the paper free to move? Even paper needs personal space.', 'Check the print preview before asking the printer to perform.'], work: ['The printer says offline. I say cautiously hopeful.', 'Eight blank pages later, we have found the blank document.', 'Same Wi-Fi first. Inspirational troubleshooting later.'], unknown: ['One small printer question. Famous last words.', 'The blinking light has developed another opinion.', 'I will read the preview before clicking print again.'] } } : thread.id === 'unknown' ? { ...base, name: 'Dev', members: undefined } : base;
+            sessions.set(thread.id, createChatSession({ ...persona, voiceNotes: [], photos: [], stickers: [] }));
+        }
+    } catch { if (!disposed) loadError.value = true; }
+    finally { if (!disposed) loading.value = false; }
+}
+onMounted(loadHistories);
 const openId = ref<string | null>(null);
 const active = computed(() => threads.value.find(item => item.id === openId.value) ?? null);
 const draft = ref('');
 const typingRooms = ref<string[]>([]);
-const typing = computed(() => !!openId.value && typingRooms.value.includes(openId.value));
+const typing = computed(() => !!openId.value && (typingRooms.value.includes(openId.value) || ambientTyping.value === openId.value));
 const lastSent = computed(() => [...(active.value?.bubbles ?? [])].reverse().find(bubble => bubble.from === 'me'));
-const sessions = new Map(threads.value.map(thread => [thread.id, createChatSession({ ...messagesPersonas[thread.id]!, voiceNotes: [], photos: [], stickers: [] })]));
+const sessions = new Map<string, ReturnType<typeof createChatSession>>();
 const query = ref('');
 const editingList = ref(false);
 const choosingRecipient = ref(false);
@@ -197,6 +61,11 @@ function chooseAttachment(text: string) {
     draft.value = text;
 }
 const feed = ref<HTMLElement>();
+const followTail = ref(true);
+function trackTail(event: Event) {
+    const element = event.currentTarget as HTMLElement;
+    followTail.value = element.scrollHeight - element.scrollTop - element.clientHeight < 100;
+}
 const shown = computed(() => {
     const needle = query.value.trim().toLowerCase();
     return threads.value.filter(item => !needle ||
@@ -207,11 +76,12 @@ function later(action: () => void, delay: number) {
     const timer = setTimeout(() => { timers.delete(timer); action(); }, delay);
     timers.add(timer);
 }
-function scrollDown() {
-    void nextTick(() => feed.value?.scrollTo({
-        top: feed.value.scrollHeight,
-        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'
-    }));
+function scrollDown(force = false) {
+    void nextTick(() => {
+        if (!force && !followTail.value) return;
+        followTail.value = true;
+        feed.value?.scrollTo({ top: feed.value.scrollHeight, behavior: 'auto' });
+    });
 }
 function enter(thread: Thread) {
     thread.unread = false;
@@ -221,7 +91,7 @@ function enter(thread: Thread) {
     editingList.value = false;
     attachmentsOpen.value = false;
     callOpen.value = false;
-    scrollDown();
+    scrollDown(true);
 }
 function back() {
     openId.value = null;
@@ -231,7 +101,7 @@ function back() {
 function send(text = draft.value) {
     const thread = active.value, value = text.trim().slice(0, 240);
     if (!thread || !value) return;
-    thread.bubbles.push({ from: 'me', text: value, state: 'sent' });
+    thread.bubbles.push({ id: nextBubbleId++, mine: true, from: 'me', text: value, time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), date: 'Today', state: 'sent' });
     const own = thread.bubbles.at(-1)!;
     thread.when = 'now';
     draft.value = '';
@@ -245,13 +115,84 @@ function send(text = draft.value) {
         if (openId.value === thread.id) scrollDown();
     }, event.atMs);
     for (const bubble of plan.bubbles) later(() => {
-        thread.bubbles.push({ from: 'them', text: bubble.text, who: thread.group ? bubble.sender : undefined, color: bubble.color });
+        thread.bubbles.push({ id: nextBubbleId++, mine: false, from: 'them', text: bubble.text, time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), date: 'Today', who: thread.group ? bubble.sender : undefined, color: bubble.color, quote: { id: own.id, sender: 'You', text: own.text, color: '#007aff' } });
         if (openId.value !== thread.id) thread.unread = true;
         else scrollDown();
     }, bubble.atMs);
-    scrollDown();
+    scrollDown(true);
 }
-onBeforeUnmount(() => timers.forEach(clearTimeout));
+
+const ambientTyping = ref<string | null>(null);
+let activityTimer: ReturnType<typeof setTimeout> | undefined;
+let autoCount = 0;
+const gangActivity = [
+    { who: 'Meera', color: '#b04e29', text: 'Saved a corner bajji. No calendar invite required.' },
+    { who: 'Auto Anna', color: '#996028', text: 'The shortcut has requested an extension. Tea has not.' },
+    { who: 'Rubber Duck', color: '#846721', text: 'Quack. Short walk, warm chai, small plan.' },
+    { who: 'Stand-up Timer', color: '#795394', text: 'Meeting ended early. This is what success tastes like.' },
+    { who: 'Meera', color: '#b04e29', text: 'The fancy mug has stopped rolling. Morale stable.' },
+    { who: 'Auto Anna', color: '#996028', text: 'On the way, with actual motion this time.' }
+];
+function scheduleActivity(thread: Thread) {
+    if (!thread.group || autoCount >= 6 || disposed) return;
+    if (activityTimer) clearTimeout(activityTimer);
+    activityTimer = setTimeout(() => {
+        activityTimer = undefined;
+        if (autoCount >= 6) return;
+        if (openId.value !== thread.id || disposed) return;
+        if (document.hidden || typingRooms.value.includes(thread.id)) { scheduleActivity(thread); return; }
+        const activity = gangActivity[autoCount++]!;
+        ambientTyping.value = thread.id;
+        later(() => {
+            if (ambientTyping.value === thread.id) ambientTyping.value = null;
+            const last = thread.bubbles.at(-1);
+            thread.bubbles.push({ ...activity, sender: activity.who, id: nextBubbleId++, mine: false, from: 'them', time: 'now', date: 'Today', quote: last ? { id: last.id, sender: last.who ?? (last.mine ? 'You' : thread.name), text: last.text, color: last.color ?? '#007aff' } : undefined });
+            thread.when = 'now';
+            if (openId.value !== thread.id) thread.unread = true;
+            else { scrollDown(); scheduleActivity(thread); }
+        }, 1500);
+    }, 20000 + Math.random() * 20000);
+}
+watch(openId, () => { if (activityTimer) clearTimeout(activityTimer); if (active.value) scheduleActivity(active.value); });
+const flashId = ref<number | null>(null);
+function jumpTo(id: number) {
+    feed.value?.querySelector<HTMLElement>('[data-message-id="' + id + '"]')?.scrollIntoView({ block: 'center', behavior: 'auto' });
+    followTail.value = false;
+    flashId.value = id;
+    later(() => { if (flashId.value === id) flashId.value = null; }, 1500);
+}
+const lightbox = ref<{ src: string; caption: string } | null>(null);
+const photoClose = ref<HTMLButtonElement>();
+let photoTrigger: HTMLElement | null = null;
+function showPhoto(message: Bubble, event: MouseEvent) {
+    if (!message.src) return;
+    photoTrigger = event.currentTarget as HTMLElement;
+    lightbox.value = { src: message.fullSrc ?? message.src.replace('-s.webp', '.webp'), caption: message.text };
+    void nextTick(() => photoClose.value?.focus());
+}
+function closePhoto() { lightbox.value = null; photoTrigger?.focus(); }
+function reactTo(reaction: NonNullable<RichMessage['reactions']>[number]) {
+    reaction.selected = !reaction.selected;
+    reaction.count += reaction.selected ? 1 : -1;
+}
+const waveform = [8, 15, 22, 12, 28, 18, 10, 24, 32, 16, 25, 12, 20, 30];
+const playbackVersions = new Map<number, number>();
+function playVoice(message: Bubble) {
+    const version = (playbackVersions.get(message.id) ?? 0) + 1;
+    playbackVersions.set(message.id, version);
+    message.playing = !message.playing;
+    if (!message.playing) return;
+    if ((message.progress ?? 0) >= 1) message.progress = 0;
+    const seconds = Number(message.duration?.split(':')[1] ?? 14);
+    function advance() {
+        if (!message.playing || playbackVersions.get(message.id) !== version) return;
+        message.progress = Math.min(1, (message.progress ?? 0) + 0.1 / seconds);
+        if (message.progress >= 1) message.playing = false;
+        else later(advance, 100);
+    }
+    later(advance, 100);
+}
+onBeforeUnmount(() => { disposed = true; timers.forEach(clearTimeout); if (activityTimer) clearTimeout(activityTimer); });
 </script>
 
 <template>
@@ -301,6 +242,8 @@ onBeforeUnmount(() => timers.forEach(clearTimeout));
           </svg>
           <input v-model="query" type="search" placeholder="Search" aria-label="Search messages" />
         </label>
+        <p v-if="loading" class="history-loading" role="status">Opening the messages…</p>
+        <button v-if="loadError" class="history-loading" @click="loadHistories">Could not load messages. Tap to retry.</button>
         <ul>
           <li v-for="thread in shown" :key="thread.id">
             <button class="row" @click="editingList ? toggleRead(thread) : enter(thread)">
@@ -316,7 +259,7 @@ onBeforeUnmount(() => timers.forEach(clearTimeout));
                 </b>
                 <span>
                   {{ thread.bubbles.at(-1)?.who ? `${thread.bubbles.at(-1)?.who}: ` : '' }}
-                  {{ thread.bubbles.at(-1)?.text }}
+                  {{ typingRooms.includes(thread.id) || ambientTyping === thread.id ? 'typing…' : thread.bubbles.at(-1)?.text }}
                 </span>
               </span>
             </button>
@@ -381,23 +324,45 @@ onBeforeUnmount(() => timers.forEach(clearTimeout));
           <button v-if="phone" @click="phone.open('camera')">Open camera</button>
           <button @click="callOpen = false">End preview</button>
         </section>
-        <div ref="feed" class="feed" aria-live="polite">
-          <p class="stamp">
-            {{ active.sms ? 'Text Message · SMS' : 'iMessage' }}
-            <br />
-            Today
-            {{ new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) }}
-          </p>
-          <template v-for="(bubble, index) in active.bubbles" :key="index">
-            <small v-if="bubble.who && active.bubbles[index - 1]?.who !== bubble.who" class="sender" :style="{color:bubble.color}">{{ bubble.who }}</small>
-            <p
-              class="bubble"
-              :class="[bubble.from, { sms: active.sms, tail: active.bubbles[index + 1]?.from !== bubble.from || active.bubbles[index + 1]?.who !== bubble.who }]"
-            >
-              {{ bubble.text }}
-              <span v-if="bubble.reaction" class="tapback" :aria-label="bubble.reaction + ' reaction'">{{ bubble.reaction }}</span>
-            </p>
-            <small v-if="bubble === lastSent && bubble.state && bubble.state !== 'sent'" class="receipt">{{ bubble.state === 'read' ? 'Read ' + bubble.readTime : 'Delivered' }}</small>
+        <div ref="feed" class="feed" aria-live="polite" @scroll.passive="trackTail">
+
+          <p class="stamp">{{ active.sms ? 'Text Message · SMS' : 'iMessage' }} · Fictional conversation</p>
+          <template v-for="(bubble, index) in active.bubbles" :key="bubble.id">
+            <p v-if="index === 0 || bubble.date !== active.bubbles[index - 1]?.date" class="stamp day-chip">{{ bubble.date ?? 'Today' }}</p>
+            <p v-if="bubble.kind === 'system'" class="stamp">☎ {{ bubble.text }} · {{ bubble.time }}</p>
+            <template v-else>
+              <small v-if="bubble.who && active.bubbles[index - 1]?.who !== bubble.who" class="sender" :style="{color:bubble.color}">{{ bubble.who }}</small>
+              <div class="bubble" :data-message-id="bubble.id" :class="[bubble.from, { sms: active.sms, sticker:bubble.kind === 'sticker', 'quote-flash':flashId === bubble.id, tail: active.bubbles[index + 1]?.from !== bubble.from || active.bubbles[index + 1]?.who !== bubble.who }]">
+
+          <small v-if="bubble.forwarded" class="forwarded">↪ {{ bubble.forwarded }}</small>
+          <button v-if="bubble.quote" class="quote-card" :style="{borderColor: bubble.quote.color}" @click="jumpTo(bubble.quote.id)">
+            <b :style="{color: bubble.quote.color}">{{ bubble.quote.sender }}</b><span>{{ bubble.quote.text }}</span>
+          </button>
+          <button v-if="bubble.kind === 'photo' && bubble.src" class="photo-button" :aria-label="'Open photo: ' + bubble.text" @click="showPhoto(bubble, $event)">
+            <img class="chat-photo" :src="bubble.src" :alt="bubble.text" width="240" height="160" loading="lazy" decoding="async" />
+          </button>
+          <div v-if="bubble.kind === 'meme' && bubble.meme" class="meme-card" :style="{background: bubble.meme.background}" role="img" :aria-label="bubble.meme.top + '. ' + bubble.meme.bottom">
+            <b>{{ bubble.meme.top }}</b><span aria-hidden="true">{{ bubble.meme.emoji }}</span><b>{{ bubble.meme.bottom }}</b>
+          </div>
+          <div v-if="bubble.kind === 'flower'" class="flower-card" role="img" aria-label="Illustrated good morning flower card"><span>🌻 🌷 🌼</span><b>GOOD MORNING</b><small>A little sunshine for your day</small></div>
+          <div v-if="bubble.kind === 'gate'" class="gate-card" role="img" aria-label="Illustrated wrong school gate with a large bell"><span>🔔</span><b>GATE B</b><div class="gate-bars">┃ ┃ ┃ ┃ ┃</div><small>Wrong gate · rider's sketch</small></div>
+          <div v-if="bubble.location" class="location-card">
+            <svg viewBox="0 0 240 100" role="img" :aria-label="'Illustrated map for ' + bubble.location.title"><rect width="240" height="100" fill="#dce9d7"/><path d="M0 30h240M70 0v100M160 0v100M0 78h240" stroke="#fff" stroke-width="12"/><path d="M120 23c-12 0-17 14-9 24l9 12 9-12c8-10 3-24-9-24" fill="#d9534f" stroke="none"/><circle cx="120" cy="37" r="4" fill="white" stroke="none"/></svg>
+            <b>{{ bubble.location.title }}</b><small>{{ bubble.location.address }}</small>
+          </div>
+          <div v-if="bubble.poll" class="poll-card"><b>▥ {{ bubble.poll.question }}</b><small>Choose one · tap again to undo</small>
+            <button v-for="(option, optionIndex) in bubble.poll.options" :key="option.label" :aria-pressed="bubble.poll.voted === optionIndex" @click="vote(bubble, optionIndex)"><span>{{ bubble.poll.voted === optionIndex ? '◉' : '○' }} {{ option.label }} <small>{{ option.votes }}</small></span><i><em :style="{width: percent(bubble, option.votes) + '%'}" /></i></button>
+          </div>
+          <div v-if="bubble.link" class="link-preview"><b>{{ bubble.link.title }}</b><small>{{ bubble.link.domain }}</small><span>{{ bubble.link.description }}</span></div>
+
+                <div v-if="bubble.kind === 'voice'" class="voice-note"><button :aria-label="bubble.playing ? 'Pause simulated voice note' : 'Play simulated voice note, no audio'" :aria-pressed="!!bubble.playing" @click="playVoice(bubble)">{{ bubble.playing ? 'Ⅱ' : '▶' }}</button><span class="waveform" role="progressbar" aria-label="Simulated playback" :aria-valuenow="Math.round((bubble.progress ?? 0) * 100)" :aria-valuemin="0" :aria-valuemax="100"><i v-for="(height, index) in waveform" :key="index" :style="{height:height + 'px'}" :class="{played:index / waveform.length < (bubble.progress ?? 0)}" /></span><small>{{ bubble.duration }}</small></div>
+                <span class="message-text" :class="{'deleted-text':bubble.kind === 'deleted'}"><template v-for="(part, partIndex) in textParts(bubble.text)" :key="partIndex"><span :class="{'mention-text':part.mention}">{{ part.text }}</span></template></span>
+                <small v-if="bubble.edited" class="edited-label">Edited</small>
+                <div v-if="bubble.reactions?.length" class="rich-reactions"><button v-for="reaction in bubble.reactions" :key="reaction.emoji" :aria-label="reaction.emoji + ' tapback, ' + reaction.count" :aria-pressed="!!reaction.selected" @click="reactTo(reaction)">{{ reaction.emoji }} {{ reaction.count }}</button></div>
+                <span v-if="bubble.reaction" class="tapback" :aria-label="bubble.reaction + ' reaction'">{{ bubble.reaction }}</span>
+              </div>
+              <small v-if="bubble === lastSent && bubble.state && bubble.state !== 'sent'" class="receipt">{{ bubble.state === 'read' ? 'Read ' + bubble.readTime : 'Delivered' }}</small>
+            </template>
           </template>
           <p v-if="typing" class="bubble them tail typing" aria-label="Typing">
             <i />
@@ -447,6 +412,12 @@ onBeforeUnmount(() => timers.forEach(clearTimeout));
         </form>
       </section>
     </Transition>
+
+    <div v-if="lightbox" class="photo-lightbox" role="dialog" aria-modal="true" aria-label="Photo viewer" @click.self="closePhoto" @keydown.esc.stop="closePhoto" @keydown.tab.prevent="photoClose?.focus()">
+      <button ref="photoClose" aria-label="Close photo" @click="closePhoto">✕</button>
+      <img :src="lightbox.src" :alt="lightbox.caption" loading="lazy" decoding="async" />
+      <p>{{ lightbox.caption }}</p>
+    </div>
   </div>
 </template>
 
@@ -1063,4 +1034,67 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .bubble { position: relative; white-space: pre-line; }
 .bubble:has(.tapback) { margin-top: 12px; }
 .tapback { position: absolute; right: -4px; top: -16px; padding: 2px 7px; border-radius: 14px; background: #eeeef2; border: 2px solid #fff; font-size: 15px; line-height: 1.2; color: #222; }
+
+/* Rich cards inherit the host app's original type, bubble width and palette. */
+.quote-card { display:flex; flex-direction:column; width:100%; text-align:left; border-left:3px solid; border-radius:5px; background:#7b8b7b12; padding:7px 9px; margin:0 0 7px; min-height:44px; font-size:12px; gap:3px; }
+.quote-card span { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-height:1.35; }
+.forwarded { display:block; font-style:italic; font-size:11px; opacity:.72; margin-bottom:5px; }
+.photo-button { display:block; width:100%; padding:0; border-radius:8px; overflow:hidden; aspect-ratio:3 / 2; }
+.photo-button .chat-photo { width:100%; height:100%; max-height:none; object-fit:cover; margin:0; display:block; }
+.meme-card { aspect-ratio:1 / 1; display:flex; flex-direction:column; justify-content:space-between; align-items:center; text-align:center; padding:12px; border-radius:8px; color:white; margin-bottom:6px; }
+.meme-card b { font-family:Impact,'Arial Black',sans-serif; font-size:20px; letter-spacing:.01em; line-height:1.2; text-shadow:1px 1px 0 #222,-1px -1px 0 #222; }
+.meme-card > span { font-size:50px; }
+.flower-card { aspect-ratio:3 / 2; background:linear-gradient(140deg,#faf0b2,#d7efbc); color:#66552d; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; border:4px double #d2b373; border-radius:8px; margin-bottom:7px; }
+.flower-card > span { font-size:38px; }
+.flower-card b { letter-spacing:.08em; font-size:15px; }
+.flower-card small { font-size:11px; }
+.gate-card { background:#bdd3d5; border-radius:8px; aspect-ratio:3 / 2; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:10px; color:#30464b; gap:3px; margin-bottom:7px; }
+.gate-bars { background:#68848a; border:4px solid #435e65; color:#d9e9e9; width:85%; text-align:center; font-size:28px; letter-spacing:4px; }
+.gate-card small { font-size:11px; }
+.location-card { border:1px solid #8a9b8a30; border-radius:8px; overflow:hidden; margin-bottom:7px; }
+.location-card svg { width:100%; height:auto; display:block; aspect-ratio:12 / 5; }
+.location-card b, .location-card small { display:block; padding:4px 8px; font-size:12px; }
+.poll-card { min-width:175px; max-width:100%; margin-bottom:7px; }
+.poll-card > b, .poll-card > small { display:block; margin-bottom:5px; }
+.poll-card > small { font-size:11px; opacity:.7; }
+.poll-card button { width:100%; text-align:left; padding:7px 0; font-size:13px; }
+.poll-card button > span { display:flex; gap:4px; align-items:baseline; }
+.poll-card button small { margin-left:auto; }
+.poll-card i { display:block; height:5px; border-radius:5px; background:#7f8f7f25; margin:5px 0 0 18px; overflow:hidden; }
+.poll-card em { display:block; height:100%; background:var(--accent,#008069); border-radius:5px; }
+.link-preview { border:1px solid #8a9b8a30; border-radius:8px; padding:9px; display:flex; flex-direction:column; gap:4px; margin-bottom:7px; font-size:12px; background:#7f8f7f0c; }
+.link-preview small { opacity:.65; }
+.mention-text { color:var(--accent,#008069); background:#7ab9dc20; border-radius:3px; font-weight:600; }
+.message-text { white-space:pre-wrap; }
+.deleted-text { font-style:italic; opacity:.65; }
+.rich-reactions { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
+.rich-reactions button { background:#7f8f7f10; border:1px solid #7f8f7f30; border-radius:14px; font-size:12px; padding:2px 6px; min-width:44px; min-height:28px; }
+.rich-reactions button[aria-pressed=true] { border-color:var(--accent,#008069); }
+.quote-flash { outline:3px solid #e9bb5d; outline-offset:2px; }
+.photo-lightbox { position:absolute; inset:0; z-index:30; background:#101918ef; color:#fff; display:flex; flex-direction:column; justify-content:center; padding:20px; gap:16px; backdrop-filter:blur(12px); }
+.photo-lightbox > img { width:100%; height:55%; object-fit:contain; }
+.photo-lightbox > p { font-size:14px; line-height:1.4; }
+.photo-lightbox > button { position:absolute; top:var(--safe-top,62px); right:16px; border-radius:50%; background:#ffffff25; color:#fff; width:44px; height:44px; }
+.history-loading { padding:20px; text-align:center; font-size:13px; opacity:.7; }
+
+.me .mention-text { color:#fff; background:#ffffff25; }
+.me .quote-card, .me .rich-reactions button { color:inherit; background:#ffffff20; }
+.day-chip { margin:14px 0; }
+.edited-label { display:block; font-size:10px; opacity:.7; margin-top:4px; }
+.bubble.sticker { background:transparent; font-size:42px; }
+.voice-note { display:flex; align-items:center; gap:6px; margin-bottom:5px; }
+.voice-note button { min-width:44px; min-height:44px; }
+.waveform { display:flex; gap:3px; align-items:center; height:34px; }
+.waveform i { display:block; width:3px; background:#8999ab70; border-radius:3px; }
+.waveform i.played { background:#007aff; }
+.voice-note small { font-size:11px; }
+
+.bubble { white-space:normal; }
+
+.app { --accent:#007aff; }
+
+.bubble:has(.rich-reactions) { margin-top:24px; }
+.bubble .rich-reactions { position:absolute; right:-3px; top:-25px; gap:2px; margin:0; }
+.bubble .rich-reactions button { background:#eeeef2; color:#222; border:2px solid #fff; min-height:28px; line-height:1.2; }
+.bubble .rich-reactions button[aria-pressed=true] { border-color:#007aff; }
 </style>

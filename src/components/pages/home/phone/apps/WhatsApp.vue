@@ -1,24 +1,14 @@
 <script setup lang="ts">
 import { PHONE } from '../phone';
 import { APP_ICONS as icons } from './icons';
-import { createChatSession, type ReadState, type ReplyBubble } from '../chat/engine';
+import { createChatSession, type ReadState } from '../chat/engine';
 import { whatsappPersonas } from '../chat/personas';
+import { textParts, vote, percent, type RichMessage, type HistoryChat } from '../chat/histories';
 const phone = inject(PHONE);
 type Kind = 'family' | 'flat' | 'rent' | 'delivery' | 'amma' | 'dev';
-type Message = {
-    id: number;
-    text: string;
-    mine: boolean;
-    time: string;
-    state?: ReadState;
-    reaction?: string;
-    kind?: ReplyBubble['kind'];
-    sender?: string;
-    color?: string;
-    duration?: string;
-    src?: string;
-    playing?: boolean;
-    progress?: number;
+type Message = RichMessage & {
+    state?: ReadState; reaction?: string;
+    playing?: boolean; progress?: number;
 };
 type Chat = {
     id: number;
@@ -30,122 +20,31 @@ type Chat = {
     unread: number;
     group: boolean;
     messages: Message[];
+    members: HistoryChat['members'];
+    ambient: HistoryChat['ambient'];
 };
-const seeds: Array<[
-    string,
-    string,
-    string,
-    Kind,
-    string,
-    number,
-    boolean
-]> = [
-    [
-        'Family HQ',
-        'FH',
-        '#d4a66b',
-        'family',
-        'Please stop replying with 👍 to everything.',
-        3,
-        true
-    ],
-    [
-        'Amma',
-        'A',
-        '#c09bb7',
-        'amma',
-        'Had lunch? This is a recurring notification.',
-        2,
-        false
-    ],
-    [
-        'Bengaluru Flat Hunt',
-        'BF',
-        '#8caa87',
-        'flat',
-        'Spacious 1BHK. The space is hypothetical.',
-        18,
-        true
-    ],
-    [
-        'Landlord',
-        'L',
-        '#b9a580',
-        'rent',
-        'Just a gentle reminder. Again.',
-        1,
-        false
-    ],
-    [
-        'Delivery Rider',
-        'DR',
-        '#83a8bd',
-        'delivery',
-        'At the gate. Which of the seven gates?',
-        0,
-        false
-    ],
-    [
-        'The Bug Support Group',
-        'BG',
-        '#929ec7',
-        'dev',
-        'It only breaks when someone watches.',
-        7,
-        true
-    ],
-    [
-        'Chai Committee',
-        'CC',
-        '#c58e70',
-        'family',
-        'Meeting at 4. Agenda: biscuits.',
-        0,
-        true
-    ],
-    [
-        'Rubber Duck',
-        'RD',
-        '#d5b24e',
-        'dev',
-        'Have you tried explaining it out loud?',
-        0,
-        false
-    ]
-];
-// What you had already said in each chat, before the visitor picked the phone up.
-const firstReplies = [
-    '👍',
-    'Yes Amma. Two vegetables, technically.',
-    'Is the hypothetical space south-facing?',
-    'Transferred. Also, the tap is dripping again.',
-    'The gate with the bougainvillea. No, the other one.',
-    'Have you tried turning the meeting off and on again?',
-    'I will bring the good biscuits. The committee will be informed.',
-    'Okay. So. It started when I changed one tiny thing…'
-];
-const chats = ref<Chat[]>(seeds.map((s, i) => ({
-    id: i,
-    name: s[0],
-    glyph: s[1],
-    color: s[2],
-    kind: s[3],
-    preview: s[4],
-    unread: s[5],
-    group: s[6],
-    messages: [{
-            id: i * 10,
-            text: s[4],
-            mine: false,
-            time: '10:42'
-        }, {
-            id: i * 10 + 1,
-            text: firstReplies[i] ?? 'Noted. With a reasonable amount of concern.',
-            mine: true,
-            time: '10:43',
-            state: 'read'
-        }]
-})));
+const chats = ref<Chat[]>([]);
+const loading = ref(true);
+const loadError = ref(false);
+let disposed = false;
+async function loadHistories() {
+    loading.value = true;
+    loadError.value = false;
+    try {
+        const { whatsappHistories } = await import('../chat/histories-whatsapp');
+        if (disposed) return;
+        const bases = { family: whatsappPersonas['Family HQ']!, amma: whatsappPersonas.Amma!, flat: whatsappPersonas['Bengaluru Flat Hunt']!, rent: whatsappPersonas.Landlord!, delivery: whatsappPersonas['Delivery Rider']!, dev: whatsappPersonas['The Bug Support Group']! };
+        const histories = structuredClone(whatsappHistories);
+        chats.value = histories.map((history, id) => {
+            const base = whatsappPersonas[history.name] ?? bases[history.persona];
+            const persona = history.group ? { ...base, name: history.name, members: history.members.map(member => ({ ...member, replies: member.name === 'Grandma' ? Object.fromEntries(Object.keys(base.replies).map(intent => [intent, ['👍', '❤️', '🌻', '👏', '🙏']])) : base.members?.find(m => m.name.includes(member.name))?.replies ?? base.replies })) } : base;
+            sessions.set(id, createChatSession(persona));
+            return { ...history, id, kind: history.persona, preview: history.messages.at(-1)?.text ?? '', unread: id % 4 === 0 ? 3 : id % 3 === 0 ? 1 : 0, messages: history.messages.map(message => ({ ...message, state: message.mine ? 'read' as const : undefined })) };
+        });
+    } catch { if (!disposed) loadError.value = true; }
+    finally { if (!disposed) loading.value = false; }
+}
+onMounted(loadHistories);
 const tab = ref<string>('Chats');
 const search = ref<string>('');
 const filter = ref<string>('All');
@@ -153,6 +52,11 @@ const selected = ref<number | null>(null);
 const draft = ref<string>('');
 const typing = ref<number[]>([]);
 const timeline = ref<HTMLElement | null>(null);
+const followTail = ref(true);
+function trackTail(event: Event) {
+    const element = event.currentTarget as HTMLElement;
+    followTail.value = element.scrollHeight - element.scrollTop - element.clientHeight < 100;
+}
 const quiet = ref<boolean>(false);
 const status = ref<string>('');
 const current = computed(() => chats.value.find(c => c.id === selected.value));
@@ -161,9 +65,9 @@ const filtered = computed(() => chats.value.filter(chat =>
     (filter.value !== 'Unread' || chat.unread > 0) 
         &&
     (filter.value !== 'Groups' || chat.group)));
-const sessions = new Map(chats.value.map(chat => [chat.id, createChatSession(whatsappPersonas[chat.name]!)]));
+const sessions = new Map<number, ReturnType<typeof createChatSession>>();
 const timers = new Set<ReturnType<typeof setTimeout>>();
-let nextMessageId = 1000;
+let nextMessageId = 100000;
 function later(action: () => void, delay: number) {
     const timer = setTimeout(() => { timers.delete(timer); action(); }, delay);
     timers.add(timer);
@@ -190,8 +94,10 @@ function openChat(chat: Chat) {
     chat.unread = 0;
     draft.value = '';
 }
-async function bottom() {
+async function bottom(force = false) {
     await nextTick();
+    if (!force && !followTail.value) return;
+    followTail.value = true;
     timeline.value?.scrollTo({
         top: timeline.value.scrollHeight,
         behavior: 'auto'
@@ -203,7 +109,7 @@ function send() {
     if (!chat || !text) return;
     const now = phone?.now.value ?? new Date();
     const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-    const message: Message = { id: nextMessageId++, text, mine: true, time, state: 'sent' };
+    const message: Message = { id: nextMessageId++, text, mine: true, time, date: 'Today', state: 'sent' };
     chat.messages.push(message);
     // Use the reactive array entry for timer updates, rather than the raw inserted object.
     const own = chat.messages.at(-1)!;
@@ -219,18 +125,86 @@ function send() {
         if (selected.value === chat.id) void bottom();
     }, event.atMs);
     for (const bubble of plan.bubbles) later(() => {
-        chat.messages.push({ ...bubble, id: nextMessageId++, mine: false,
+        chat.messages.push({ ...bubble, ...(bubble.sender === 'Grandma' ? { kind: 'text' as const, text: ['👍', '❤️', '🌻'][nextMessageId % 3]! } : {}), id: nextMessageId++, mine: false,
+            date: 'Today', quote: bubble.kind === 'text' ? { id: own.id, sender: 'You', text: own.text, color: '#008069' } : undefined,
             time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) });
-        chat.preview = bubble.kind === 'voice' ? 'Voice note · ' + bubble.duration : bubble.text;
+        chat.preview = chat.messages.at(-1)!.kind === 'voice' ? 'Voice note · ' + bubble.duration : chat.messages.at(-1)!.text;
         if (selected.value !== chat.id) chat.unread++;
         else void bottom();
     }, bubble.atMs);
-    void bottom();
+    void bottom(true);
+}
+const ambientTyping = ref<number | null>(null);
+function isTyping(id: number) { return typing.value.includes(id) || ambientTyping.value === id; }
+let activityTimer: ReturnType<typeof setTimeout> | undefined;
+let autoCount = 0;
+const activityOffsets = new Map<number, number>();
+function scheduleActivity(chat: Chat) {
+    if (!chat.group || autoCount >= 6 || quiet.value || disposed) return;
+    if (activityTimer) clearTimeout(activityTimer);
+    activityTimer = setTimeout(() => {
+        activityTimer = undefined;
+        if (autoCount >= 6) return;
+        if (selected.value !== chat.id || disposed || quiet.value) return;
+        if (document.hidden || isTyping(chat.id)) { scheduleActivity(chat); return; }
+        const offset = activityOffsets.get(chat.id) ?? 0;
+        const activity = chat.ambient[offset % chat.ambient.length];
+        if (!activity) return;
+        activityOffsets.set(chat.id, offset + 1);
+        autoCount++;
+        ambientTyping.value = chat.id;
+        const last = chat.messages.at(-1);
+        later(() => {
+            if (ambientTyping.value === chat.id) ambientTyping.value = null;
+            const member = chat.members.find(member => member.name === activity.sender);
+            if (offset % 3 === 2 && last) {
+                const reactions = last.reactions ?? (last.reactions = []);
+                const existing = reactions.find(reaction => reaction.emoji === '😂');
+                if (existing) existing.count++;
+                else reactions.push({ emoji: '😂', count: 1 });
+                chat.preview = activity.sender + ' reacted 😂';
+            } else {
+                chat.messages.push({ id: nextMessageId++, text: activity.text, sender: activity.sender, color: member?.color, mine: false, date: 'Today', time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), quote: last ? { id: last.id, sender: last.sender ?? 'You', text: last.text, color: last.color ?? '#008069' } : undefined });
+                chat.preview = activity.sender + ': ' + activity.text;
+            }
+            if (selected.value !== chat.id) chat.unread++;
+            else { void bottom(); scheduleActivity(chat); }
+        }, 1600);
+    }, 20000 + Math.random() * 20000);
 }
 watch(selected, () => {
-    void bottom();
+    if (activityTimer) clearTimeout(activityTimer);
+    const chat = current.value;
+    if (chat) scheduleActivity(chat);
+    void bottom(true);
 });
-onBeforeUnmount(() => timers.forEach(clearTimeout));
+const flashId = ref<number | null>(null);
+function jumpTo(id: number) {
+    const target = timeline.value?.querySelector<HTMLElement>('[data-message-id="' + id + '"]');
+    target?.scrollIntoView({ block: 'center', behavior: 'auto' });
+    followTail.value = false;
+    flashId.value = id;
+    later(() => { if (flashId.value === id) flashId.value = null; }, 1500);
+}
+const lightbox = ref<{ src: string; caption: string } | null>(null);
+const photoClose = ref<HTMLButtonElement>();
+let photoTrigger: HTMLElement | null = null;
+function showPhoto(message: Message, event: MouseEvent) {
+    if (!message.src) return;
+    photoTrigger = event.currentTarget as HTMLElement;
+    lightbox.value = { src: message.fullSrc ?? message.src.replace('-s.webp', '.webp'), caption: message.text };
+    void nextTick(() => photoClose.value?.focus());
+}
+function closePhoto() { lightbox.value = null; photoTrigger?.focus(); }
+function reactTo(reaction: NonNullable<RichMessage['reactions']>[number]) {
+    reaction.selected = !reaction.selected;
+    reaction.count += reaction.selected ? 1 : -1;
+}
+onBeforeUnmount(() => {
+    disposed = true;
+    timers.forEach(clearTimeout);
+    if (activityTimer) clearTimeout(activityTimer);
+});
 </script>
 
 <template>
@@ -246,7 +220,7 @@ onBeforeUnmount(() => timers.forEach(clearTimeout));
         <div class="contact-name">
           <h3>{{ current.name }}</h3>
           <span class="muted">
-            {{ typing.includes(current.id) ? 'typing…' : current.group ? 'a very active group' : 'online' }}
+            {{ isTyping(current.id) ? 'typing…' : current.group ? current.members.map(member => member.name).join(', ') : 'online' }}
           </span>
         </div>
         <button class="icon" aria-label="Call contact" @click="phone?.open('phone')">
@@ -255,34 +229,48 @@ onBeforeUnmount(() => timers.forEach(clearTimeout));
           </svg>
         </button>
       </header>
-      <div ref="timeline" class="conversation scroll" aria-live="polite">
-        <div class="day">Today</div>
-        <div class="encryption">⌁ Messages stay in this pretend phone. Even the bugs.</div>
-        <div
-          v-for="message in current.messages"
-          :key="message.id"
-          class="bubble"
-          :class="{mine:message.mine, sticker:message.kind === 'sticker'}"
-        >
-          <strong v-if="!message.mine && current.group && message.sender" class="sender-name" :style="{color: message.color}">{{ message.sender }}</strong>
-          <div v-if="message.kind === 'voice'" class="voice-note">
-            <button type="button" :aria-label="message.playing ? 'Pause pretend voice note' : 'Play pretend voice note, no audio'" :aria-pressed="!!message.playing" @click="playVoice(message)">{{ message.playing ? 'Ⅱ' : '▶' }}</button>
-            <span class="waveform" role="progressbar" aria-label="Pretend voice note playback" :aria-valuenow="Math.round((message.progress ?? 0) * 100)" :aria-valuemin="0" :aria-valuemax="100">
-              <i v-for="(height, index) in waveform" :key="index" :style="{height: height + 'px'}" :class="{played: index / waveform.length < (message.progress ?? 0)}" />
-            </span>
-            <small>{{ message.duration }}</small>
+      <div ref="timeline" class="conversation scroll" aria-live="polite" @scroll.passive="trackTail">
+
+        <div class="encryption">⌁ Fictional people. Messages stay in this pretend phone.</div>
+        <template v-for="(message, index) in current.messages" :key="message.id">
+          <div v-if="index === 0 || message.date !== current.messages[index - 1]?.date" class="day">{{ message.date ?? 'Today' }}</div>
+          <div v-if="message.kind === 'system'" class="day system-row">☎ {{ message.text }} · {{ message.time }}</div>
+          <div v-else class="bubble" :data-message-id="message.id" :class="{mine:message.mine, sticker:message.kind === 'sticker', 'quote-flash':flashId === message.id}">
+            <strong v-if="!message.mine && current.group && message.sender" class="sender-name" :style="{color: message.color}">{{ message.sender }}</strong>
+
+          <small v-if="message.forwarded" class="forwarded">↪ {{ message.forwarded }}</small>
+          <button v-if="message.quote" class="quote-card" :style="{borderColor: message.quote.color}" @click="jumpTo(message.quote.id)">
+            <b :style="{color: message.quote.color}">{{ message.quote.sender }}</b><span>{{ message.quote.text }}</span>
+          </button>
+          <button v-if="message.kind === 'photo' && message.src" class="photo-button" :aria-label="'Open photo: ' + message.text" @click="showPhoto(message, $event)">
+            <img class="chat-photo" :src="message.src" :alt="message.text" width="240" height="160" loading="lazy" decoding="async" />
+          </button>
+          <div v-if="message.kind === 'meme' && message.meme" class="meme-card" :style="{background: message.meme.background}" role="img" :aria-label="message.meme.top + '. ' + message.meme.bottom">
+            <b>{{ message.meme.top }}</b><span aria-hidden="true">{{ message.meme.emoji }}</span><b>{{ message.meme.bottom }}</b>
           </div>
-          <template v-else>
-            <img v-if="message.kind === 'photo' && message.src" class="chat-photo" :src="message.src" :alt="message.text" />
-            <span>{{ message.text }}</span>
-          </template>
-          <span v-if="message.reaction" class="reaction-chip" :aria-label="message.reaction + ' reaction'">{{ message.reaction }}</span>
-          <span class="stamp">
-            {{ message.time }}
-            <b v-if="message.mine" :class="{read:message.state === 'read'}" :aria-label="message.state ?? 'read'">{{ message.state === 'sent' ? '✓' : '✓✓' }}</b>
-          </span>
-        </div>
-        <div v-if="typing.includes(current.id)" class="bubble typing" aria-label="Contact is typing">
+          <div v-if="message.kind === 'flower'" class="flower-card" role="img" aria-label="Illustrated good morning flower card"><span>🌻 🌷 🌼</span><b>GOOD MORNING</b><small>A little sunshine for your day</small></div>
+          <div v-if="message.kind === 'gate'" class="gate-card" role="img" aria-label="Illustrated wrong school gate with a large bell"><span>🔔</span><b>GATE B</b><div class="gate-bars">┃ ┃ ┃ ┃ ┃</div><small>Wrong gate · rider's sketch</small></div>
+          <div v-if="message.location" class="location-card">
+            <svg viewBox="0 0 240 100" role="img" :aria-label="'Illustrated map for ' + message.location.title"><rect width="240" height="100" fill="#dce9d7"/><path d="M0 30h240M70 0v100M160 0v100M0 78h240" stroke="#fff" stroke-width="12"/><path d="M120 23c-12 0-17 14-9 24l9 12 9-12c8-10 3-24-9-24" fill="#d9534f" stroke="none"/><circle cx="120" cy="37" r="4" fill="white" stroke="none"/></svg>
+            <b>{{ message.location.title }}</b><small>{{ message.location.address }}</small>
+          </div>
+          <div v-if="message.poll" class="poll-card"><b>▥ {{ message.poll.question }}</b><small>Choose one · tap again to undo</small>
+            <button v-for="(option, optionIndex) in message.poll.options" :key="option.label" :aria-pressed="message.poll.voted === optionIndex" @click="vote(message, optionIndex)"><span>{{ message.poll.voted === optionIndex ? '◉' : '○' }} {{ option.label }} <small>{{ option.votes }}</small></span><i><em :style="{width: percent(message, option.votes) + '%'}" /></i></button>
+          </div>
+          <div v-if="message.link" class="link-preview"><b>{{ message.link.title }}</b><small>{{ message.link.domain }}</small><span>{{ message.link.description }}</span></div>
+
+            <div v-if="message.kind === 'voice'" class="voice-note">
+              <button type="button" :aria-label="message.playing ? 'Pause pretend voice note' : 'Play pretend voice note, no audio'" :aria-pressed="!!message.playing" @click="playVoice(message)">{{ message.playing ? 'Ⅱ' : '▶' }}</button>
+              <span class="waveform" role="progressbar" aria-label="Pretend voice note playback" :aria-valuenow="Math.round((message.progress ?? 0) * 100)" :aria-valuemin="0" :aria-valuemax="100"><i v-for="(height, index) in waveform" :key="index" :style="{height: height + 'px'}" :class="{played: index / waveform.length < (message.progress ?? 0)}" /></span><small>{{ message.duration }}</small>
+            </div>
+            <details v-if="message.kind === 'voice'" class="voice-transcript"><summary>Transcript · simulated audio</summary>{{ message.text }}</details>
+            <span v-else class="message-text" :class="{'deleted-text':message.kind === 'deleted'}"><template v-for="(part, partIndex) in textParts(message.text)" :key="partIndex"><span :class="{'mention-text':part.mention}">{{ part.text }}</span></template></span>
+            <div v-if="message.reactions?.length" class="rich-reactions"><button v-for="reaction in message.reactions" :key="reaction.emoji" :aria-label="reaction.emoji + ' reaction, ' + reaction.count" :aria-pressed="!!reaction.selected" @click="reactTo(reaction)">{{ reaction.emoji }} {{ reaction.count }}</button></div>
+            <span v-if="message.reaction" class="reaction-chip">{{ message.reaction }}</span>
+            <span class="stamp"><small v-if="message.edited">edited · </small>{{ message.time }} <b v-if="message.mine" :class="{read:message.state === 'read'}" :aria-label="message.state ?? 'read'">{{ message.state === 'sent' ? '✓' : '✓✓' }}</b></span>
+          </div>
+        </template>
+        <div v-if="isTyping(current.id)" class="bubble typing" aria-label="Contact is typing">
           <i />
           <i />
           <i />
@@ -328,7 +316,7 @@ onBeforeUnmount(() => timers.forEach(clearTimeout));
             <button
               class="icon green"
               aria-label="Start a chat with Rubber Duck"
-              @click="openChat(chats[chats.length-1]!)"
+              @click="chats[7] && openChat(chats[7])"
             >
               <svg viewBox="0 0 24 24">
                 <path :d="icons.plus" />
@@ -347,6 +335,8 @@ onBeforeUnmount(() => timers.forEach(clearTimeout));
         <p v-if="status" class="notice">{{ status }}</p>
       </header>
       <main class="scroll main">
+        <p v-if="loading" class="history-loading" role="status">Opening the conversations…</p>
+        <button v-if="loadError" class="history-loading" @click="loadHistories">Could not load chats. Tap to retry.</button>
         <template v-if="tab === 'Chats'">
           <div class="filters">
             <button
@@ -374,7 +364,7 @@ onBeforeUnmount(() => timers.forEach(clearTimeout));
                 <span :class="['muted',{unread:chat.unread}]">{{ chat.unread ? '10:42' : 'Yesterday' }}</span>
               </div>
               <div class="bar">
-                <p>{{ chat.preview }}</p>
+                <p :class="{'unread':isTyping(chat.id)}">{{ isTyping(chat.id) ? 'typing…' : chat.preview }}</p>
                 <b v-if="chat.unread" class="badge">{{ chat.unread }}</b>
               </div>
             </div>
@@ -454,7 +444,7 @@ onBeforeUnmount(() => timers.forEach(clearTimeout));
           >
             Start your community
           </button>
-          <button class="status-row" @click="openChat(chats[5]!)">
+          <button class="status-row" @click="chats[5] && openChat(chats[5])">
             <span class="avatar">BG</span>
             <div>
               <h3>The Bug Support Group</h3>
@@ -501,6 +491,12 @@ onBeforeUnmount(() => timers.forEach(clearTimeout));
         </button>
       </nav>
     </template>
+
+    <div v-if="lightbox" class="photo-lightbox" role="dialog" aria-modal="true" aria-label="Photo viewer" @click.self="closePhoto" @keydown.esc.stop="closePhoto" @keydown.tab.prevent="photoClose?.focus()">
+      <button ref="photoClose" aria-label="Close photo" @click="closePhoto">✕</button>
+      <img :src="lightbox.src" :alt="lightbox.caption" loading="lazy" decoding="async" />
+      <p>{{ lightbox.caption }}</p>
+    </div>
   </div>
 </template>
 
@@ -1254,4 +1250,52 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .waveform i.played { background: #008069; }
 .chat-photo { display: block; width: 100%; max-height: 150px; object-fit: cover; border-radius: 8px; margin-bottom: 5px; }
 @media (prefers-reduced-motion: reduce) { .waveform i { transition: none; } }
+
+/* Rich cards inherit the host app's original type, bubble width and palette. */
+.quote-card { display:flex; flex-direction:column; width:100%; text-align:left; border-left:3px solid; border-radius:5px; background:#7b8b7b12; padding:7px 9px; margin:0 0 7px; min-height:44px; font-size:12px; gap:3px; }
+.quote-card span { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-height:1.35; }
+.forwarded { display:block; font-style:italic; font-size:11px; opacity:.72; margin-bottom:5px; }
+.photo-button { display:block; width:100%; padding:0; border-radius:8px; overflow:hidden; aspect-ratio:3 / 2; }
+.photo-button .chat-photo { width:100%; height:100%; max-height:none; object-fit:cover; margin:0; display:block; }
+.meme-card { aspect-ratio:1 / 1; display:flex; flex-direction:column; justify-content:space-between; align-items:center; text-align:center; padding:12px; border-radius:8px; color:white; margin-bottom:6px; }
+.meme-card b { font-family:Impact,'Arial Black',sans-serif; font-size:20px; letter-spacing:.01em; line-height:1.2; text-shadow:1px 1px 0 #222,-1px -1px 0 #222; }
+.meme-card > span { font-size:50px; }
+.flower-card { aspect-ratio:3 / 2; background:linear-gradient(140deg,#faf0b2,#d7efbc); color:#66552d; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; border:4px double #d2b373; border-radius:8px; margin-bottom:7px; }
+.flower-card > span { font-size:38px; }
+.flower-card b { letter-spacing:.08em; font-size:15px; }
+.flower-card small { font-size:11px; }
+.gate-card { background:#bdd3d5; border-radius:8px; aspect-ratio:3 / 2; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:10px; color:#30464b; gap:3px; margin-bottom:7px; }
+.gate-bars { background:#68848a; border:4px solid #435e65; color:#d9e9e9; width:85%; text-align:center; font-size:28px; letter-spacing:4px; }
+.gate-card small { font-size:11px; }
+.location-card { border:1px solid #8a9b8a30; border-radius:8px; overflow:hidden; margin-bottom:7px; }
+.location-card svg { width:100%; height:auto; display:block; aspect-ratio:12 / 5; }
+.location-card b, .location-card small { display:block; padding:4px 8px; font-size:12px; }
+.poll-card { min-width:175px; max-width:100%; margin-bottom:7px; }
+.poll-card > b, .poll-card > small { display:block; margin-bottom:5px; }
+.poll-card > small { font-size:11px; opacity:.7; }
+.poll-card button { width:100%; text-align:left; padding:7px 0; font-size:13px; }
+.poll-card button > span { display:flex; gap:4px; align-items:baseline; }
+.poll-card button small { margin-left:auto; }
+.poll-card i { display:block; height:5px; border-radius:5px; background:#7f8f7f25; margin:5px 0 0 18px; overflow:hidden; }
+.poll-card em { display:block; height:100%; background:var(--accent,#008069); border-radius:5px; }
+.link-preview { border:1px solid #8a9b8a30; border-radius:8px; padding:9px; display:flex; flex-direction:column; gap:4px; margin-bottom:7px; font-size:12px; background:#7f8f7f0c; }
+.link-preview small { opacity:.65; }
+.mention-text { color:var(--accent,#008069); background:#7ab9dc20; border-radius:3px; font-weight:600; }
+.message-text { white-space:pre-wrap; }
+.deleted-text { font-style:italic; opacity:.65; }
+.rich-reactions { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
+.rich-reactions button { background:#7f8f7f10; border:1px solid #7f8f7f30; border-radius:14px; font-size:12px; padding:2px 6px; min-width:44px; min-height:28px; }
+.rich-reactions button[aria-pressed=true] { border-color:var(--accent,#008069); }
+.quote-flash { outline:3px solid #e9bb5d; outline-offset:2px; }
+.photo-lightbox { position:absolute; inset:0; z-index:30; background:#101918ef; color:#fff; display:flex; flex-direction:column; justify-content:center; padding:20px; gap:16px; backdrop-filter:blur(12px); }
+.photo-lightbox > img { width:100%; height:55%; object-fit:contain; }
+.photo-lightbox > p { font-size:14px; line-height:1.4; }
+.photo-lightbox > button { position:absolute; top:var(--safe-top,62px); right:16px; border-radius:50%; background:#ffffff25; color:#fff; width:44px; height:44px; }
+.history-loading { padding:20px; text-align:center; font-size:13px; opacity:.7; }
+
+.contact-name .muted { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+.voice-transcript { font-size:11px; margin-top:6px; }
+.system-row { color:#66756d; }
+.bubble.sticker .message-text { font-size:44px; }
+.bubble.sticker .rich-reactions { font-size:12px; }
 </style>
