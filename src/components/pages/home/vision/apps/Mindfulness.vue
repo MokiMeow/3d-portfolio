@@ -107,6 +107,7 @@ async function toggleTuning(): Promise<void> {
           <p class="secondary">{{ completed ? 'You made space for yourself.' : 'You can return whenever you like.' }}</p>
           <div class="summary-stats vk-platter">
             <div><strong>{{ mindfulTime(elapsed) }}</strong><span>mindful time</span></div>
+            <div><strong>{{ practice === 'breathe' ? Math.floor(elapsed / (settings.inhale + settings.hold + settings.exhale)) : sessionCount }}</strong><span>{{ practice === 'breathe' ? 'breath cycles' : 'moments taken' }}</span></div>
             <div><strong>{{ minutesLabel(weekSeconds) }} min</strong><span>this week</span></div>
           </div>
           <p class="footnote secondary">{{ elapsed >= 1 ? 'Only time spent in your session is added to your history.' : 'This brief pause was not added to your history.' }}</p>
@@ -167,6 +168,7 @@ async function toggleTuning(): Promise<void> {
               <p class="eyebrow">{{ reflect ? 'REFLECT' : 'BREATHE' }}</p>
               <h2>{{ reflect ? 'A thought to spend time with.' : 'Come back to your breath.' }}</h2>
               <p class="secondary">{{ reflect ? 'No right answer. Just a little room to notice.' : 'Follow a gentle rhythm. Let everything else wait.' }}</p>
+            <div v-if="!reflect" class="rhythm-preview"><span>{{ settings.inhale }}s in</span><i /><span>{{ settings.hold }}s hold</span><i /><span>{{ settings.exhale }}s out</span></div>
             </div>
           </div>
           <div v-if="reflect" class="prompt-card vk-platter">
@@ -422,4 +424,41 @@ h3 { font-size: 17px; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) {
   .mindfulness :deep(*), .mindfulness :deep(*::before), .mindfulness :deep(*::after) { animation: none !important; transition: none !important; }
 }
+
+.mindfulness { background:radial-gradient(ellipse at 46% 32%,#83c5b31a,transparent 65%),linear-gradient(145deg,#11332f24,transparent); }
+.content { padding:24px 28px 16px 16px; }
+.header { margin-bottom:14px; }
+.header .eyebrow { font-size:10px; letter-spacing:.17em; }
+.header h1 { font-size:29px; }
+.setup { gap:16px; }
+.intro { display:grid; grid-template-columns:166px minmax(0,1fr); gap:20px; text-align:left; min-height:166px; }
+.intro :deep(.garden) { width:166px; }
+.intro-copy { gap:8px; }
+.intro-copy h2 { font-size:26px; line-height:1.15; font-weight:600; }
+.intro-copy p.secondary { font-size:14px; margin:0; line-height:1.5; }
+.rhythm-preview { display:flex; align-items:center; gap:7px; color:#d6f6ea; font-size:10px; margin-top:5px; }
+.rhythm-preview i { display:block; height:2px; width:12px; background:#c8ebdc40; }
+.practice-choices { width:100%; grid-template-columns:1fr 1fr; gap:10px; }
+.practice-choices .vk-row { min-height:85px; padding:14px; gap:10px; align-items:flex-start; border-radius:22px; }
+.practice-choices .vk-row[aria-pressed=true] { box-shadow:inset 0 0 0 1px #c0ecd959; background:linear-gradient(135deg,#bee7d52b,#ffffff0a); }
+.practice-choices strong { font-size:14px; }
+.practice-choices small { font-size:12px; line-height:1.45; }
+.practice-choices svg { margin-top:2px; width:20px; height:20px; }
+.duration-setting { width:100%; border-top:1px solid #ffffff14; padding-top:16px; }
+.duration-setting label { font-size:12px; }
+.duration-choices { gap:8px; }
+.duration-choices .vk-button { font-size:13px; }
+.setup-note { font-size:11px; }
+.toolbar { gap:10px; padding:10px 24px 18px 12px; }
+.start-button { min-height:52px; min-width:220px; font-size:15px; }
+.summary :deep(.garden) { width:min(30cqh,200px); }
+.summary-stats { width:100%; justify-content:space-around; gap:14px; padding:20px; }
+.summary-stats strong { font-size:25px; font-variant-numeric:tabular-nums; }
+.summary-stats span { font-size:11px; }
+.summary h2 { font-size:28px; }
+.live-session { gap:12px; min-height:0; }
+.live-session :deep(.garden) { width:min(43cqh,290px); }
+@container(max-height:560px) and (min-width:541px) { .content { padding-top:18px; } .header { margin-bottom:8px; } .header h1 { font-size:25px; } .intro { grid-template-columns:130px 1fr; min-height:130px; gap:16px; } .intro :deep(.garden) { width:130px; } .intro-copy h2 { font-size:23px; } .setup { gap:12px; } .practice-choices .vk-row { min-height:76px; padding:12px; } .duration-setting { padding-top:12px; } .duration-setting>input { display:none; } .duration-choices { margin-top:10px; } .setup-note { display:none; } .toolbar { padding-bottom:14px; } .live-session { flex-direction:row; justify-content:center; gap:22px; } .live-session :deep(.garden) { width:220px; } .live-guidance { text-align:left; align-items:flex-start; max-width:250px; } }
+@container(max-width:540px) { .mindful-layout { flex-direction:column; } .tab-rail { padding:10px 0 0; } .content { padding:14px 20px; } .header { margin-bottom:8px; } .header .eyebrow { display:none; } .header h1 { font-size:24px; } .intro { grid-template-columns:105px 1fr; min-height:115px; gap:12px; } .intro :deep(.garden) { width:105px; } .intro-copy h2 { font-size:21px; } .intro-copy p.secondary { font-size:12px; } .intro-copy .eyebrow { font-size:9px; } .rhythm-preview { font-size:9px; gap:4px; flex-wrap:wrap; } .rhythm-preview i { width:5px; } .setup { gap:12px; } .practice-choices { gap:8px; } .practice-choices .vk-row { padding:12px; gap:6px; flex-direction:column; min-height:101px; } .practice-choices strong { font-size:13px; } .practice-choices small { font-size:11px; } .practice-choices svg { width:18px; height:18px; } .duration-setting { padding-top:12px; } .duration-setting>input { display:none; } .duration-choices { gap:5px; margin-top:10px; } .duration-choices .vk-button { font-size:12px; } .setup-note { display:none; } .toolbar { flex-direction:row; padding:8px 16px 16px; gap:8px; flex-wrap:wrap; } .toolbar .start-button { flex:1 1 100%; } .toolbar .vk-ornament { padding:4px 10px; } .summary-stats { gap:8px; padding:16px 12px; } .summary-stats strong { font-size:20px; } .summary h2 { font-size:24px; } .summary :deep(.garden) { width:140px; } .live-session :deep(.garden) { width:min(40cqh,240px); } }
+
 </style>

@@ -2,7 +2,13 @@
 import { vHover } from '../../kit/hover';
 import PhotoArt from './PhotoArt.vue';
 const props = defineProps<{ src?: string; fallbackSrc?: string; kind?: string; title: string; reduced: boolean }>();
-const offset = ref({ x: 0, y: 0 });
+const surface = ref<HTMLElement>();
+let offset = { x: 0, y: 0 };
+function setOffset(x: number, y: number): void {
+  offset = props.reduced ? {x:0,y:0} : {x:Math.max(-.5,Math.min(.5,x)),y:Math.max(-.5,Math.min(.5,y))};
+  surface.value?.style.setProperty('--scene-x', String(offset.x));
+  surface.value?.style.setProperty('--scene-y', String(offset.y));
+}
 const missing = ref(false);
 const useFallback = ref(false);
 const imageSource = computed(() => useFallback.value ? props.fallbackSrc : props.src);
@@ -11,21 +17,21 @@ function imageFailed(): void {
   else missing.value = true;
 }
 watch(() => props.src, () => { missing.value = false; useFallback.value = false; });
-watch(() => props.reduced, value => { if (value) offset.value = { x: 0, y: 0 }; });
+watch(() => props.reduced, value => { if (value) setOffset(0,0); });
 function move(event: PointerEvent): void {
   if (props.reduced) return;
   const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
-  offset.value = { x: (event.clientX - box.left) / Math.max(box.width, 1) - .5, y: (event.clientY - box.top) / Math.max(box.height, 1) - .5 };
+  setOffset((event.clientX - box.left) / Math.max(box.width, 1) - .5, (event.clientY - box.top) / Math.max(box.height, 1) - .5);
 }
 function layer(depth: number): Record<string, string> {
-  return { transform: 'translate3d(' + offset.value.x * depth + 'px,' + offset.value.y * depth + 'px,0) scale(1.12)' };
+  return { '--depth': String(depth) };
 }
 </script>
 <template>
-  <div v-hover class="portal" tabindex="0" role="img" :aria-label="title + ', simulated spatial depth'"
-    @pointermove="move" @pointerleave="offset = { x: 0, y: 0 }" @blur="offset = { x: 0, y: 0 }"
-    @keydown.left.prevent="offset.x = -.5" @keydown.right.prevent="offset.x = .5"
-    @keydown.up.prevent="offset.y = -.5" @keydown.down.prevent="offset.y = .5">
+  <div ref="surface" v-hover class="portal" tabindex="0" role="img" :aria-label="title + ', simulated spatial depth'"
+    @pointermove="move" @pointerleave="setOffset(0,0)" @blur="setOffset(0,0)"
+    @keydown.left.prevent="setOffset(-.5,offset.y)" @keydown.right.prevent="setOffset(.5,offset.y)"
+    @keydown.up.prevent="setOffset(offset.x,-.5)" @keydown.down.prevent="setOffset(offset.x,.5)">
     <div class="layer distant" :style="layer(12)">
       <img v-if="imageSource && !missing" :src="imageSource" :alt="title" draggable="false" @error="imageFailed" />
       <PhotoArt v-else :kind="kind ?? 'desk'" :title="title" />
@@ -35,8 +41,8 @@ function layer(depth: number): Record<string, string> {
       <path d="M-20 450q160-20 320 10t250-10 260 20" fill="none" stroke="#d3dfdb" stroke-width="4" opacity=".25" />
     </svg>
     <svg class="layer foreground" :style="layer(60)" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <path d="M0 500V315l22 42 9-85 25 130 24-72 12 170m708 0V305l-25 61-14-114-28 157-21-58-8 149" fill="#172b2a" opacity=".92" />
-      <path d="M0 487q170-29 260 13m540-13q-170-29-260 13" fill="none" stroke="#203c36" stroke-width="36" />
+      <ellipse cx="400" cy="250" rx="385" ry="235" fill="none" stroke="#c1e5df" stroke-width="1.8" opacity=".2" />
+      <path d="M30 370v75h75m590 0h75v-75M30 130V55h75m590 0h75v75" fill="none" stroke="#e9fff9" stroke-width="1.8" opacity=".3" />
     </svg>
     <span class="depth-label">SIMULATED SPATIAL SCENE</span>
   </div>
@@ -92,4 +98,12 @@ function layer(depth: number): Record<string, string> {
     transform: none !important;
   }
 }
+
+.portal { --scene-x:0; --scene-y:0; background:radial-gradient(ellipse,#88b5b519,transparent); }
+.layer { transform:translate3d(calc(var(--scene-x) * var(--depth) * 1px),calc(var(--scene-y) * var(--depth) * 1px),0) scale(1.12); }
+.middle { opacity:.45; }
+.foreground { opacity:.65; }
+.depth-label { font-size:9px; letter-spacing:.15em; top:18px; }
+@media(prefers-reduced-motion:reduce) { .layer { transform:none !important; } }
+
 </style>

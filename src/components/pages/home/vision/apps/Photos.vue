@@ -8,7 +8,7 @@ import Panorama from './photos/Panorama.vue';
 
 defineProps<{ compact?: boolean }>();
 const vision = inject(VISION, undefined);
-type Tab = 'Memories' | 'Library' | 'Spatial' | 'Panoramas' | 'Albums' | 'Search';
+type Tab = 'Memories' | 'Library' | 'Spatial' | 'Panoramas' | 'Collections' | 'Search';
 type Photo = {
   id: string; title: string; src?: string; kind?: string; ratio: number; date: string;
   place: string; tags: string; panorama: boolean; spatial: boolean;
@@ -20,12 +20,32 @@ const tabs: { name: Tab; path: string }[] = [
   { name: 'Library', path: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z' },
   { name: 'Spatial', path: 'm12 3 9 6v6l-9 6-9-6V9zM3 9l9 6 9-6m-9 6v6' },
   { name: 'Panoramas', path: 'M3 5q9 4 18 0v14q-9-4-18 0zM3 16l6-5 4 3 5-6 3 4' },
-  { name: 'Albums', path: 'M3 7h18v14H3zM5 3h14M7 5h10M6 16l4-5 4 4 3-2 3 5' },
+  { name: 'Collections', path: 'M3 7h18v14H3zM5 3h14M7 5h10M6 16l4-5 4 4 3-2 3 5' },
   { name: 'Search', path: 'M16 16l5 5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0' },
 ];
 const landscapeTitles = ['Lake, before the notifications', 'One more sunset', 'Above the cloud, below the deadlines',
   'Offline by the water', 'Nothing for miles, on purpose', 'Fresh tracks, clean branch', 'A quiet little forest', 'The last light'];
+const samplePhotos: Photo[] = [
+  ['mountains-3', 'A higher perspective', 'mountains hiking outdoors'],
+  ['beach-1', 'Where the day slows down', 'beach waves coast'],
+  ['sunset-0', 'The golden hour', 'sunset sky light'],
+  ['coffee-3', 'A moment for coffee', 'coffee cup morning'],
+  ['cat-0', 'An expert at resting', 'cat pet sleeping'],
+  ['cat-1', 'A quiet companion', 'cat pet sleeping'],
+  ['cat-2', 'In a patch of sunlight', 'cat pet sleeping'],
+  ['dog-7', 'Good company', 'dog pet outdoors'],
+  ['workspace-1', 'Room for an idea', 'workspace desk design'],
+  ['houseplant-3', 'A little green', 'plant home green'],
+  ['books-1', 'One more chapter', 'books library reading'],
+  ['city-1', 'After the blue hour', 'city night lights'],
+  ['mountains-5', 'The long way home', 'mountains hiking outdoors'],
+  ['beach-3', 'Salt in the air', 'beach waves coast'],
+  ['sunset-4', 'Last light', 'sunset sky light'],
+  ['masala-0', 'Something warm', 'tea chai cup morning'],
+].map(([file, title, tags], index) => ({ id: file ?? '', title: title ?? '', tags: tags ?? '', src: '/phone/photos/' + file + '.webp',
+  ratio: 1.5, date: index < 8 ? 'June 18, 2026' : 'June 16, 2026', place: 'CC0 sample collection', panorama: false, spatial: true }));
 const photos = ref<Photo[]>([
+  ...samplePhotos,
   ...VISION_ENVIRONMENTS.filter(place => place.kind === 'photo').map((place, index) => ({
     id: place.id, title: landscapeTitles[index] ?? place.name, src: '/vision/env/' + place.id + '-thumb.webp',
     ratio: index % 3 === 0 ? 1.6 : index % 3 === 1 ? 1.2 : 1.8, date: index < 4 ? 'June 14, 2026' : 'June 12, 2026',
@@ -42,15 +62,15 @@ const photos = ref<Photo[]>([
 ]);
 const albums = ref<Album[]>([
   { id: 'places', title: 'Places without Wi-Fi', line: 'The signal is the scenery.', ids: ['lakeside', 'cape', 'mondello', 'goegap', 'night'] },
-  { id: 'break', title: 'Tea & other dependencies', line: 'Required to run this application.', ids: ['tea', 'desk', 'cat', 'error'] },
-  { id: 'people', title: 'People & Pets', line: 'Captain Whiskers · fictional reviewer', ids: ['cat'] },
+  { id: 'break', title: 'Tea & other dependencies', line: 'Required to run this application.', ids: ['coffee-3', 'masala-0', 'workspace-1', 'books-1'] },
+  { id: 'people', title: 'People & Pets', line: 'A few very good companions', ids: ['cat-0', 'cat-1', 'cat-2', 'dog-7'] },
 ]);
 const memories = [
-  { title: 'A little less online', line: 'Four places. Zero notifications.', ids: ['lakeside', 'cape', 'mondello', 'night'] },
-  { title: 'Small moments, large display', line: 'A desk, a cup, a supervisor.', ids: ['desk', 'tea', 'cat', 'error'] },
-  { title: 'Take the scenic branch', line: 'No conflicts out here.', ids: ['kiara', 'goegap', 'snow', 'pines'] },
+  { title: 'A little less online', line: 'Four places. Zero notifications.', ids: ['mountains-3', 'beach-1', 'sunset-0', 'mountains-5'] },
+  { title: 'Small moments, large display', line: 'Find the extraordinary in the everyday.', ids: ['coffee-3', 'workspace-1', 'houseplant-3', 'books-1'] },
+  { title: 'In very good company', line: 'The art of doing absolutely nothing.', ids: ['cat-0', 'cat-1', 'dog-7', 'cat-2'] },
 ];
-const tab = ref<Tab>('Library');
+const tab = ref<Tab>('Memories');
 const query = ref('');
 const zoomLevel = ref(2);
 const selecting = ref(false);
@@ -70,6 +90,8 @@ const imageZoom = ref(1);
 const pan = ref({ x: 0, y: 0 });
 const viewerSurface = ref<HTMLElement | null>(null);
 const reduced = ref(false);
+const pageHidden = ref(false);
+function documentVisibility(): void { pageHidden.value = document.hidden; }
 const slideshow = ref<string[] | null>(null);
 const slideTitle = ref('');
 const slidePaused = ref(false);
@@ -79,7 +101,7 @@ function photoCount(count: number): string {
   return count + (count === 1 ? ' photo' : ' photos');
 }
 function fullSource(photo: Photo): string | undefined {
-  if (!photo.src || fullMissing.value.includes(photo.id)) return photo.src;
+  if (!photo.src || !photo.src.startsWith('/vision/env/') || fullMissing.value.includes(photo.id)) return photo.src;
   return '/vision/env/' + photo.id + '-4k.webp';
 }
 function imageFailed(photo: Photo): void {
@@ -247,20 +269,21 @@ function keys(event: KeyboardEvent): void {
   buttons[(index + direction + buttons.length) % buttons.length]?.focus(); event.preventDefault();
 }
 onMounted(() => {
+  documentVisibility(); document.addEventListener('visibilitychange', documentVisibility);
   media = window.matchMedia('(prefers-reduced-motion: reduce)'); updateMotion(); media.addEventListener('change', updateMotion);
   timer = setInterval(() => {
     if (slideshow.value && !slidePaused.value && !document.hidden && !sheet.value) nextPhoto(1);
   }, 5500);
 });
-onBeforeUnmount(() => { clearInterval(timer); media?.removeEventListener('change', updateMotion); drag = null; restoreDim(); });
+onBeforeUnmount(() => { document.removeEventListener('visibilitychange', documentVisibility); clearInterval(timer); media?.removeEventListener('change', updateMotion); drag = null; restoreDim(); });
 </script>
 
 <template>
-  <div class="photos-app" :class="{ compact }" @keydown="keys">
+  <div class="photos-app" :class="{ compact, 'memories-home': tab === 'Memories' }" @keydown="keys">
     <template v-if="!opened">
       <nav class="vk-tabbar destinations vk-scroll" aria-label="Photo collections" data-collection>
         <button v-for="item in tabs" :key="item.name" v-hover class="vk-icon" :aria-label="item.name" :aria-pressed="tab === item.name" @click="navigate(item.name)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path
             :d="item.path" />
           </svg>
@@ -270,21 +293,27 @@ onBeforeUnmount(() => { clearInterval(timer); media?.removeEventListener('change
       <main class="library">
         <header class="heading">
           <div><p class="eyebrow">PHOTOS · SAMPLE COLLECTION</p><h1 class="vk-large-title">{{ albumTitle ?? tab }}</h1>
-            <p class="vk-secondary subtitle">Small moments. Unreasonably large display.</p>
+            <p class="vk-secondary subtitle">Your favourite moments, a little closer.</p>
           </div>
-          <button v-if="tab !== 'Memories' && (tab !== 'Albums' || activeAlbum)" v-hover class="vk-button" :aria-pressed="selecting"
+          <button v-if="tab !== 'Memories' && (tab !== 'Collections' || activeAlbum)" v-hover class="vk-button" :aria-pressed="selecting"
             @click="selecting = !selecting; selected = []">{{ selecting ? 'Done' : 'Select' }}</button>
         </header>
         <div class="library-scroll vk-scroll" @wheel="gridWheel">
           <template v-if="tab === 'Memories'">
+            <div class="memory-grid" data-collection>
             <button v-for="(memory, index) in memories" :key="memory.title" v-hover class="memory-card" @click="playMemory(memory)">
-              <img v-if="index !== 1" :src="'/vision/env/' + memory.ids[0] + '-thumb.webp'" alt="" />
-              <PhotoArt v-else kind="tea" title="Tea break" />
+              <img :src="photos.find(photo => photo.id === memory.ids[0])?.src" alt="" :loading="index === 0 ? 'eager' : 'lazy'" />
               <span class="memory-copy"><small>A MEMORY MIX</small><b>{{ memory.title }}</b><span>{{ memory.line }}</span><i><YtIcon name="play" />Play memory</i></span>
             </button>
-            <p class="vk-footnote vk-secondary">Illustrative memories, with photographs by Poly Haven. Dates are sample labels.</p>
+            </div>
+            <div class="collection-heading"><h2 class="vk-title">Made for a closer look</h2><button v-hover class="vk-button" @click="navigate('Collections')">Collections <YtIcon name="forward" /></button></div>
+            <div class="collection-shortcuts" data-collection>
+              <button v-hover class="collection-shortcut vk-platter" @click="navigate('Spatial')"><img src="/phone/photos/mountains-3.webp" alt="" /><span><b>Spatial Scenes</b><small>Explore a new perspective</small></span><YtIcon name="spatial" /></button>
+              <button v-hover class="collection-shortcut vk-platter" @click="navigate('Collections'); activeAlbum = 'people'"><img src="/phone/photos/cat-0.webp" alt="" /><span><b>People &amp; Pets</b><small>A few familiar faces</small></span><YtIcon name="heart" /></button>
+            </div>
+            <p class="vk-footnote vk-secondary sample-caption">Curated CC0 photographs · Sample dates and memories</p>
           </template>
-          <template v-else-if="tab === 'Albums' && !activeAlbum">
+          <template v-else-if="tab === 'Collections' && !activeAlbum">
             <h2 class="vk-title">My Albums</h2>
             <div class="album-grid" data-collection>
               <button v-hover class="album-card vk-platter" @click="activeAlbum = 'favourites'">
@@ -300,8 +329,8 @@ onBeforeUnmount(() => { clearInterval(timer); media?.removeEventListener('change
               </button>
             </div>
             <h2 class="vk-title">People &amp; Pets</h2>
-            <button v-hover class="vk-row vk-platter" @click="activeAlbum = 'people'"><span class="pet-avatar">🐈</span>
-              <span><b>Captain Whiskers</b><small class="vk-secondary">Fictional supervisor. Mostly asleep.</small></span><YtIcon name="forward" />
+            <button v-hover class="vk-row vk-platter" @click="activeAlbum = 'people'"><span class="pet-avatar"><img src="/phone/photos/cat-0.webp" alt="Sleeping cat" /></span>
+              <span><b>Quiet companions</b><small class="vk-secondary">Cats &amp; a dog · 4 sample photos</small></span><YtIcon name="forward" />
             </button>
           </template>
           <template v-else>
@@ -345,10 +374,10 @@ onBeforeUnmount(() => { clearInterval(timer); media?.removeEventListener('change
               v-if="!shown.length" class="empty vk-platter">
               {{ query ? 'No matches. Try a place, tea or nature.' : 'No photos here yet. Add some from Library, or undo a deletion.' }}
             </p>
-            <p class="vk-footnote vk-secondary">{{ photoCount(shown.length) }} · Landscapes: Poly Haven, CC0 · Illustrations: Pocket Lab</p>
+            <p class="vk-footnote vk-secondary">{{ photoCount(shown.length) }} · CC0 photographs: StockSnap, Rawpixel &amp; Poly Haven · Sample collection</p>
           </template>
         </div>
-        <footer v-if="tab !== 'Memories' && (tab !== 'Albums' || activeAlbum)" class="library-toolbar vk-ornament">
+        <footer v-if="tab !== 'Memories' && (tab !== 'Collections' || activeAlbum)" class="library-toolbar vk-ornament">
           <span class="vk-footnote">Grid</span><YtIcon name="grid" />
           <input v-model.number="zoomLevel" v-hover class="vk-slider" type="range" min="1" max="4" step=".1" aria-label="Photo grid zoom"
             :style="{ '--value': (zoomLevel - 1) / 3 }" /><YtIcon name="screen" />
@@ -361,7 +390,7 @@ onBeforeUnmount(() => { clearInterval(timer); media?.removeEventListener('change
         <div><h1>{{ slideshow ? slideTitle : opened.title }}</h1><p class="vk-secondary">{{ slideshow ? opened.title : opened.place }}</p></div>
         <button v-hover class="vk-icon" aria-label="Photo information" :aria-pressed="sheet === 'info'" @click="showSheet('info')"><YtIcon name="info" /></button>
       </header>
-      <div ref="viewerSurface" v-hover class="viewer-picture" :class="{ zoomed: imageZoom > 1, memory: slideshow, paused: slidePaused || reduced }"
+      <div ref="viewerSurface" v-hover class="viewer-picture" :class="{ zoomed: imageZoom > 1, memory: slideshow, paused: slidePaused || reduced || pageHidden }"
         tabindex="0" role="group" aria-label="Photo viewer. Arrow keys change photos. Swipe to navigate or drag when zoomed."
         @pointerdown="begin" @pointermove="move" @pointerup="end" @pointercancel="drag = null" @lostpointercapture="drag = null">
         <Panorama v-if="panoramic && opened.panorama" :src="'/vision/env/' + opened.id + '-4k.webp'" :title="opened.title" />

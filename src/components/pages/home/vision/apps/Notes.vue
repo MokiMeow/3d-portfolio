@@ -244,7 +244,7 @@ function shortcut(event: KeyboardEvent): void {
 }
 onMounted(() => {
   windowObserver = new ResizeObserver(entries => {
-    wideWindow.value = (entries[0]?.contentRect.width ?? 0) > 1150;
+    wideWindow.value = (entries[0]?.contentRect.width ?? 0) > 880;
     void nextTick(resizeTitle);
   });
   if (noteWindow.value) windowObserver.observe(noteWindow.value);
@@ -303,7 +303,7 @@ onBeforeUnmount(() => {
         <div class="tags">
           <button v-for="tag in allTags" :key="tag" v-hover class="vk-chip" :aria-pressed="scope === '#' + tag" @click="setScope('#' + tag)">#{{ tag }}</button>
         </div>
-        <p class="folder-footer">Small thoughts.<br>Plenty of space.</p>
+        <p class="folder-footer"><span class="local-saved-dot" />Stored on this browser<br><small>Your own little corner.</small></p>
       </aside>
       <section class="notes-list vk-platter" aria-label="Note list">
         <header class="list-heading"><div><p class="eyebrow">Notes</p><h1>{{ scopeTitle }}</h1></div>
@@ -324,6 +324,8 @@ onBeforeUnmount(() => {
                   <AppIcon v-if="note.locked" name="lock" />
                   {{ note.locked ? 'Locked · ' : '' }}{{ note.folder }}<span v-for="tag in note.tags.slice(0, 2)" :key="tag"> · #{{ tag }}</span>
                   </span>
+              <span v-if="note.strokes.length" class="sketch-preview" aria-label="Contains a sketch"><svg viewBox="0 0 160 70" fill="none" aria-hidden="true"><polyline v-for="(stroke,i) in note.strokes" :key="i" :points="stroke.points.map(point => (point.x * 160) + ',' + (point.y * 70)).join(' ')" :stroke="stroke.color" stroke-width="1.8" /></svg></span>
+                <span v-else-if="note.html.includes('data-list=') || note.html.includes('<table>')" class="note-attachment"><AppIcon :name="note.html.includes('<table>') ? 'browse' : 'check'" />{{ note.html.includes('<table>') ? 'Table' : 'Checklist' }}</span>
               </span><span v-if="note.pinned" class="pin-indicator" aria-label="Pinned"><AppIcon name="pin" /></span>
             </button>
           </section>
@@ -365,7 +367,7 @@ onBeforeUnmount(() => {
           <p>Select a note or start something new.</p><button v-hover class="vk-button primary" @click="create()">New Note</button>
         </div>
         <footer v-if="current && !isLocked" class="editor-footer">
-          <span class="word-count">{{ wordCount }} words</span>
+          <span class="word-count"><span class="saved-check"><AppIcon name="check" /></span> {{ wordCount }} words · Saved on this browser</span>
           <div class="format-ornament vk-ornament vk-scroll" aria-label="Note tools">
             <button v-hover class="vk-icon large" aria-label="Text formatting" title="Text formatting" :aria-pressed="sheet === 'format'"
               @click="sheet = sheet === 'format' ? null : 'format'">Aa</button>
@@ -433,7 +435,7 @@ onBeforeUnmount(() => {
 .notes-app :deep(button) { cursor: pointer; border: 0; }
 .notes-app :deep(button:disabled) { cursor: default; }
 .notes-app :deep(:focus-visible) { outline: 2px solid #ffd60a; outline-offset: 3px; }
-.notes-app svg { width: 22px; height: 22px; flex: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.notes-app svg { width: 22px; height: 22px; flex: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 h1, h2, p { margin: 0; }
 h1 { font-size: 32px; font-weight: 700; line-height: 1.1; letter-spacing: -.8px; }
 h2 { font-size: 23px; font-weight: 700; }
@@ -519,10 +521,10 @@ h2 { font-size: 23px; font-weight: 700; }
 .local-status { position: relative; flex: none; z-index: 30; margin-left: 72px; display: flex; align-items: center; gap: 10px; padding: 10px 14px; font-size: 14px; }
 .local-status span { flex: 1; }.local-status .vk-button { font-size: 14px; padding: 0 14px; }
 .folder-dismiss { display: none; }
-@container (min-width: 1151px) {
+@container (min-width: 881px) {
   .folders-collapsed .folders { display: none; }
 }
-@container (max-width: 1150px) {
+@container (max-width: 880px) {
   .folders { display: none; position: absolute; left: 80px; top: 14px; bottom: 14px; width: 260px; background: #404249ed; }
   .folders.revealed { display: flex; }
   .folder-close { display: inline-grid; }
@@ -609,4 +611,50 @@ h2 { font-size: 23px; font-weight: 700; }
     animation: none !important; transition: none !important;
   }
 }
+
+.notes-app { background:linear-gradient(120deg,#4b403b18,transparent); }
+.notes-workspace { gap:12px; }
+.folders { flex-basis:174px; padding:18px 10px; background:linear-gradient(155deg,#ffffff13,#ffffff05); border-radius:24px; }
+.folders h2 { font-size:22px; }
+.folders .vk-row { font-size:14px; gap:8px; padding:10px; min-height:52px; border-radius:16px; }
+.folders .vk-row[aria-pressed=true] { background:#dfc17521; }
+.folders .section-label { font-size:10px; letter-spacing:.1em; text-transform:uppercase; padding-left:10px; }
+.tags-heading { margin-top:14px; }
+.tags { gap:5px; padding:4px; }
+.tags button { min-height:44px; font-size:11px; padding:0 10px; }
+.folder-footer { font-size:11px; line-height:1.8; padding:20px 8px 4px; }
+.folder-footer small { color:var(--vk-secondary); }
+.local-saved-dot { display:inline-block; width:5px; height:5px; background:#b9d8a4; border-radius:50%; margin-right:5px; }
+.notes-list { flex-basis:220px; border-radius:24px; background:#ffffff0a; }
+.list-heading { padding:18px 14px 12px; }
+.list-heading .compose { width:44px; height:44px; }
+.list-heading .eyebrow { font-size:11px; }
+.list-heading h1 { font-size:22px; }
+.search-wrap { margin:0 12px 6px; }
+.search-wrap .search { font-size:14px; }
+.note-row { padding:12px; min-height:94px; border-radius:18px; }
+.note-summary strong { font-size:14px; line-height:1.35; }
+.note-preview { font-size:12px; line-height:1.5; }
+.note-folder { font-size:10px; }
+.note-groups .section-label { font-size:11px; letter-spacing:.03em; }
+.note-attachment { display:flex; align-items:center; gap:5px; font-size:10px; color:#f5d891; margin-top:2px; }
+.note-attachment :deep(svg) { width:13px; height:13px; }
+.sketch-preview { width:100%; height:54px; border-radius:9px; background:#faf6e8; margin-top:5px; }
+.sketch-preview svg { width:100%; height:100%; }
+.paper-panel { background:linear-gradient(130deg,#fffdf7,#f4f0e5); box-shadow:inset 0 1px 0 #fff; }
+.editor-top { padding:12px 18px 8px; }
+.editor-date { font-size:11px; }
+.writing-scroll { padding:8px 28px 24px; }
+.note-title { font-size:28px !important; letter-spacing:-.035em; }
+.writing-tags { font-size:11px; margin-bottom:8px; }
+.editor-footer { padding-bottom:14px; gap:8px; }
+.word-count { font-size:10px; }
+.saved-check { color:#6a864b; }
+.format-ornament { padding:6px; }
+.format-ornament button { width:44px; height:44px; flex-basis:44px; }
+.list-footer { font-size:11px; padding:12px; }
+@container(max-width:880px) and (min-width:701px) { .notes-list { flex-basis:240px; } }
+@container(max-width:700px) { .notes-workspace { gap:0; } .notes-list { flex:1; } .list-heading { padding:20px 18px 14px; } .list-heading h1 { font-size:28px; } .note-row { min-height:98px; padding:14px; } .note-summary strong { font-size:16px; } .note-preview { font-size:13px; } .note-folder { font-size:11px; } .note-groups { padding:0 10px 12px; } .folders .vk-row { min-height:52px; font-size:16px; } .writing-scroll { padding:10px 20px 24px; } .format-ornament button { width:44px; height:44px; flex-basis:44px; } }
+
+.saved-check { display:inline-flex; vertical-align:middle; margin-right:3px; }.saved-check :deep(svg) { width:11px; height:11px; }
 </style>

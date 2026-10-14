@@ -9,6 +9,7 @@ import { usePlayer } from "../youtube/usePlayer";
 import YtIcon from "../youtube/YtIcon.vue";
 import type { IconName } from "../youtube/YtIcon.vue";
 import YtVideoCard from "../youtube/YtVideoCard.vue";
+import YtThumbnail from "../youtube/YtThumbnail.vue";
 
 const props = defineProps<{ compact?: boolean }>();
 const vision = inject(VISION, undefined);
@@ -602,7 +603,7 @@ onBeforeUnmount(() => {
     </header>
 
     <div class="workspace">
-      <nav class="sidebar" aria-label="YouTube navigation">
+      <nav class="sidebar vk-platter vk-scroll" aria-label="YouTube navigation">
         <template v-for="(item, index) in nav" :key="item.id">
           <span v-if="index === 3" class="you-label">You</span>
           <button v-hover :class="{ selected: page === item.id && !watching }" class="nav-item glow" :aria-label="item.title"
@@ -613,7 +614,7 @@ onBeforeUnmount(() => {
         <p class="sidebar-note">Your shelf.<br />A little closer.</p>
       </nav>
 
-      <main ref="content" class="content" :class="{ 'has-mini': mini }">
+      <main ref="content" class="content vk-scroll" :class="{ 'has-mini': mini }">
         <template v-if="watching && current">
           <div class="watch-grid">
             <div class="watch-main">
@@ -655,7 +656,7 @@ onBeforeUnmount(() => {
                 </div>
                 <button v-hover class="pill" @click="showModal('share')"><YtIcon name="share" />Share</button>
                 <button v-hover class="pill" @click="showModal('save')"><YtIcon name="save" />Save</button>
-                <a class="pill" :href="`https://www.youtube.com/watch?v=${current.id}`" target="_blank" rel="noopener noreferrer">Watch on YouTube ↗</a>
+                <a class="pill" :href="`https://www.youtube.com/watch?v=${current.id}`" target="_blank" rel="noopener noreferrer">Watch on YouTube <YtIcon name="external" /></a>
               </div>
               <section class="description">
                 <b>{{ current.year || 'Pasted link' }} · {{ current.duration }} · {{ current.category }}</b>
@@ -742,7 +743,7 @@ onBeforeUnmount(() => {
         </section>
 
         <template v-else>
-          <div v-if="page === 'home'" class="chips" aria-label="Video categories">
+          <div v-if="page === 'home'" class="chips vk-scroll" aria-label="Video categories">
             <button v-hover v-for="chip in ['All', ...categories, 'Recently uploaded', 'Watched']" :key="chip"
               :class="{ active: category === chip }" :aria-pressed="category === chip" @click="category = chip">{{ chip }}</button>
           </div>
@@ -755,7 +756,7 @@ onBeforeUnmount(() => {
                 </button>
               </div>
             </section>
-            <div v-else class="section-row page-heading">
+            <div v-else-if="!(page === 'home' && category === 'All')" class="section-row page-heading">
               <div><h1>{{ heading }}</h1><p v-if="page === 'home'" class="muted">A window into things worth watching.</p></div>
               <button v-hover v-if="page === 'playlists'" class="pill" @click="newPlaylist()"><YtIcon name="create" />Create</button>
               <button v-hover v-if="['later', 'liked', 'playlist'].includes(page)" class="pill" :disabled="!filtered.length" @click="playAll(filtered)">
@@ -786,8 +787,17 @@ onBeforeUnmount(() => {
                 <YtIcon name="play" /><div><b>Play this video</b><p>{{ pendingLink }}</p></div>
                 <button v-hover class="pill" @click="playPasted(query)">Play</button>
               </div>
+              <section v-if="page === 'home' && category === 'All'" class="home-first-screen">
+                <section class="screening-room vk-platter">
+                  <button v-hover class="screening-art" aria-label="Watch Spring by Blender Studio" @click="catalogue[2] && playVideo(catalogue[2])"><YtThumbnail id="WhWc3b3KhnY" title="Spring — Blender Open Movie" /><span class="spotlight-play"><YtIcon name="play" /></span></button>
+                  <div class="screening-copy"><p class="screening-eyebrow">THE SCREENING ROOM · BLENDER STUDIO</p><h1>Small films.<br />Extraordinary worlds.</h1><p class="muted">A little wonder looks even better here.</p><div><button v-hover class="pill spotlight-button" @click="catalogue[2] && playVideo(catalogue[2])"><YtIcon name="play" />Watch Spring</button><button v-hover class="pill" @click="category = 'Film'">Explore films <YtIcon name="forward" /></button></div></div>
+                </section>
+                <div class="home-section-heading"><h2>For your space</h2><span>Handpicked. Worth your time.</span></div>
+                <div class="video-grid featured-grid"><YtVideoCard v-for="video in filtered.slice(0,3)" :key="video.id" :video="video" :progress="progress(video.id)" @play="playVideo" @channel="openChannel" @queue="addQueue" @save="saveLater" @hide="hideVideo" /></div>
+              </section>
+              <h2 v-if="page === 'home' && category === 'All'" class="more-discoveries">Keep exploring</h2>
               <div class="video-grid">
-                <YtVideoCard v-for="video in filtered" :key="video.id" :video="video" :progress="progress(video.id)"
+                <YtVideoCard v-for="video in (page === 'home' && category === 'All' ? filtered.slice(3) : filtered)" :key="video.id" :video="video" :progress="progress(video.id)"
                   :query="page === 'search' ? query : undefined" :removable="removable"
                   @play="playVideo" @channel="openChannel" @queue="addQueue" @save="saveLater" @hide="hideVideo" @remove="removeVideo" />
               </div>
@@ -822,7 +832,7 @@ onBeforeUnmount(() => {
           <p>{{ error || status }}</p>
           <template v-if="error">
             <button v-hover class="pill" @click="cancelCountdown(); togglePlayback()">Retry</button>
-            <a :href="`https://www.youtube.com/watch?v=${current.id}`" target="_blank" rel="noopener noreferrer">Watch on YouTube ↗</a>
+            <a :href="`https://www.youtube.com/watch?v=${current.id}`" target="_blank" rel="noopener noreferrer">Watch on YouTube <YtIcon name="external" /></a>
           </template>
         </div>
       </div>
@@ -2247,4 +2257,47 @@ button:not(:disabled):active, a.pill:active {
     transform: none;
   }
 }
+
+.vision-youtube { position:relative; width:100%; height:100%; inset:auto; color:var(--vk-text,#fff); font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Helvetica Neue',sans-serif; background:linear-gradient(145deg,#1b283ba6,#131a2355); --raised:#ffffff14; --border:#ffffff20; }
+.topbar { background:#ffffff04; border-bottom:1px solid #ffffff0e; padding:12px 22px; gap:24px; min-height:72px; }
+.workspace { background:transparent; }
+.search-form { background:#00000024; border-color:#ffffff16; box-shadow:inset 0 1px 3px #0002; }
+.search-submit { background:#ffffff0a; border-left-color:#ffffff12; }
+.sidebar { flex-basis:180px; margin:14px 0 20px 14px; border-radius:26px; padding:10px; background:#ffffff08; align-self:flex-start; max-height:calc(100% - 34px); }
+.nav-item { min-height:48px; border-radius:18px; font-size:13px; gap:13px; }
+.nav-item.selected { background:#ffffffd9; color:#1c2431; }
+.you-label { margin-top:12px; font-size:11px; color:#ffffff9c; border-color:#ffffff16; }
+.sidebar-note { font-size:10px; color:#ffffff7a; padding:14px 12px; }
+.content { background:transparent; }
+.chips { background:#353c45d9; backdrop-filter:blur(24px); padding:8px 22px; min-height:60px; }
+.chips button { border-radius:999px; background:#ffffff0b; font-size:12px; min-height:44px; }
+.browse-body { padding:14px 22px 28px; }
+.home-first-screen { min-height:calc(100cqh - 164px); }
+.screening-room { display:grid; grid-template-columns:44% 1fr; gap:24px; align-items:center; padding:0; overflow:hidden; border-radius:24px; background:linear-gradient(115deg,#2a3a51,#34565566); height:190px; }
+.screening-art { position:relative; height:100%; overflow:hidden; }
+.screening-art :deep(.yt-thumbnail) { height:100%; border-radius:0; aspect-ratio:auto; }
+.screening-art::after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,transparent,#253c4840); pointer-events:none; }
+.spotlight-play { position:absolute; display:grid; place-items:center; width:48px; height:48px; border:1px solid #ffffff50; border-radius:50%; top:50%; left:50%; transform:translate(-50%,-50%); background:#ffffff22; backdrop-filter:blur(12px); }
+.screening-copy { padding:16px 20px 16px 0; }
+.screening-eyebrow { font-size:8px; letter-spacing:.15em; color:#dbf0e6; margin:0 0 8px; font-weight:650; }
+.screening-copy h1 { font-size:30px; line-height:1.05; letter-spacing:-.035em; font-weight:700; }
+.screening-copy .muted { font-size:11px; margin:8px 0 10px; color:#ffffffae; }
+.screening-copy>div { display:flex; gap:8px; }
+.screening-copy .pill { font-size:11px; padding:0 12px; }
+.spotlight-button { background:#f4f7f6; color:#1b2733; }
+.home-section-heading { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin:20px 4px 10px; }
+.home-section-heading h2 { font-size:21px; letter-spacing:-.025em; }
+.home-section-heading>span { color:#ffffff9c; font-size:11px; }
+.video-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px 14px; }
+.more-discoveries { margin:20px 6px 14px; font-size:23px; }
+.popover,.dialog { background:linear-gradient(145deg,#ffffff16,#ffffff06),#343b46f2; border-color:#ffffff29; border-radius:26px; }
+.bottom-tabs { flex:none; border-top:1px solid #ffffff20; border-radius:0; background:#3e444edb; backdrop-filter:blur(25px); }
+@container(max-height:560px) and (min-width:641px) { .topbar { min-height:64px; padding-block:8px; } .screening-room { height:130px; grid-template-columns:37% 1fr; gap:18px; } .screening-copy h1 { font-size:25px; } .screening-copy h1 br { display:none; } .screening-copy .muted { display:none; } .screening-copy>div { margin-top:10px; } .screening-copy .pill { min-height:44px; } .home-section-heading { margin-top:14px; } .home-first-screen { min-height:calc(100cqh - 150px); } }
+@container(max-width:1000px) and (min-width:641px) { .sidebar { flex-basis:64px; padding:6px; margin-left:10px; } .nav-item { justify-content:center; padding:8px 0; }.nav-item span,.you-label,.sidebar-note { display:none; } .screening-copy h1 { font-size:27px; } }
+@container(max-width:640px) { .topbar { padding:8px 14px 10px; min-height:112px; gap:4px 10px; } .sidebar { display:none; } .chips { min-height:56px; padding:6px 14px; } .chips button { min-height:44px; } .browse-body { padding:12px 14px 24px; } .screening-room { height:165px; grid-template-columns:37% 1fr; gap:14px; border-radius:22px; } .screening-copy { padding:14px 12px 14px 0; } .screening-copy h1 { font-size:23px; } .screening-eyebrow { font-size:7px; line-height:1.5; } .screening-copy .muted { display:none; } .screening-copy>div { margin-top:12px; } .screening-copy .pill { font-size:11px; padding:0 10px; }.screening-copy .pill:last-child { display:none; } .home-section-heading { margin:16px 4px 8px; } .home-section-heading h2 { font-size:20px; } .home-section-heading>span { display:none; } .video-grid { grid-template-columns:minmax(0,1fr); } .featured-grid { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:12px; padding:0 0 10px; } .featured-grid :deep(.yt-card) { flex:0 0 100%; scroll-snap-align:start; } .home-first-screen { min-height:calc(100cqh - 228px); } .bottom-tabs { padding:4px 10px; gap:4px; height:60px; } }
+
+
+@container(max-height:560px) and (min-width:641px) { .screening-room { height:110px; } .screening-eyebrow { display:none; } .screening-copy { padding:10px 16px 10px 0; }.screening-copy h1 { font-size:22px; }.screening-copy>div { margin-top:8px; }.featured-grid :deep(.yt-thumbnail) { height:90px; aspect-ratio:auto; }.home-section-heading { margin-top:12px; margin-bottom:8px; }.home-section-heading h2 { font-size:19px; } }
+@container(max-width:640px) { .screening-room { height:145px; } .featured-grid :deep(.yt-card) { display:grid; grid-template-columns:112px minmax(0,1fr); padding:10px; min-height:110px; align-items:start; }.featured-grid :deep(.metadata) { padding:0 0 0 10px; gap:0; }.featured-grid :deep(.avatar) { display:none; }.featured-grid :deep(.title) { font-size:12px; }.featured-grid :deep(.copy>p) { display:none; }.featured-grid :deep(.more) { width:44px; min-width:44px; flex-basis:44px; }.home-section-heading { margin-top:12px; }.home-first-screen { min-height:calc(100cqh - 252px); } }
+
 </style>

@@ -1,11 +1,22 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 const props = defineProps<{ bloom: number; progress: number; running: boolean; paused: boolean; particles: boolean; reflect: boolean }>();
+const surface = ref<HTMLElement>();
+const visible = ref(true);
+let observer: IntersectionObserver | undefined;
+let intersecting = true;
+function visibility(): void { visible.value = !document.hidden && intersecting; }
+onMounted(() => {
+  visibility(); document.addEventListener('visibilitychange', visibility);
+  observer = new IntersectionObserver(entries => { intersecting = entries[0]?.isIntersecting ?? true; visibility(); });
+  if (surface.value) observer.observe(surface.value);
+});
+onBeforeUnmount(() => { observer?.disconnect(); document.removeEventListener('visibilitychange', visibility); });
 const flowerStyle = computed(() => ({ '--bloom': props.bloom, '--rotation': (-13 + props.bloom * 26) + 'deg' }));
 </script>
 
 <template>
-  <div class="garden" :class="{ running, paused, reflection: reflect }" :style="flowerStyle" aria-hidden="true">
+  <div ref="surface" class="garden" :class="{ running, paused, dormant: !visible, reflection: reflect }" :style="flowerStyle" aria-hidden="true">
     <div class="light-field"><i /><i /><i /></div>
     <svg class="progress" viewBox="0 0 300 300">
       <circle class="track" cx="150" cy="150" r="139" />
@@ -14,6 +25,7 @@ const flowerStyle = computed(() => ({ '--bloom': props.bloom, '--rotation': (-13
     <div v-if="particles" class="particles">
       <i v-for="dot in 14" :key="dot" :style="{ '--i': dot, '--x': (dot * 37 % 100) + '%', '--y': (dot * 53 % 100) + '%' }" />
     </div>
+    <div class="orbital-ring" /><div class="orbital-ring inner-ring" />
     <div class="flower">
       <div v-for="petal in 18" :key="petal" class="petal" :class="{ inner: petal > 12 }"
         :style="{ '--angle': ((petal - 1) * (petal > 12 ? 60 : 30) + (petal > 12 ? 15 : 0)) + 'deg', '--hue': 155 + petal * 2.6 }" />
@@ -64,4 +76,14 @@ const flowerStyle = computed(() => ({ '--bloom': props.bloom, '--rotation': (-13
   .flower { transform: rotate(0); }
   .petal { transform: rotate(var(--angle)) scale(.85); }
 }
+
+.orbital-ring { position:absolute; inset:9%; border:1px solid #dcfff113; border-radius:50%; }
+.inner-ring { inset:18%; border-style:dashed; border-color:#dcfff115; }
+.petal { background:linear-gradient(150deg,hsl(var(--hue) 68% 88% / .72),hsl(var(--hue) 48% 61% / .19) 60%,#73cbb006); box-shadow:inset 0 1px 8px #e0fff82a; transition:transform 260ms linear; }
+.flower { transition:transform 260ms linear; }
+.garden:not(.running):not(.paused) .flower { animation:resting-flower 10s ease-in-out infinite; }
+.dormant .flower,.dormant .particles i,.dormant .light-field i { animation-play-state:paused !important; }
+@keyframes resting-flower { 50% { transform:rotate(4deg) scale(.93); } }
+@media(prefers-reduced-motion:reduce) { .garden .flower { animation:none; } }
+
 </style>

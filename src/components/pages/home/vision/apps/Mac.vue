@@ -2,6 +2,7 @@
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
 import MacFinder from './mac/Finder.vue';
+import DesktopPreview from './mac/DesktopPreview.vue';
 import AppIcon from './music/AppIcon.vue';
 import MacTerminal from './mac/Terminal.vue';
 import MacEditor from './mac/Editor.vue';
@@ -48,13 +49,10 @@ const quiet = ref(false);
 const size = reactive({ width: 1080, height: 400 });
 const narrow = computed(() => size.width < 620);
 const dimensions = computed(() => {
-  if (narrow.value && mode.value === 'Standard') {
-    return { width: Math.max(280, size.width), height: Math.max(300, size.height) };
-  }
-  const ratio = mode.value === 'Standard' ? 16 / 9 : mode.value === 'Wide' ? 21 / 9 : 32 / 9;
-  const height = Math.max(405, size.height);
-  const width = Math.max(720, size.width, height * ratio);
-  return { width, height: width / ratio };
+  const height = Math.max(280, size.height);
+  const width = mode.value === 'Standard' ? Math.max(280, size.width)
+    : Math.max(size.width, height * (mode.value === 'Wide' ? 21 / 9 : 32 / 9));
+  return { width, height };
 });
 const clock = computed(() => (vision?.now.value ?? now.value).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }));
 const date = computed(() => (vision?.now.value ?? now.value).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }));
@@ -63,12 +61,12 @@ const results = computed(() => MAC_APPS.filter(app => (app.name + ' ' + app.id).
 const activeName = computed(() => MAC_APPS.find(app => app.id === focused.value)?.name ?? 'Finder');
 const windows = reactive<DesktopWindow[]>(MAC_APPS.map((app, index) => ({
   id: app.id,
-  open: app.id === 'finder' || app.id === 'terminal',
+  open: app.id === 'finder' || app.id === 'editor',
   minimized: false,
   maximized: false,
-  x: 40 + index * 65,
-  y: 58 + index * 30,
-  width: app.id === 'notes' ? 440 : 580,
+  x: app.id === 'finder' ? 24 : 500 + index * 20,
+  y: 58 + index * 8,
+  width: app.id === 'notes' ? 440 : app.id === 'editor' ? 520 : 560,
   height: app.id === 'settings' ? 350 : 300,
   z: index + 1,
 })));
@@ -110,7 +108,7 @@ function disconnect(): void {
 }
 function clamp(win: DesktopWindow): void {
   win.x = Math.max(8, Math.min(dimensions.value.width - win.width - 8, win.x));
-  win.y = Math.max(50, Math.min(dimensions.value.height - win.height - 72, win.y));
+  win.y = Math.max(50, Math.min(dimensions.value.height - Math.min(win.height, dimensions.value.height - 64) - 12, win.y));
 }
 function reveal(id: MacApp): void {
   const win = windows.find(item => item.id === id);
@@ -146,14 +144,14 @@ function windowStyle(win: DesktopWindow): Record<string, string | number> {
   if (narrow.value) {
     return {
       left: '8px', top: '50px', width: Math.max(264, size.width - 16) + 'px',
-      height: Math.max(240, Math.min(dimensions.value.height - 62, size.height - 62)) + 'px', zIndex: win.z,
+      height: Math.max(200, Math.min(dimensions.value.height - 62, size.height - 62)) + 'px', zIndex: win.z,
     };
   }
   return {
     left: win.maximized ? '12px' : win.x + 'px',
     top: win.maximized ? '50px' : win.y + 'px',
     width: win.maximized ? dimensions.value.width - 24 + 'px' : win.width + 'px',
-    height: win.maximized ? dimensions.value.height - 124 + 'px' : win.height + 'px',
+    height: (win.maximized ? dimensions.value.height - 62 : Math.min(win.height, dimensions.value.height - 64)) + 'px',
     zIndex: win.z,
   };
 }
@@ -281,7 +279,7 @@ onMounted(() => {
     if (rect && rect.width > 0 && rect.height > 0) { size.width = rect.width; size.height = rect.height; }
   });
   if (frame.value) observer.observe(frame.value);
-  clockTimer = setInterval(() => { now.value = new Date(); }, 1000);
+  clockTimer = setInterval(() => { if (!document.hidden && status.value === 'connected') now.value = new Date(); }, 1000);
 });
 onBeforeUnmount(() => {
   disposed = true;
@@ -299,28 +297,24 @@ onBeforeUnmount(() => {
       <header class="app-header">
         <div>
           <h1 class="vk-title">Mac Virtual Display</h1>
-          <p class="vk-footnote vk-secondary">More screen. Same number of unfinished tasks.</p>
+          <p class="vk-footnote vk-secondary">A private workspace. Room for every idea.</p>
         </div>
-        <span class="connection vk-footnote"><i :class="{ online: status === 'connected' }" />{{ status === 'connected' ? "Mohith's MacBook" : 'Nearby Mac' }}</span>
+        <span class="connection vk-footnote"><i :class="{ online: status === 'connected' }" />{{ status === 'connected' ? "Demo MacBook" : 'Nearby Mac' }}</span>
       </header>
 
       <section v-if="status !== 'connected'" class="connect-screen vk-scroll" :aria-busy="status === 'connecting'">
-        <div class="laptop" :class="{ connecting: status === 'connecting' }" aria-hidden="true">
-          <svg viewBox="0 0 130 100" fill="none">
-            <rect x="22" y="10" width="86" height="58" rx="7" stroke="currentColor" stroke-width="2" />
-            <path d="M22 68 10 85q0 5 9 5h92q9 0 9-5l-12-17M49 78h32m-26-43 8-8m-8 8 8 8m15-16-10 16" stroke="currentColor" stroke-width="2" />
-          </svg>
+        <DesktopPreview />
+        <div class="connection-info">
+          <p class="connection-eyebrow">MAC VIRTUAL DISPLAY</p>
+          <h2 class="vk-large-title">{{ status === 'connecting' ? 'Making room for you.' : 'Your Mac. A whole new perspective.' }}</h2>
+          <p class="vk-body vk-secondary">Your favourite tools, together on one beautiful, expansive display.</p>
+          <div class="connection-features"><span><AppIcon name="lock" />Private by design</span><span><AppIcon name="browse" />Up to 32:9 Ultrawide</span></div>
+          <div class="mac-card vk-platter"><span class="device-symbol"><AppIcon name="editor" /></span><div><strong class="vk-headline">Demo MacBook</strong><p class="vk-footnote vk-secondary">Interactive local desktop</p></div>
+            <button v-hover class="vk-button primary connect-button" :disabled="status === 'connecting'" @click="connect">{{ status === 'connecting' ? 'Connecting…' : 'Connect' }}</button>
+          </div>
+          <button v-if="status === 'connecting'" v-hover class="vk-button" @click="disconnect">Cancel connection</button>
+          <p class="connection-footnote">A simulated Mac with Finder, Code and Terminal.<br />Files and commands stay inside this window.</p>
         </div>
-        <h2 class="vk-large-title">{{ status === 'connecting' ? 'A little more room.' : 'Your desk, without the desk.' }}</h2>
-        <p class="vk-body vk-secondary">{{ status === 'connecting' ? 'Negotiating with the 38 open tabs.' : 'A virtual Mac you can explore, right here in the room.' }}</p>
-        <div class="mac-card vk-platter">
-          <div><strong class="vk-headline">Mohith's MacBook</strong><p class="vk-footnote vk-secondary">Simulated desktop · Ready when you are</p></div>
-          <button v-hover class="vk-button primary connect-button" :disabled="status === 'connecting'" @click="connect">
-            {{ status === 'connecting' ? 'Connecting…' : 'Connect' }}
-          </button>
-        </div>
-        <button v-if="status === 'connecting'" v-hover class="vk-button" @click="disconnect">Cancel connection</button>
-        <p class="vk-footnote vk-secondary">Finder, Terminal, Code, Scratchpad and Displays.<br />No files or commands leave this window.</p>
       </section>
 
       <div v-show="status === 'connected'" class="connected-desktop">
@@ -410,7 +404,7 @@ onBeforeUnmount(() => {
             </button>
           </nav>
           <div class="display-toolbar vk-ornament">
-            <button v-hover class="vk-button" @click="reveal('settings')">{{ mode }} <AppIcon name="down" /></button>
+            <div class="display-modes vk-segmented" aria-label="Display width"><button v-for="choice in modes" :key="choice" v-hover :aria-pressed="mode === choice" @click="mode = choice">{{ choice }}</button></div>
             <button v-hover class="vk-icon" aria-label="Mission Control" :aria-pressed="mission" @click="mission = !mission; popover = null"><AppIcon name="browse" /></button>
             <button v-hover class="vk-button disconnect" @click="disconnect">Disconnect</button>
           </div>
@@ -699,4 +693,31 @@ h1, h2, p { margin: 0; }
   .mac-root :deep(*), .mac-root :deep(*::before), .mac-root :deep(*::after) { animation: none !important; transition: none !important; }
   .dock-item:hover, .dock:has(.dock-item:hover) .dock-item:not(:hover) { transform: none; }
 }
+
+.mac-root { background:radial-gradient(ellipse at 20% 50%,#7094d12b,transparent 65%); }
+.mac-layout { padding:24px; gap:16px; }
+.app-header h1 { font-size:22px; }.app-header p { font-size:12px; }
+.connect-screen { display:grid; grid-template-columns:1.1fr 1fr; align-items:center; gap:42px; padding:20px 28px; text-align:left; }
+.connection-info { display:flex; flex-direction:column; align-items:flex-start; gap:18px; }
+.connection-eyebrow { font-size:10px; letter-spacing:.17em; color:#c5d9ee; font-weight:650; }
+.connection-info h2 { font-size:clamp(30px,3.6cqw,43px); letter-spacing:-.045em; line-height:1.08; max-width:400px; text-wrap:balance; }
+.connection-info>.vk-body { font-size:15px; line-height:1.6; max-width:350px; }
+.connection-features { display:flex; flex-wrap:wrap; gap:16px; color:#d5e2ee; font-size:11px; }
+.connection-features>span { display:inline-flex; gap:6px; align-items:center; }
+.connection-features :deep(svg) { width:16px; height:16px; }
+.mac-card { padding:16px; gap:12px; width:100%; border-radius:24px; }
+.mac-card>div { flex:1; }.mac-card strong { font-size:14px; }.mac-card p { font-size:11px; }
+.device-symbol { display:grid; place-items:center; width:40px; height:40px; border-radius:12px; background:#ffffff12; }.device-symbol :deep(svg){width:24px;height:24px;}
+.connect-button { min-height:44px; font-size:14px; padding:0 18px; }
+.connection-footnote { font-size:11px; line-height:1.6; color:var(--vk-secondary); }
+.desktop-frame { border-radius:18px; }
+.connected-desktop { gap:12px; }
+.desktop-lettering { opacity:.5; right:6%; top:23%; }.desktop-lettering h2 { font-size:40px; }
+.display-modes { padding:3px; }.display-modes>button { font-size:12px; padding:0 12px; min-height:44px; }
+.display-toolbar { padding:4px 8px; }.display-toolbar .disconnect { font-size:12px; }
+.dock { padding:8px 12px 10px; }.dock-item { width:44px; height:44px; border-radius:12px; box-shadow:inset 0 1px 0 #ffffff40,0 4px 8px #0003; }
+@container(max-width:800px) { .connect-screen { grid-template-columns:1fr; gap:20px; padding:12px 20px 24px; justify-items:center; } .connect-screen :deep(.display-preview-art) { max-width:430px; } .connection-info { align-items:center; text-align:center; gap:14px; max-width:460px; } .connection-info h2 { font-size:31px; } .connection-features { justify-content:center; } .mac-card { flex-direction:row; text-align:left; } .device-symbol { display:none; } .connect-button { width:auto; } .connection-footnote { font-size:10px; } }
+@container(max-width:540px) { .mac-layout { padding:18px; gap:10px; } .app-header h1 { font-size:22px; } .app-header p { font-size:11px; } .connect-screen { padding:4px 0 20px; gap:16px; } .connect-screen :deep(.display-preview-art) { max-width:285px; padding-top:6px; } .connection-info h2 { font-size:28px; } .connection-info>.vk-body { font-size:13px; } .connection-eyebrow { display:none; } .connection-features { font-size:10px; gap:12px; } .mac-card { padding:14px; } .connection-footnote { display:none; } .display-toolbar { flex-wrap:wrap; width:100%; gap:4px; } .display-modes>button { font-size:11px; padding:0 10px; } .desktop-controls { gap:6px; } .dock { padding:6px 8px 9px; } .display-toolbar .disconnect { padding:0 8px; } }
+@container(max-height:560px) and (min-width:801px) { .connect-screen { padding:8px 24px; gap:28px; } .connection-info { gap:14px; } .connection-info h2 { font-size:35px; } .connection-footnote { display:none; } .mac-layout { padding:18px; gap:12px; } }
+
 </style>

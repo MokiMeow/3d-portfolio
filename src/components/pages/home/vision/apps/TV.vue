@@ -156,7 +156,7 @@ onMounted(() => {
     }
   }, 7000);
   clockTimer = setInterval(() => {
-    if (!ready.value || !player) return;
+    if (document.hidden || !ready.value || !player) return;
     try { position.value = Math.min(duration, player.getCurrentTime()); } catch { /* Wait for the embed. */ }
   }, 500);
 });
@@ -214,7 +214,8 @@ let heroTimer: ReturnType<typeof setInterval> | undefined;
 let clockTimer: ReturnType<typeof setInterval> | undefined;
 let motion: MediaQueryList | undefined;
 const updateMotion = () => { reduced.value = motion?.matches ?? false; };
-const hero = computed(() => shows[heroIndex.value] ?? shows[0]);
+const featured = [shows[7], shows[5], shows[3]].filter((show): show is Show => Boolean(show));
+const hero = computed(() => featured[heroIndex.value] ?? shows[0]);
 const results = computed(() => shows.filter(show => (show.title + ' ' + show.genre).toLowerCase().includes(query.value.trim().toLowerCase())));
 const library = computed(() => shows.filter(show => saved.value.includes(show.id)));
 const environments = computed(() => VISION_ENVIRONMENTS.filter(place => place.id !== 'room'));
@@ -289,6 +290,7 @@ function collectionKeys(event: KeyboardEvent): void {
               </button>
               <button v-hover class="vk-button" @click="screenFilm(detail.title + ': Trailer')"><YtIcon name="play" />Trailer</button>
             </div>
+            <button v-hover class="vk-button cinema-entry" @click="watchIn('room'); screenFilm(detail.title)"><YtIcon name="cinema" />Watch in Cinema</button>
             <h2 class="vk-title">Episodes</h2>
             <div class="vk-segmented" aria-label="Season">
               <button v-for="n in 3" :key="n" v-hover :aria-pressed="season === n" @click="season = n">Season {{ n }}</button>
@@ -311,9 +313,9 @@ function collectionKeys(event: KeyboardEvent): void {
           </div>
         </template>
         <template v-else>
-          <header class="heading"><div><p class="eyebrow">POCKET LAB · TV SIMULATION</p><h1 class="vk-large-title">{{ tab }}</h1></div></header>
+          <header class="heading"><div><p class="eyebrow">TV · FICTIONAL ORIGINALS</p><h1 class="vk-large-title">{{ tab }}</h1></div></header>
           <template v-if="tab === 'Home' || tab === 'Apple TV+'">
-            <section v-if="hero" class="hero" @mouseenter="heroHeld = true" @mouseleave="heroHeld = false"
+            <section v-if="hero" v-hover class="hero" @mouseenter="heroHeld = true" @mouseleave="heroHeld = false"
               @focusin="heroHeld = true" @focusout="heroHeld = false">
               <Transition name="hero-fade" mode="out-in">
                 <div :key="hero.id" class="hero-poster"><Poster :title="hero.title" :art="hero.art" :accent="hero.accent" wide /></div>
@@ -327,17 +329,17 @@ function collectionKeys(event: KeyboardEvent): void {
               </div>
             </section>
             <div class="hero-pages" data-collection>
-              <button v-for="(show, i) in shows.slice(0, 3)" :key="show.id" v-hover class="vk-icon" :aria-label="'Feature ' + show.title"
+              <button v-for="(show, i) in featured" :key="show.id" v-hover class="vk-icon" :aria-label="'Feature ' + show.title"
                 :aria-pressed="heroIndex === i" @click="heroIndex = i"><span class="page-dot" /></button>
               <button v-hover class="vk-icon" :aria-label="heroPaused ? 'Resume featured carousel' : 'Pause featured carousel'"
                 :aria-pressed="heroPaused" @click="heroPaused = !heroPaused"><YtIcon :name="heroPaused ? 'play' : 'pause'" /></button>
             </div>
             <section v-for="rail in rails" :key="rail.title" class="rail-section">
-              <h2 class="vk-title">{{ rail.title }}</h2>
+              <div class="rail-heading"><h2 class="vk-title">{{ rail.title }}</h2><span class="vk-footnote vk-secondary">{{ rail.title === 'Up Next' ? 'Your next great escape' : 'Curated for your space' }}</span></div>
               <div class="rail vk-scroll" data-collection>
                 <button v-for="show in shows.filter(item => rail.title === 'Up Next' ? saved.includes(item.id) : rail.ids.includes(item.id))"
                   :key="show.id" v-hover class="show-card" @click="detail = show">
-                  <div class="card-poster"><Poster :title="show.title" :art="show.art" :accent="show.accent" :lettered="false" /></div>
+                  <div class="card-poster"><Poster :title="show.title" :art="show.art" :accent="show.accent" :lettered="false" /><span class="card-play"><YtIcon name="play" /></span><span v-if="rail.title === 'Up Next'" class="episode-progress"><i :style="{ width: (25 + rail.ids.indexOf(show.id) * 13) + '%' }" /></span></div>
                   <b>{{ show.title }}</b><small class="vk-secondary">{{ show.meta }}</small>
                 </button>
                 <p v-if="rail.title === 'Up Next' && !saved.length" class="vk-secondary">Add a title to plan your next screening.</p>

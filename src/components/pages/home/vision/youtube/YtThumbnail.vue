@@ -9,7 +9,7 @@ watch(() => props.id, () => { loaded.value = false; failed.value = false; });
   <div class="yt-thumbnail" :class="{ loaded, failed }">
     <img v-if="!failed" :src="`https://i.ytimg.com/vi/${id}/hqdefault.jpg`" :alt="title"
       loading="lazy" decoding="async" @load="loaded = true" @error="failed = true" />
-    <span v-if="failed" class="fallback">Preview unavailable</span>
+    <span v-if="failed" class="fallback">{{ title }}</span>
     <span v-if="duration" class="duration">{{ duration }}</span>
     <span v-if="progress && progress < 0.98" class="progress" :style="{ width: `${Math.min(100, progress * 100)}%` }" />
   </div>
@@ -25,7 +25,7 @@ watch(() => props.id, () => { loaded.value = false; failed.value = false; });
   border-radius: 16px;
   background: #242424;
   color: #f1f1f1;
-  font-family: Roboto, -apple-system, "Segoe UI", Arial, sans-serif;
+  font-family:inherit;
 }
 .yt-thumbnail :deep(*) {
   font-family: inherit;
@@ -35,7 +35,7 @@ watch(() => props.id, () => { loaded.value = false; failed.value = false; });
   inset: 0;
   content: "";
   background: linear-gradient(110deg, transparent 25%, #ffffff12 45%, transparent 65%);
-  animation: shimmer 1.5s infinite;
+  animation:none;
 }
 .loaded::before, .failed::before {
   display: none;
@@ -92,5 +92,10 @@ img {
     animation: none;
   }
 }
+
+
+.yt-thumbnail { background:radial-gradient(circle at 25% 20%,#52727b,#29364d 65%); }
+.fallback { padding:24px; text-align:center; color:#ffffffc9; font-size:17px; line-height:1.3; letter-spacing:-.02em; }
+.duration { border-radius:7px; padding:3px 6px; font-size:10px; background:#111a24cc; backdrop-filter:blur(8px); }
 
 </style>

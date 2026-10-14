@@ -1,10 +1,14 @@
 <script setup lang="ts">
-defineProps<{ title: string; art: string; accent: string; wide?: boolean; lettered?: boolean }>();
+const props = withDefaults(defineProps<{ title: string; art: string; accent: string; wide?: boolean; lettered?: boolean }>(), { lettered: true });
+const artwork: Record<string, string> = { keynote: 'workspace-1', traffic: 'city-1', meeting: 'workspace-4', planet: 'mountains-5', merge: 'city-4', chai: 'coffee-3', error: 'workspace-7', mountains: 'mountains-3' };
+const source = computed(() => '/phone/photos/' + (artwork[props.art] ?? 'mountains-3') + '.webp');
 </script>
 
 <template>
   <div class="poster" :class="[art, { wide }]" :style="{ '--ink': accent }">
-    <svg viewBox="0 0 600 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <img class="photographic-art" :src="source" alt="" loading="lazy" draggable="false" />
+    <div class="art-tint" />
+    <svg class="graphic-art" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <rect width="600" height="400" fill="#111a24" />
       <g v-if="art === 'keynote'">
         <path d="M0 400 240 0h120l240 400" fill="var(--ink)" opacity=".22" />
@@ -73,7 +77,7 @@ defineProps<{ title: string; art: string; accent: string; wide?: boolean; letter
         <circle cx="480" cy="70" r="29" fill="#e4c491" />
       </g>
     </svg>
-    <div v-if="lettered !== false" class="lettering"><small>POCKET LAB ORIGINAL</small><strong>{{ title }}</strong><span>AN ENTIRELY INVENTED PRODUCTION</span></div>
+    <div v-if="lettered !== false" class="lettering"><small>POCKET LAB ORIGINAL</small><strong>{{ title }}</strong><span>FICTIONAL CATALOG · REAL ESCAPISM</span></div>
   </div>
 </template>
 
@@ -140,4 +144,23 @@ span {
 .wide .lettering {
   background: linear-gradient(90deg, rgb(0 0 0 / .72), transparent 90%);
 }
+
+.photographic-art { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transform:scale(1.025); transition:transform 1s cubic-bezier(.2,.8,.2,1); }
+.poster:hover .photographic-art { transform:scale(1.07) translateX(-.5%); }
+.art-tint { position:absolute; inset:0; background:linear-gradient(110deg,#071317a6,transparent 70%),linear-gradient(0deg,#07131788,transparent 65%); }
+.graphic-art { position:absolute; inset:0; opacity:.13; mix-blend-mode:screen; }
+.lettering { z-index:1; gap:10px; padding:24px; }
+.wide .lettering { padding:24px 28px; background:linear-gradient(90deg,#071317a6,transparent 90%); }
+.wide strong { max-width:65%; font-size:clamp(32px,4.5cqw,52px); font-weight:750; text-wrap:balance; }
+.lettering small { font-size:10px; letter-spacing:.19em; }
+.lettering span { font-size:9px; letter-spacing:.16em; }
+@media(prefers-reduced-motion:reduce) { .photographic-art { transition:none; } .poster:hover .photographic-art { transform:none; } }
+
+
+.wide .photographic-art { transform:translate3d(calc((var(--hx,400px) - 400px) * -.008),calc((var(--hy,150px) - 150px) * -.012),0) scale(1.04); }
+@media(prefers-reduced-motion:reduce) { .wide .photographic-art { transform:none; } }
+
+
+@media(hover:hover) and (prefers-reduced-motion:no-preference) { .poster.wide:hover .photographic-art { transform:translate3d(calc((var(--hx,400px) - 400px) * -.008),calc((var(--hy,150px) - 150px) * -.012),0) scale(1.06); } }
+
 </style>

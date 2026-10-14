@@ -40,7 +40,7 @@ function action(name: "queue" | "save" | "hide" | "remove") {
 </script>
 
 <template>
-  <article ref="card" class="yt-card" :class="{ small }" @pointermove="glow"
+  <article ref="card" class="yt-card vk-platter" :class="{ small }" @contextmenu.prevent="menu = true" @keydown.esc.stop="menu = false" @pointermove="glow"
     @focusout="event => { if (!card?.contains(event.relatedTarget as Node | null)) menu = false; }">
     <button v-hover class="preview" :aria-label="`Play ${video.title}`" @click="emit('play', video)">
       <YtThumbnail :id="video.id" :title="video.title" :duration="video.duration" :progress="progress" />
@@ -61,7 +61,7 @@ function action(name: "queue" | "save" | "hide" | "remove") {
       </div>
       <button v-hover class="more" aria-label="Video options" :aria-expanded="menu" @click="menu = !menu"><YtIcon name="more" /></button>
     </div>
-    <div v-if="menu" class="options">
+    <div v-if="menu" class="options vk-sheet">
       <button v-hover @click="action('queue')"><YtIcon name="playlist" />Add to queue</button>
       <button v-hover @click="action('save')"><YtIcon name="later" />Save to Watch later</button>
       <button v-hover @click="action('hide')"><YtIcon name="close" />Not interested</button>
@@ -250,4 +250,18 @@ button:active {
   button { transition: none; }
   button:active { transform: none; }
 }
+
+.yt-card { background:#ffffff05; font-family:inherit; padding:0 0 10px; border-radius:20px; box-shadow:inset 0 0 0 1px #ffffff0a; }
+.yt-card:hover { background:#ffffff0c; transform:translateY(-3px); }
+.preview { border-radius:18px; overflow:hidden; }
+.metadata { padding:10px 10px 0; gap:8px; }
+.avatar { width:44px; height:44px; min-width:44px; font-size:13px; margin-top:5px; }
+.title { font-size:13px; line-height:1.4; min-height:44px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.channel { font-size:11px; min-height:44px; margin-top:0; }
+.copy>p { font-size:10px; margin:0; }
+.more { flex:0 0 44px; }
+.options { background:linear-gradient(145deg,#ffffff14,#ffffff05),#303943f5; border-radius:22px; border:1px solid #ffffff20; z-index:15; }
+@container(max-height:560px) and (min-width:641px) { .metadata { padding-top:6px; gap:6px; } .avatar { display:none; } .title { font-size:12px; } .copy>p { display:none; } }
+@container(max-width:640px) { .metadata { padding:8px 12px 0; } .title { font-size:13px; -webkit-line-clamp:2; } .channel { font-size:11px; min-height:44px; } .avatar { width:44px; height:44px; min-width:44px; } }
+
 </style>

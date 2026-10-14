@@ -1,4 +1,4 @@
-import { computed, inject, onBeforeUnmount, ref } from 'vue';
+import { computed, inject, onBeforeUnmount, onMounted, ref } from 'vue';
 import { VISION } from '../../vision';
 import { useBreathAudio } from './useBreathAudio';
 
@@ -73,7 +73,7 @@ export function useMindfulSession(settings: SessionSettings, save: (seconds: num
     previousElapsed = elapsed.value;
     segmentStart = performance.now();
     status.value = 'running';
-    interval = setInterval(tick, 100);
+    interval = setInterval(tick, 250);
     if (settings.tone) void audio.start();
   }
   function start(mode: Practice): void {
@@ -110,7 +110,10 @@ export function useMindfulSession(settings: SessionSettings, save: (seconds: num
     else { audio.dispose(); audio.audioNotice.value = ''; }
   }
   function reset(): void { status.value = 'ready'; elapsed.value = 0; audio.audioNotice.value = ''; }
+  function visibility(): void { if (document.hidden && status.value === 'running') togglePause(); }
+  onMounted(() => document.addEventListener('visibilitychange', visibility));
   onBeforeUnmount(() => {
+    document.removeEventListener('visibilitychange', visibility);
     if (status.value === 'running') measure();
     if (status.value === 'running' || status.value === 'paused') saveOnce();
     stopClock();

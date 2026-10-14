@@ -92,24 +92,28 @@ export function readNotes(raw: string): Note[] | null {
 }
 export function seedNotes(): Note[] {
   const seeds = [
-    ['Things to fix: everything', 'Notes', 'todo', true,
-      '<p>The button that moves when you look at it.</p><p>The bug that only appears during demos.</p>'
-      + '<p>The chair. It knows what it did.</p><p>Remember to drink the chai before it becomes iced chai.</p>'],
-    ['Meeting notes: could have been an email', 'Notes', 'meetings', false,
-      '<h2>Agenda</h2><p>Discuss the next discussion.</p><p>Action item: create an action item.</p>'
-      + '<p>Decision: circle back, spatially.</p><p>Closing thought: the mute button is a gift.</p>'],
-    ['Ideas at 3am', 'Ideas', 'ideas', true,
-      '<ul><li>A loading spinner that makes chai.</li><li>A rubber duck with offline mode.</li>'
-      + '<li>An app that closes your other apps.</li></ul><p>Probably read this again after sleeping.</p>'],
-    ['A very ambitious checklist', 'Notes', 'todo', false,
-      '<ul data-list="check"><li data-checked="true">Open Notes</li><li data-checked="false">Remember why</li>'
-      + '<li data-checked="false">Close the seventeen other tabs</li></ul>'],
-    ['Rubber duck office hours', 'Ideas', 'ideas', false,
-      '<h2>Questions for the duck</h2><p>Why does it work when I add a console log?</p>'
-      + '<p>The duck has declined to comment. Again.</p><pre><code>if (works) { doNotTouch(); }</code></pre>'],
-    ['Quick thought', 'Quick Notes', 'quick', false,
-      '<p>The best thing about spatial computing: finally, enough room for all the tabs.</p>'],
+    ['A good day, by design', 'Notes', 'everyday', true,
+      '<p>A sample notebook for small plans and things worth keeping.</p><h3>Make a little space</h3>'
+      + '<ul data-list="check"><li data-checked="true">Find a quiet corner</li><li data-checked="false">Read a chapter, without a screen</li><li data-checked="false">Take the long way home</li></ul>'
+      + '<blockquote>Leave room for something unplanned.</blockquote>'],
+    ['The weekend edit', 'Notes', 'weekend', false,
+      '<h2>Slow mornings. Open afternoons.</h2><p>A fictional little itinerary. No reservations required.</p>'
+      + '<table><tbody><tr><th>When</th><th>The plan</th></tr><tr><td>Saturday</td><td>Coffee, a bookshop, a walk</td></tr><tr><td>Sunday</td><td>Cook something new</td></tr></tbody></table><p>Bring a camera. Leave the schedule loose.</p>'],
+    ['An idea taking shape', 'Ideas', 'design', true,
+      '<p>What if a workspace felt more like a clearing?</p><h3>Three things to explore</h3><ul><li>Light that follows the time of day</li><li>Tools that stay out of the way</li><li>A little breathing room between ideas</li></ul><p>A first sketch, below.</p>'],
+    ['For the next adventure', 'Notes', 'packing', false,
+      '<h3>Travel light</h3><ul data-list="check"><li data-checked="true">Camera &amp; spare battery</li><li data-checked="false">Notebook and a favourite pen</li><li data-checked="false">A warm layer</li><li data-checked="false">Something good to read</li></ul>'],
+    ['Collected thoughts', 'Ideas', 'inspiration', false,
+      '<h2>Less, with intention.</h2><p>A good detail makes the whole thing feel considered.</p><blockquote>Give the important things enough space to be noticed.</blockquote><h3>Look more closely</h3><p>The curve of a handle. The rhythm of a bookshelf. Afternoon light across a wall.</p>'],
+    ['A thought to come back to', 'Quick Notes', 'quick', false,
+      '<p>Make something small, and make it feel wonderful to use.</p>'],
   ] as const;
-  return seeds.map((item, index) => ({ id: 'seed-' + index, title: item[0], folder: item[1], tags: [item[2]],
-    pinned: item[3], html: item[4], locked: false, edited: Date.now() - index * 86400000, strokes: [] }));
+  return seeds.map((item, index): Note => ({ id: 'seed-' + index, title: item[0], folder: item[1], tags: [item[2]],
+    pinned: item[3], html: item[4], locked: false, edited: Date.now() - index * 86400000,
+    strokes: index === 2 ? [
+      { tool: 'pen', color: '#0a84ff', points: [{x:.12,y:.7},{x:.12,y:.3},{x:.64,y:.3},{x:.64,y:.7},{x:.12,y:.7}] },
+      { tool: 'pen', color: '#0a84ff', points: [{x:.2,y:.42},{x:.38,y:.42},{x:.38,y:.6},{x:.2,y:.6},{x:.2,y:.42}] },
+      { tool: 'marker', color: '#ffd60a', points: [{x:.45,y:.45},{x:.57,y:.45},{x:.45,y:.57},{x:.57,y:.57}] },
+      { tool: 'pen', color: '#30d158', points: [{x:.74,y:.7},{x:.74,y:.3},{x:.7,y:.36},{x:.74,y:.44},{x:.8,y:.37},{x:.74,y:.3}] },
+    ] : [] }));
 }

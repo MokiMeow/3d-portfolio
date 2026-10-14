@@ -653,3 +653,48 @@ p {
   height: 15px;
   flex: 0 0 15px;
 }
+
+
+.photos-app { background:linear-gradient(145deg,#122b3430,transparent 75%); }
+.memory-grid { display:grid; grid-template-columns:1.35fr 1fr; grid-template-rows:126px 126px; gap:12px; }
+.memory-grid .memory-card { height:100%; margin:0; border-radius:24px; }
+.memory-grid .memory-card:first-child { grid-row:span 2; }
+.memory-grid .memory-copy { padding:20px; gap:6px; }
+.memory-grid .memory-copy b { font-size:22px; max-width:260px; }
+.memory-grid .memory-card:first-child .memory-copy b { font-size:38px; max-width:300px; }
+.memory-grid .memory-copy small { font-size:9px; letter-spacing:.18em; }
+.memory-grid .memory-copy>span { font-size:12px; }
+.memory-grid .memory-card:not(:first-child) .memory-copy i { display:none; }
+.memory-card>img { transition:transform .8s cubic-bezier(.2,.8,.2,1); }
+.memory-card:hover>img { transform:scale(1.045); }
+.collection-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:18px 0 12px; }
+.collection-heading h2 { font-size:20px; }
+.collection-heading button { font-size:13px; padding:0 14px; }
+.collection-shortcuts { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.collection-shortcut { display:flex; gap:14px; align-items:center; padding:12px; border-radius:22px; text-align:left; min-width:0; }
+.collection-shortcut>img { width:64px; height:64px; object-fit:cover; border-radius:15px; }
+.collection-shortcut>span { flex:1; min-width:0; }
+.collection-shortcut b,.collection-shortcut small { display:block; }
+.collection-shortcut b { font-size:15px; }
+.collection-shortcut small { color:var(--vk-secondary); font-size:12px; margin-top:5px; }
+.collection-shortcut>svg { width:20px; height:20px; }
+.sample-caption { font-size:11px; }
+.pet-avatar { display:block; width:56px; height:56px; border-radius:50%; overflow:hidden; }
+.pet-avatar img { width:100%; height:100%; object-fit:cover; }
+.date-section:first-of-type .date-heading { margin-top:8px; }
+.photo-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(var(--photo-size),1fr)); }
+.photo-card { min-width:0; width:100%; height:var(--photo-size); }
+.photo-card img { transition:transform .5s ease; }
+.photo-card:hover img { transform:scale(1.035); }
+.photo-caption { font-size:11px; padding-bottom:12px; }
+@container(max-height:560px) and (min-width:561px) { .library { padding-top:18px; } .heading { padding-bottom:14px; } .subtitle { display:none; } .memory-grid { grid-template-rows:105px 105px; } .memory-grid .memory-card:first-child .memory-copy b { font-size:32px; } .collection-heading { margin-top:10px; margin-bottom:8px; } .collection-shortcut>img { width:48px; height:48px; } .sample-caption { margin-top:10px !important; } }
+@container(max-width:560px) { .photos-app>.destinations { width:100%; justify-content:space-around; gap:0; } .destinations:hover,.destinations:focus-within { width:100%; } .heading { flex-wrap:nowrap; } .heading .subtitle { font-size:12px; } .heading h1 { font-size:27px; } .memory-grid { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:12px; padding-bottom:4px; } .memory-grid .memory-card { flex:0 0 100%; height:245px; scroll-snap-align:start; } .memory-grid .memory-copy b,.memory-grid .memory-card:first-child .memory-copy b { font-size:30px; } .memory-grid .memory-card:not(:first-child) .memory-copy i { display:inline-flex; } .collection-heading { margin-top:12px; } .collection-heading h2 { font-size:17px; max-width:150px; } .collection-shortcuts { grid-template-columns:1fr; } .collection-shortcut { padding:10px; } .collection-shortcut>img { width:48px; height:48px; } .photo-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .photo-card { height:140px; } .album-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; } .album-card { padding:8px 8px 14px; border-radius:20px; } .album-cover { border-radius:14px; } .album-card b { font-size:14px; } .album-card small { font-size:11px; } }
+
+
+.memories-home .subtitle { display:none; }
+.memories-home .heading { padding-bottom:16px; }
+.memory-grid { grid-template-rows:108px 108px; }
+.collection-shortcut { padding:10px; }.collection-shortcut>img { width:48px; height:48px; }
+.sample-caption { margin-top:12px !important; }
+@container(max-height:560px) and (min-width:561px) { .memory-grid { grid-template-rows:100px 100px; } }
+@container(max-width:560px) { .collection-shortcuts { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; } .collection-shortcut { flex:0 0 100%; scroll-snap-align:start; } .sample-caption { font-size:10px; } }

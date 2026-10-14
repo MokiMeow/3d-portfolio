@@ -337,7 +337,7 @@ onBeforeUnmount(clearLoading);
             <div v-for="item in visibleTabs" :key="item.id" class="overview-card vk-platter">
               <button v-hover class="tab-preview" @click="switchTab(item.id)">
                 <span class="mini-page" :class="describe(item.history[item.cursor] ?? 'lab://start').kind">
-                  <YtIcon name="globe" /><strong>{{ describe(item.history[item.cursor] ?? 'lab://start').title }}</strong><i /><i /><i />
+                  <img :src="'/phone/photos/' + (describe(item.history[item.cursor] ?? 'lab://start').kind === 'news' ? 'mountains-3' : 'workspace-1') + '.webp'" alt="" /><strong>{{ describe(item.history[item.cursor] ?? 'lab://start').title }}</strong><i /><i /><i />
                 </span><b>{{ describe(item.history[item.cursor] ?? 'lab://start').title }}</b>
               </button>
               <button v-hover class="vk-icon" :aria-label="'Close tab ' + item.id" @click="closeTab(item.id)"><YtIcon name="close" /></button>
@@ -346,43 +346,36 @@ onBeforeUnmount(clearLoading);
         </div>
         <div v-else-if="page.kind === 'start'" class="start-page">
           <header class="start-heading"><div><p class="eyebrow">{{ privateMode ? 'PRIVATE BROWSING' : 'SAFARI · POCKET LAB' }}</p>
-            <h1 class="vk-large-title">{{ privateMode ? 'A little room to browse.' : 'Your next rabbit hole.' }}</h1>
-            <p class="vk-secondary">{{ privateMode ? 'Private tabs stay separate and do not enter this app’s History.' : 'Familiar places. A few excellent distractions.' }}</p>
+            <h1 class="vk-large-title">{{ privateMode ? 'A little room to browse.' : 'A world of possibility.' }}</h1>
+            <p class="vk-secondary">{{ privateMode ? 'Private tabs stay separate and do not enter this app’s History.' : 'A familiar place to start. Something new to discover.' }}</p>
           </div><span class="date-chip vk-chip">{{ vision?.now.value.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) ?? 'Start Page' }}</span></header>
           <h2 class="vk-title">Favourites</h2>
           <div class="favourites" data-collection>
             <button v-for="site in [...SITES, ...LINKS]" :key="site.url" v-hover class="favourite" @click="visit(site.url)">
-              <span class="favicon" :style="{ background: site.tint }">{{ site.glyph }}</span><b>{{ site.label }}</b><small>{{ host(site.url) }}</small>
+              <span class="favicon" :style="{ '--site-tint': site.tint }"><svg v-if="!['GitHub','LinkedIn'].includes(site.label)" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path v-if="site.label === 'Portfolio'" d="M8 7h16v18H8zM12 12h8m-8 5h8m-8 4h4"/><path v-else-if="site.label === 'Studio'" d="m7 23 3-9L23 4l5 6-13 10-8 3Zm3-9 5 6M4 28h24"/><path v-else-if="site.label === 'Gallery'" d="M5 6h22v20H5zM5 22l8-9 5 6 4-4 5 6"/><path v-else d="m16 3 12 7v13l-12 7-12-7V10l12-7Zm0 14 12-7M16 17 4 10m12 7v13"/></svg><span v-else>{{ site.glyph }}</span></span><b>{{ site.label }}</b><small>{{ host(site.url) }}</small>
             </button>
           </div>
-          <h2 class="vk-title">Frequently Visited</h2>
-          <div class="frequent" data-collection>
-            <button
-              v-for="site in (privateMode || !frequentlyVisited.length ? demos : frequentlyVisited)"
-              :key="site.url" v-hover class="vk-row vk-platter"
-              @click="visit(site.url)">
-              <span class="frequent-icon"><YtIcon :name="site.url.includes('stack') ? 'comment' : site.url.includes('news') ? 'playlist' : 'globe'" /></span>
-              <span>{{ 'label' in site ? site.label : site.title }}<small>{{ site.url.startsWith('lab:') ? 'Built-in demo page' : site.url }}</small>
-                </span>
-                <YtIcon name="forward" />
-            </button>
-          </div>
-          <section class="privacy-report vk-platter"><span class="privacy-shield"><YtIcon name="shield" /></span><div><h2 class="vk-title">Privacy Report</h2>
-            <p>No tracking scripts are added by this browser simulation.</p>
-            <small class="vk-secondary">Real sites opened here use their own privacy policies. Private mode does not hide activity from those sites.</small>
-          </div></section>
-          <section class="reading-section">
-          <header>
-          <h2 class="vk-title">Reading List</h2>
-          <button v-hover class="vk-button"
-            @click="sidebar = 'Reading List'">Show all</button>
-          </header>
-            <button v-for="item in readingList.slice(0, 3)" :key="item.url" v-hover class="vk-row"
-              @click="visit(item.url)">
-              <YtIcon name="playlist" />{{ item.title }}<YtIcon name="forward" />
+          <div class="start-dashboard">
+            <section class="reading-section vk-platter">
+              <header><h2 class="vk-title">Reading List</h2><button v-hover class="vk-icon plain" aria-label="Show Reading List" @click="sidebar = 'Reading List'"><YtIcon name="forward" /></button></header>
+              <button v-for="(item,index) in readingList.slice(0,1)" :key="item.url" v-hover class="reading-preview" @click="visit(item.url)">
+                <img :src="'/phone/photos/' + (index ? 'mountains-3' : 'workspace-1') + '.webp'" alt="" loading="lazy" />
+                <span><b>{{ item.title }}</b><small>{{ item.url.startsWith('lab:') ? 'SAMPLE ARTICLE · SAVED FOR LATER' : host(item.url) }}</small></span><YtIcon name="forward" />
               </button>
-            <p class="vk-secondary">{{ readingList.length }} articles. The headset believes in you.</p>
-          </section>
+              <p v-if="!readingList.length" class="reading-empty">All caught up. Save a page to enjoy it later.</p>
+            </section>
+            <section class="privacy-report vk-platter"><span class="privacy-shield"><YtIcon name="shield" /></span>
+              <div><h2 class="vk-title">Privacy Report</h2><p>A little peace of mind.</p><small class="vk-secondary">This simulation adds no tracking scripts. Websites you visit have their own privacy policies.</small></div>
+              <span class="privacy-label">LOCAL BROWSING</span>
+            </section>
+          </div>
+          <h2 class="vk-title">{{ frequentlyVisited.length ? 'Frequently Visited' : 'Explore something new' }}</h2>
+          <div class="frequent" data-collection>
+            <button v-for="site in (privateMode || !frequentlyVisited.length ? demos : frequentlyVisited)" :key="site.url" v-hover class="vk-row vk-platter" @click="visit(site.url)">
+              <span class="frequent-icon"><YtIcon :name="site.url.includes('stack') ? 'comment' : site.url.includes('news') ? 'playlist' : 'globe'" /></span>
+              <span>{{ 'label' in site ? site.label : site.title }}<small>{{ site.url.startsWith('lab:') ? 'An interactive sample website' : site.url }}</small></span><YtIcon name="forward" />
+            </button>
+          </div>
         </div>
         <div v-else-if="page.kind === 'site'" class="iframe-container">
           <iframe :key="activeId + ':' + page.url + ':' + active?.revision" :src="page.url" :title="page.title" referrerpolicy="no-referrer" @load="finishLoading" />
