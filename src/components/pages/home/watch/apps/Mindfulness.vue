@@ -44,12 +44,7 @@ watchEffect(() => {
     }
 });
 useWatchHardware('mindfulness', {
-    crown: delta => {
-        if (session.value !== null)
-            return false;
-        duration.value = Math.max(1, Math.min(3, duration.value + Math.sign(delta)));
-        return true;
-    }, action: () => {
+    action: () => {
         if (session.value !== null)
             stop();
         else
@@ -163,8 +158,9 @@ useWatchHardware('mindfulness', {
           <WatchGlyph name="next" />
         </span>
       </button>
-      <p class="caption muted">Turn the Crown to choose your duration. Action starts Breathe.</p>
+      <p class="caption muted">Use + or − to choose duration. Action starts Breathe.</p>
     </template>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -178,13 +174,13 @@ useWatchHardware('mindfulness', {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(31px * var(--text-size, 1)));
+  font-size: max(18px, calc(31px * var(--text-size, 1)));
   font-weight: 700;
   margin: 0 0 18px;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   font-weight: 600;
   margin: 16px 0;
 }
@@ -223,7 +219,7 @@ h2 {
 }
 
 .duration span {
-  font-size: max(calc(12px / var(--watch-scale)), calc(27px * var(--text-size, 1)));
+  font-size: max(18px, calc(27px * var(--text-size, 1)));
   font-weight: 600;
   color: #9cefd9;
 }
@@ -234,7 +230,7 @@ h2 {
   border-radius: 50%;
   background: #15352f;
   color: #92edcf;
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
 }
 
 .choice {
@@ -248,7 +244,7 @@ h2 {
 }
 
 .choice strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   display: block;
   font-weight: 600;
 }
@@ -256,33 +252,33 @@ h2 {
 .choice small {
   display: block;
   color: #93bdb1;
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   line-height: 1.2;
   margin-top: 6px;
 }
 
 .choice-icon {
   color: #92efd2;
-  font-size: max(calc(12px / var(--watch-scale)), calc(41px * var(--text-size, 1)));
+  font-size: max(18px, calc(41px * var(--text-size, 1)));
 }
 
 .chevron {
   color: #65968a;
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   margin-left: auto;
 }
 
 .remaining {
   text-align: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(56px * var(--text-size, 1)));
+  font-size: max(18px, calc(56px * var(--text-size, 1)));
   color: #a7eedc;
   margin: 18px 0;
   font-variant-numeric: tabular-nums;
 }
 
 .reflect-prompt {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
-  line-height: 1.35;
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
+  line-height: 1.3;
   text-align: center;
   color: #ccebe3;
   margin: 20px 0;
@@ -321,4 +317,17 @@ h2 {
   width: 36px;
   height: 36px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #75E7C2; }
+
+.choice { gap:12px; }
+.choice > span:nth-child(2) { min-width:0; flex:1; }
+.choice strong { font-size:24px; line-height:1.25; }
+.choice small { font-size:20px; line-height:1.25; }
+.reflect-prompt { font-size:24px; line-height:1.3; }
+.duration button { width:64px; height:64px; border-radius:50%; }
 </style>

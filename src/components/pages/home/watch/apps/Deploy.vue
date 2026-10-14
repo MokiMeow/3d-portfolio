@@ -201,7 +201,7 @@ onBeforeUnmount(() => {
         <span class="caption muted">Incident-free days</span>
       </div>
     </div>
-    <p class="caption muted disclaimer">A playful local simulation. No servers were harmed.</p>
+    
     <div
       v-if="celebrate && !watch.dimmed.value && !watch.reducedMotion.value"
       class="confetti"
@@ -214,6 +214,7 @@ onBeforeUnmount(() => {
       >
       </i>
     </div>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -228,7 +229,7 @@ onBeforeUnmount(() => {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(31px * var(--text-size, 1)));
+  font-size: max(18px, calc(31px * var(--text-size, 1)));
   margin: 0 0 8px;
 }
 
@@ -272,12 +273,12 @@ h1 {
 }
 
 .launch strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   letter-spacing: 3px;
 }
 
 .launch span {
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   margin-top: 3px;
 }
 
@@ -292,7 +293,7 @@ h1 {
 
 .result {
   text-align: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
   margin: 18px 0;
 }
 
@@ -309,13 +310,13 @@ h1 {
 }
 
 .stats strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(36px * var(--text-size, 1)));
+  font-size: max(18px, calc(36px * var(--text-size, 1)));
   display: block;
 }
 
 .stats span {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
 }
 
 .pipeline {
@@ -329,12 +330,12 @@ h1 {
 }
 
 .pipeline strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
 }
 
 .build-icon {
   color: #ff453a;
-  font-size: max(calc(12px / var(--watch-scale)), calc(60px * var(--text-size, 1)));
+  font-size: max(18px, calc(60px * var(--text-size, 1)));
 }
 
 .step-dots {
@@ -359,7 +360,7 @@ h1 {
 }
 
 .disclaimer {
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
   text-align: center;
   margin: 20px 0 0;
 }
@@ -417,7 +418,7 @@ h1 {
 }
 
 .build-icon {
-  line-height: 1;
+  line-height: 1.2;
   margin-bottom: 12px;
 }
 
@@ -425,4 +426,16 @@ h1 {
   width: 52px;
   height: 52px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #FA114F; }
+
+.stats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+.stats > div { display:flex; flex-direction:column; align-items:center; gap:6px; }
+.stats strong { font-size:48px; line-height:1.2; font-weight:600; }
+.stats .caption { line-height:1.25; text-align:center; }
+.pipeline strong { font-size:25px; line-height:1.25; }
 </style>

@@ -62,35 +62,6 @@ useWatchHardware('remote', {
         <WatchGlyph name="signal" />
       </button>
     </label>
-    <div class="tv" :class="{off:!power||!connected}">
-      <template v-if="connected&&power">
-        <div v-if="screen==='home'" class="tiles">
-          <span
-            v-for="(title,index) in titles"
-            :key="title"
-            :class="{selected:index===selected}"
-            :style="{'--tile':index}"
-          >
-            {{title}}
-          </span>
-        </div>
-        <div v-else class="demo-media">
-          <b>
-            {{titles[selected]}}
-          </b>
-          <span>
-            <WatchGlyph :name="playing ? 'play' : 'pause'" />
-            {{ playing ? 'Playing' : 'Paused' }}
-          </span>
-        </div>
-      </template>
-      <span v-else>
-        {{!connected?'Disconnected':'Power off'}}
-      </span>
-    </div>
-    <p class="status caption" role="status">
-      {{status}}
-    </p>
     <div class="dpad" :class="{disabled:!connected||!power}">
       <button
         class="up"
@@ -130,6 +101,7 @@ useWatchHardware('remote', {
         <WatchGlyph name="down" />
       </button>
     </div>
+    <p class="status caption" role="status">{{ status }}</p>
     <div class="remote-controls">
       <button :disabled="!connected||!power" @click="back">Back</button>
       <button
@@ -166,7 +138,9 @@ useWatchHardware('remote', {
         ＋
       </button>
     </div>
-    <p class="caption muted disclaimer">Local demo controller. No television connection.</p>
+    
+    <div class="app-chips" aria-label="TV apps"><button v-for="(title,index) in titles" :key="title" :class="{selected:index===selected}" :disabled="!connected||!power" @click="selected=index;select()">{{ title }}</button></div>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -196,7 +170,7 @@ useWatchHardware('remote', {
   border-radius: 22px;
   background: #1c1c1e;
   color: white;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
   padding: 10px 16px;
 }
 
@@ -204,7 +178,7 @@ useWatchHardware('remote', {
   width: 72px;
   height: 76px;
   color: #30d158;
-  font-size: max(calc(12px / var(--watch-scale)), calc(27px * var(--text-size, 1)));
+  font-size: max(18px, calc(27px * var(--text-size, 1)));
   background: #1c1c1e;
   border: 0;
   border-radius: 22px;
@@ -219,7 +193,7 @@ useWatchHardware('remote', {
   display: grid;
   place-items: center;
   padding: 12px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
 }
 
 .tv.off {
@@ -239,7 +213,7 @@ useWatchHardware('remote', {
   display: flex;
   align-items: flex-end;
   padding: 9px 5px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   background: linear-gradient(160deg,hsl(calc(180 + var(--tile)*50) 50% 42%),#122138);
   border-radius: 8px;
   border: 2px solid transparent;
@@ -262,11 +236,11 @@ useWatchHardware('remote', {
 }
 
 .demo-media b {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
 }
 
 .demo-media span {
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   color: #bbb;
 }
 
@@ -274,7 +248,7 @@ useWatchHardware('remote', {
   text-align: center;
   margin: 14px 0;
   color: #7cafff;
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
 }
 
 .dpad {
@@ -293,7 +267,7 @@ useWatchHardware('remote', {
   border: 0;
   background: none;
   color: #ccc;
-  font-size: max(calc(12px / var(--watch-scale)), calc(35px * var(--text-size, 1)));
+  font-size: max(18px, calc(35px * var(--text-size, 1)));
   border-radius: 50%;
 }
 
@@ -322,7 +296,7 @@ useWatchHardware('remote', {
   top: 93px;
   background: #44444a;
   color: white;
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
 }
 
 .remote-controls,
@@ -342,15 +316,15 @@ useWatchHardware('remote', {
   background: #252529;
   color: white;
   border-radius: 40px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
 }
 
 .remote-controls button:first-child {
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
 }
 
 .volume-controls button:nth-child(2) {
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
 }
 
 .disabled {
@@ -358,8 +332,8 @@ useWatchHardware('remote', {
 }
 
 .disclaimer {
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
-  line-height: 1.4;
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
+  line-height: 1.3;
 }
 
 .tv {
@@ -407,4 +381,23 @@ useWatchHardware('remote', {
 .status {
   margin: 8px 0;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #3C88FE; }
+
+.device { margin-bottom:10px; }
+.device select, .device > button { min-height:64px; height:64px; border-radius:32px; }
+.device > button { width:64px; flex:0 0 64px; }
+.dpad { width:222px; height:222px; margin:10px auto 16px; }
+.remote-controls, .volume-controls { gap:10px; margin-top:10px; }
+.remote-controls button, .volume-controls button { min-height:64px; height:64px; border-radius:32px; font-size:25px; }
+.app-chips { display:flex; flex-wrap:wrap; gap:10px; margin-top:18px; }
+.app-chips button { border:0; border-radius:32px; padding:12px 18px; min-height:64px; font-size:24px; color:white; background:#1c1c1e; }
+.app-chips .selected { color:#3c88fe; background:#152e50; }
+
+.dpad button { min-height:74px !important; }
+.device > button { min-height:64px !important; }
 </style>

@@ -344,53 +344,11 @@
   background: #1b1915;
 }
 
-.status-bar {
-  position: absolute;
-  left: 28px;
-  top: 6px;
-  right: 34px;
-  height: 48px;
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  pointer-events: none;
-  font-size: max(calc(12px / var(--watch-scale)), 23px);
-  font-weight: 600;
-}
 
-.app-back {
-  display: grid;
-  place-items: center;
-  width: max(64px, calc(40px / var(--watch-scale)));
-  height: max(64px, calc(40px / var(--watch-scale)));
-  border: 0;
-  border-radius: 50%;
-  background: #252527e8;
-  pointer-events: auto;
-}
 
-.app-back :deep(svg) {
-  width: 26px;
-  height: 26px;
-}
 
-.status-bar:not(:has(.charging, .notification-dot, .focus-status)) {
-  background: linear-gradient(#000 55%, #0000);
-}
 
-.app-title {
-  max-width: 240px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: #b8b8be;
-  font-size: 24px;
-}
 
-.app-time {
-  margin-left: auto;
-}
 
 .notification-dot {
   position: absolute;
@@ -429,39 +387,9 @@
   pointer-events: none;
 }
 
-.notification-banner {
-  position: absolute;
-  z-index: 20;
-  top: 50px;
-  left: 20px;
-  right: 16px;
-  display: flex;
-  gap: 14px;
-  text-align: left;
-  min-height: 100px;
-  padding: 16px;
-  border: 1px solid #ffffff55;
-  border-radius: 36px;
-  background: linear-gradient(130deg, #404044ed, #202025f5);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 8px 20px #000a;
-}
 
-.notification-banner :deep(svg) {
-  flex-shrink: 0;
-}
 
-.notification-banner b {
-  display: block;
-  font-size: 24px;
-}
 
-.notification-banner small {
-  display: block;
-  margin-top: 7px;
-  font-size: max(calc(12px / var(--watch-scale)), 21px);
-  color: #dedee2;
-}
 
 .boot-logo {
   position: absolute;
@@ -521,16 +449,7 @@
   opacity: 0;
 }
 
-.banner-enter-active,
-.banner-leave-active {
-  transition: transform 230ms ease, opacity 200ms;
-}
 
-.banner-enter-from,
-.banner-leave-to {
-  transform: translateY(-50px);
-  opacity: 0;
-}
 
 .wrist-tap {
   animation: wrist-tap 360ms ease-out;
@@ -590,22 +509,323 @@
   border-radius: inherit;
 }
 
-.scroll-shade {
+
+
+
+/* ---------- System chrome: top bar, back control, notifications ---------- */
+
+/* The global stylesheet asks every element for smooth scrolling, which turns each crown step into an
+   animation the next step cancels. The watch drives its own scrolling, so it must be immediate. */
+.display,
+.display :deep(*) {
+  scroll-behavior: auto !important;
+}
+
+/* Content fades out under the top bar and at the bottom edge instead of colliding with them. */
+.display :deep(.watch-app:not(.flashlight)),
+.display :deep(.app-view) {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent 68px, #000 100px, #000 calc(100% - 34px), transparent);
+  mask-image: linear-gradient(to bottom, transparent 0, transparent 68px, #000 100px, #000 calc(100% - 34px), transparent);
+}
+
+.display :deep(.watch-app:not(.flashlight)) {
+  padding-top: 98px;
+  scroll-padding-block: 104px 40px;
+}
+
+.status-bar {
   position: absolute;
-  z-index: 4;
-  inset: auto 0 0;
-  height: 38px;
+  inset: 0 0 auto;
+  height: 84px;
+  z-index: 6;
   pointer-events: none;
-  background: linear-gradient(transparent, #000b);
-  border-radius: 0 0 84px 84px;
+  font-size: max(calc(12px / var(--watch-scale)), 24px);
+  font-weight: 600;
+}
+
+/* Once an app scrolls, the bar gets a black fade of its own so the title never sits on top of content. */
+.status-bar.in-app::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 -14px;
+  background: linear-gradient(#000 0%, #000 62%, #0000);
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.status-bar.titled::before {
+  opacity: 1;
+}
+
+.app-back {
+  position: absolute;
+  left: 36px;
+  top: 20px;
+  display: grid;
+  place-items: center;
+  width: max(52px, calc(36px / var(--watch-scale)));
+  height: max(52px, calc(36px / var(--watch-scale)));
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--tint, #fff);
+  background: color-mix(in srgb, var(--tint, #fff) 16%, #1c1c1e);
+  box-shadow: inset 0 1px 0 #ffffff26, 0 4px 14px #0008;
+  pointer-events: auto;
+  transition: transform 160ms ease, background 200ms ease;
+}
+
+.app-back:hover {
+  background: color-mix(in srgb, var(--tint, #fff) 26%, #1c1c1e);
+}
+
+.app-back:active {
+  transform: scale(0.9);
+}
+
+.app-back :deep(svg) {
+  width: 24px;
+  height: 24px;
+  margin-left: -3px;
+}
+
+.nav-title {
+  position: absolute;
+  left: 100px;
+  right: 130px;
+  top: 33px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 25px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.nav-title-enter-active,
+.nav-title-leave-active {
+  transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 180ms ease;
+}
+
+.nav-title-enter-from,
+.nav-title-leave-to {
+  transform: translateY(14px);
+  opacity: 0;
+}
+
+.app-time {
+  position: absolute;
+  right: 46px;
+  top: 32px;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
 }
 
 .light-display .status-bar {
   color: #171717;
-  background: none;
 }
 
 .light-display .app-back {
   color: #171717;
-  background: #00000014;
+  background: #0000001a;
+  box-shadow: none;
+}
+
+/* Banner: drops in from the top while an app is open. Solid, readable, flick up to dismiss. */
+.notification-banner {
+  position: absolute;
+  z-index: 20;
+  top: 14px;
+  left: 18px;
+  right: 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 18px 26px;
+  text-align: left;
+  border: 0;
+  border-radius: 40px;
+  background: #242427;
+  box-shadow: inset 0 1px 0 #ffffff1f, 0 14px 30px #000c, 0 0 0 1px #ffffff0d;
+  touch-action: none;
+  transition: transform 120ms ease-out;
+}
+
+.notification-banner :deep(svg) {
+  flex-shrink: 0;
+}
+
+.banner-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.banner-app {
+  display: flex;
+  justify-content: space-between;
+  font-size: 19px;
+  font-weight: 600;
+  color: #ffffff8c;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.banner-app time {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+.notification-banner b {
+  display: block;
+  margin-top: 4px;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.notification-banner small {
+  display: -webkit-box;
+  margin-top: 4px;
+  overflow: hidden;
+  font-size: max(calc(12px / var(--watch-scale)), 21px);
+  line-height: 1.25;
+  color: #e4e4e8;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.banner-grabber {
+  position: absolute;
+  left: 50%;
+  bottom: 9px;
+  width: 44px;
+  height: 5px;
+  margin-left: -22px;
+  border-radius: 3px;
+  background: #ffffff38;
+}
+
+.banner-enter-active {
+  transition: transform 480ms cubic-bezier(0.18, 1.25, 0.4, 1), opacity 200ms ease;
+}
+
+.banner-leave-active {
+  transition: transform 260ms cubic-bezier(0.5, 0, 0.75, 0), opacity 220ms ease;
+}
+
+.banner-enter-from,
+.banner-leave-to {
+  transform: translateY(-150%) !important;
+  opacity: 0;
+}
+
+/* Long look: on the face, the whole screen becomes the notification, like raising your wrist. */
+.long-look {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 46px 34px 30px;
+  border-radius: inherit;
+  background: radial-gradient(120% 70% at 50% 0%, #26262b, #050506 70%);
+  touch-action: none;
+  overflow: hidden;
+}
+
+.look-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-left: 10px;
+}
+
+.look-head span {
+  font-size: 22px;
+  font-weight: 650;
+  color: #ffffffb0;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.look-head time {
+  margin-left: auto;
+  font-size: 21px;
+  color: #ffffff80;
+}
+
+.look-title {
+  margin-top: 22px;
+  font-size: 34px;
+  line-height: 1.12;
+  letter-spacing: -0.3px;
+}
+
+.look-text {
+  margin: 10px 0 0;
+  font-size: 25px;
+  line-height: 1.3;
+  color: #e6e6ea;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+}
+
+.look-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.look-actions button {
+  min-height: 64px;
+  border: 0;
+  border-radius: 34px;
+  font-size: 24px;
+  font-weight: 650;
+  background: #2c2c30;
+  box-shadow: inset 0 1px 0 #ffffff1c;
+}
+
+.look-actions .look-open {
+  background: #fff;
+  color: #000;
+}
+
+.long-look-enter-active {
+  transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1), opacity 260ms ease;
+}
+
+.long-look-leave-active {
+  transition: transform 300ms cubic-bezier(0.5, 0, 0.75, 0), opacity 260ms ease;
+}
+
+.long-look-enter-from,
+.long-look-leave-to {
+  transform: translateY(100%) !important;
+  opacity: 0.4;
+}
+
+.long-look-enter-active .look-head,
+.long-look-enter-active .look-title,
+.long-look-enter-active .look-text {
+  animation: look-rise 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.long-look-enter-active .look-title {
+  animation-delay: 60ms;
+}
+
+.long-look-enter-active .look-text {
+  animation-delay: 110ms;
+}
+
+@keyframes look-rise {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
 }

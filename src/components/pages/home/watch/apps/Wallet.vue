@@ -10,7 +10,7 @@ const cards = [
     number: '•••• 2048',
     color: '#b0a184',
     secondary: '#554a3e',
-    icon: '◈'
+
   }, {
     id: 2,
     name: 'Orbit Express',
@@ -18,7 +18,7 @@ const cards = [
     number: 'GATE 07 · SEAT 12A',
     color: '#62cfe4',
     secondary: '#136379',
-    icon: '✈'
+
   }, {
     id: 3,
     name: 'Coffee Club',
@@ -26,9 +26,10 @@ const cards = [
     number: 'ONE IMAGINARY LATTE',
     color: '#caa877',
     secondary: '#765635',
-    icon: '☕'
+
   }
 ];
+const expanded = ref(false);
 const selected = ref<number | null>(null);
 const card = computed(() => cards.find(item => item.id === selected.value));
 const stage = ref<'idle' | 'checking' | 'ready'>('idle');
@@ -67,12 +68,8 @@ useWatchHardware('wallet', {
 
 <template>
   <div class="watch-app root" :class="{ still: !animate }">
-    <h1>Wallet</h1>
+    <h1>{{ card ? card.name : 'Wallet' }}</h1>
     <template v-if="card">
-      <button class="back" @click="selected = null; reset()">
-        <WatchGlyph name="back" />
-        Cards & passes
-      </button>
       <div class="card selected" :style="{ '--card': card.color, '--shade': card.secondary }">
         <div class="card-top">
           <span>
@@ -92,13 +89,11 @@ useWatchHardware('wallet', {
         </div>
         <div v-else-if="card.id === 2" class="boarding">
           <strong>EARTH</strong>
-          <span>→</span>
+          <span><WatchGlyph name="next" /></span>
           <strong>ORBIT</strong>
         </div>
         <div v-else class="stamps">
-          <span v-for="n in 5" :key="n">
-            {{ n < 4 ? '●' : '○' }}
-          </span>
+          <svg v-for="n in 5" :key="n" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" :fill="n < 4 ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" /></svg>
         </div>
         <span class="number">
           {{ card.number }}
@@ -115,22 +110,20 @@ useWatchHardware('wallet', {
         <strong>
           {{ stage === 'ready' ? 'Demo ready' : 'Preparing preview' }}
         </strong>
-        <p class="caption muted">
-          No payment. No transaction.
-          <br />
-          This card is fictional.
-        </p>
+        
         <button class="watch-button" @click="reset">Done</button>
       </div>
     </template>
     <template v-else>
-      <p class="caption muted">Cards & passes · demo</p>
+      <button class="watch-button fan-toggle" :aria-expanded="expanded" @click="expanded = !expanded">{{ expanded ? 'Stack cards' : 'Show cards & passes' }}</button>
+      <div class="card-fan" :class="{ expanded }">
+      
       <button
         v-for="item in cards"
         :key="item.id"
         class="card stack"
         :style="{ '--card': item.color, '--shade': item.secondary }"
-        @click="selected = item.id"
+        @click="expanded ? selected = item.id : expanded = true"
       >
         <div class="card-top">
           <span>
@@ -147,8 +140,9 @@ useWatchHardware('wallet', {
           {{ item.number }}
         </span>
       </button>
-      <p class="caption muted">Drawn cards. Nothing can be purchased.</p>
+      </div>
     </template>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </div>
 </template>
 
@@ -162,7 +156,7 @@ useWatchHardware('wallet', {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   margin: 0 0 20px;
 }
 
@@ -171,7 +165,7 @@ h1 {
   border: 0;
   background: none;
   color: #ffd66c;
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   padding: 0;
 }
 
@@ -216,17 +210,17 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
   font-weight: 650;
 }
 
 .card-top b {
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
 }
 
 .kind {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   letter-spacing: 2px;
   margin-top: 5px;
 }
@@ -235,7 +229,7 @@ h1 {
   position: absolute;
   bottom: 23px;
   left: 24px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   letter-spacing: 1px;
 }
 
@@ -259,13 +253,13 @@ h1 {
   align-items: center;
   justify-content: space-between;
   margin-top: 22px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
 }
 
 .stamps {
   display: flex;
   gap: 14px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   margin-top: 20px;
 }
 
@@ -280,7 +274,7 @@ h1 {
 
 .payment strong {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   margin: 14px 0;
 }
 
@@ -293,7 +287,7 @@ h1 {
   color: #ffd66c;
   display: grid;
   place-items: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(44px * var(--text-size, 1)));
+  font-size: max(18px, calc(44px * var(--text-size, 1)));
   animation: pulse 1s infinite alternate;
 }
 
@@ -342,4 +336,28 @@ h1 {
   width: 42px;
   height: 42px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #FFD66C; }
+
+.card-fan { padding-top:10px; }
+.card-fan .card { aspect-ratio:16 / 10; height:auto; min-height:236px; display:flex; flex-direction:column; gap:8px; padding:18px 20px; border-radius:30px; margin-bottom:0; transition:margin 160ms ease, transform 160ms ease; }
+.card-fan .card + .card { margin-top:-148px; }
+.card-fan.expanded .card + .card { margin-top:10px; }
+.card.selected { aspect-ratio:16 / 10; height:auto; min-height:236px; display:flex; flex-direction:column; gap:8px; margin:10px 0 20px; }
+.card-top { align-items:flex-start; min-height:32px; font-size:25px; line-height:1.25; }
+.card-top span { flex:1; min-width:0; }
+.card-top b { flex:0 0 28px; }
+.card-top b :deep(svg) { width:28px; height:28px; }
+.card .kind { font-size:18px; line-height:1.25; letter-spacing:.6px; margin:0; }
+.card .number { position:static; display:block; margin-top:auto; font-size:20px; letter-spacing:0; line-height:1.25; overflow-wrap:anywhere; }
+.card .boarding, .card .stamps, .card .chip { margin:4px 0; }
+.fan-toggle { width:100%; color:var(--app-accent); }
+.payment { padding:16px 0; }
+.payment .watch-button { width:100%; }
+
+.stamps svg { width:24px; height:24px; }
 </style>

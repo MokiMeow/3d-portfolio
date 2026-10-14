@@ -69,13 +69,17 @@ useWatchHardware('rubberDuck', {
     else
       ask();
     return true;
+  }, back: () => {
+    if (!asked.value) return false;
+    startOver();
+    return true;
   }
 });
 </script>
 
 <template>
   <section class="watch-app duck-app">
-    <h1>Rubber Duck</h1>
+    <h1>{{ asked ? 'A Useful Question' : 'Rubber Duck' }}</h1>
     <div class="duck" aria-hidden="true">
       <svg viewBox="0 0 180 130">
         <path
@@ -134,6 +138,7 @@ useWatchHardware('rubberDuck', {
       <br />
       no uploads. Unlimited judgment.
     </p>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -147,7 +152,7 @@ useWatchHardware('rubberDuck', {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   margin: 0 0 10px;
 }
 
@@ -167,7 +172,7 @@ h1 {
 .duck span {
   align-self: flex-start;
   color: #ffd60a;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   transform: rotate(-9deg);
   padding-top: 18px;
 }
@@ -187,7 +192,7 @@ textarea {
   background: #1c1c1e;
   color: white;
   resize: vertical;
-  font-size: max(calc(12px / var(--watch-scale)), calc(24px * var(--text-size, 1)));
+  font-size: max(18px, calc(24px * var(--text-size, 1)));
   line-height: 1.3;
   margin-bottom: 15px;
 }
@@ -204,7 +209,7 @@ textarea::placeholder {
 .duck-button {
   background: #ffd60a;
   color: #242005;
-  font-size: max(calc(12px / var(--watch-scale)), calc(24px * var(--text-size, 1)));
+  font-size: max(18px, calc(24px * var(--text-size, 1)));
   font-weight: 700;
 }
 
@@ -215,13 +220,13 @@ textarea::placeholder {
 }
 
 .question .caption {
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   letter-spacing: 2px;
   color: #d1b756;
 }
 
 .question p {
-  font-size: max(calc(12px / var(--watch-scale)), calc(29px * var(--text-size, 1)));
+  font-size: max(18px, calc(29px * var(--text-size, 1)));
   line-height: 1.25;
   margin: 13px 0 0;
 }
@@ -229,12 +234,12 @@ textarea::placeholder {
 .edit {
   margin-top: 12px;
   background: #29281c;
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
 }
 
 .footnote {
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
-  line-height: 1.5;
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
+  line-height: 1.3;
   text-align: center;
   margin: 20px 0 0;
 }
@@ -255,4 +260,15 @@ textarea {
   padding: 12px 16px;
   resize: none;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #FFD60A; }
+
+.duck { margin:12px 0 18px; }
+.duck svg { width:144px; height:104px; }
+textarea { min-height:132px; height:132px; border-radius:30px; font-size:24px; line-height:1.3; overflow:auto; }
+.question p { font-size:25px; line-height:1.3; overflow-wrap:anywhere; }
 </style>

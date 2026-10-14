@@ -151,6 +151,7 @@ onBeforeUnmount(stopAnimation);
       </div>
     </div>
     <p class="caption muted footnote">Crown switches. Action rolls.</p>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -164,7 +165,7 @@ onBeforeUnmount(stopAnimation);
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(31px * var(--text-size, 1)));
+  font-size: max(18px, calc(31px * var(--text-size, 1)));
   margin: 0 0 15px;
 }
 
@@ -183,7 +184,7 @@ h1 {
   border-radius: 28px;
   background: transparent;
   color: #aeaeb2;
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
 }
 
 .mode button.selected {
@@ -242,12 +243,12 @@ h1 {
 }
 
 .coin span {
-  font-size: max(calc(12px / var(--watch-scale)), calc(87px * var(--text-size, 1)));
-  line-height: 1;
+  font-size: max(18px, calc(87px * var(--text-size, 1)));
+  line-height: 1.2;
 }
 
 .result-label {
-  font-size: max(calc(12px / var(--watch-scale)), calc(29px * var(--text-size, 1)));
+  font-size: max(18px, calc(29px * var(--text-size, 1)));
   text-align: center;
   font-weight: 650;
   margin: 10px 0 18px;
@@ -277,7 +278,7 @@ h1 {
 }
 
 .history h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(24px * var(--text-size, 1)));
+  font-size: max(18px, calc(24px * var(--text-size, 1)));
   margin: 0;
 }
 
@@ -287,7 +288,7 @@ h1 {
   border: 0;
   background: transparent;
   color: #ac8aff;
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   border-radius: 24px;
 }
 
@@ -298,7 +299,7 @@ h1 {
 }
 
 .chips>span {
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
   border-radius: 18px;
   background: #272131;
   color: #d7c3ff;
@@ -312,7 +313,7 @@ h1 {
 
 .footnote {
   text-align: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
   margin: 22px 0 0;
 }
 
@@ -375,4 +376,17 @@ h1 {
   margin: 8px 0;
   min-height: 32px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #AC8AFF; }
+
+.mode { gap:10px; }
+.mode button { min-height:64px; border-radius:32px; font-size:25px; }
+.history .row { flex-wrap:wrap; }
+.chips { flex-wrap:wrap; gap:10px; }
+.chips > span { font-size:24px; line-height:1.25; }
+.clear { min-height:64px; border-radius:32px; font-size:22px; }
 </style>

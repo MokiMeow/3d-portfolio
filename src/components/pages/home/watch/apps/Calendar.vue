@@ -58,12 +58,6 @@ function navigate(delta: number) {
   watch.haptic();
 }
 useWatchHardware('calendar', {
-  crown: delta => {
-    if (!event.value) {
-      navigate(delta > 0 ? 1 : -1);
-      return true;
-    }
-  },
   back: () => {
     if (selected.value !== null) {
       selected.value = null;
@@ -80,12 +74,8 @@ useWatchHardware('calendar', {
 
 <template>
   <div class="watch-app root">
-    <h1>Calendar</h1>
+    <h1>{{ event ? event.title : 'Calendar' }}</h1>
     <template v-if="event">
-      <button class="back" @click="selected = null">
-        <WatchGlyph name="back" />
-        Schedule
-      </button>
       <div class="event-detail platter" :style="{ borderColor: event.color }">
         <p class="caption muted">
           {{ label }}
@@ -99,14 +89,14 @@ useWatchHardware('calendar', {
           {{ event.end }}
         </p>
         <p class="place">
-          ⌖
+          <WatchGlyph name="location" />
           {{ event.location }}
         </p>
         <p>
           {{ event.note }}
         </p>
       </div>
-      <p class="caption muted">Fictional demo event.</p>
+      
     </template>
     <template v-else>
       <div class="date">
@@ -150,14 +140,12 @@ useWatchHardware('calendar', {
         <span>
           <WatchGlyph name="clock" />
         </span>
-        <p>
-          No demo events today.
-          <br />
-          Room for an adventure.
-        </p>
+        <p>No events today.</p>
+        
       </div>
-      <p class="caption muted">Fictional schedule · Crown changes day.</p>
+      
     </template>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </div>
 </template>
 
@@ -171,12 +159,12 @@ useWatchHardware('calendar', {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   margin: 0 0 16px;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   margin: 16px 0;
 }
 
@@ -192,9 +180,9 @@ h2 {
 }
 
 .date strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(75px * var(--text-size, 1)));
+  font-size: max(18px, calc(75px * var(--text-size, 1)));
   font-weight: 500;
-  line-height: 1.12;
+  line-height: 1.2;
 }
 
 .navigation {
@@ -209,12 +197,12 @@ h2 {
   border-radius: 28px;
   background: #222225;
   color: #ff6960;
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   flex: 1;
 }
 
 .navigation button:nth-child(2) {
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
   flex: 2;
 }
 
@@ -233,8 +221,8 @@ h2 {
 }
 
 .event strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
-  line-height: 1.1;
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
+  line-height: 1.2;
 }
 
 .back {
@@ -242,19 +230,19 @@ h2 {
   border: 0;
   background: none;
   color: #ff6960;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
   padding: 0;
 }
 
 .event-detail {
   border-left: 7px solid;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
-  line-height: 1.36;
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
+  line-height: 1.3;
   margin: 14px 0;
 }
 
 .time {
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
 }
 
 .place {
@@ -263,12 +251,12 @@ h2 {
 
 .empty {
   text-align: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
   line-height: 1.3;
 }
 
 .empty>span {
-  font-size: max(calc(12px / var(--watch-scale)), calc(44px * var(--text-size, 1)));
+  font-size: max(18px, calc(44px * var(--text-size, 1)));
   color: #ff6960;
 }
 
@@ -288,4 +276,19 @@ h2 {
   min-height: 96px;
   gap: 4px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #FF453A; }
+
+.date strong { font-size:80px; font-weight:600; }
+.navigation button { min-height:64px; border-radius:32px; font-size:25px; }
+.event strong { font-size:24px; line-height:1.25; }
+.event-detail { overflow-wrap:anywhere; }
+.place { display:flex; gap:8px; align-items:center; }
+.place :deep(svg) { width:24px; height:24px; flex:0 0 24px; }
+.empty { padding:28px 20px; }
+.empty p { font-size:24px; }
 </style>

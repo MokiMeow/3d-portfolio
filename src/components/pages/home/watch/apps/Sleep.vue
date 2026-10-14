@@ -78,7 +78,7 @@ useWatchHardware('sleep', {
 
 <template>
   <section class="watch-app sleep-app">
-    <h1>Sleep</h1>
+    <h1>{{ page === 'schedule' ? (editing ? 'Edit Schedule' : 'Sleep Schedule') : 'Sleep' }}</h1>
     <nav class="tabs">
       <button :class="{ selected: page === 'overview' }" @click="page = 'overview'">Overview</button>
       <button :class="{ selected: page === 'schedule' }" @click="page = 'schedule'">Schedule</button>
@@ -195,7 +195,7 @@ useWatchHardware('sleep', {
         <WatchGlyph name="moon" />
       </div>
       <h2>Sleep schedule</h2>
-      <p class="caption muted">A gentle routine for your demo watch.</p>
+      
       <template v-if="editing">
         <label class="time-input">
           Bedtime
@@ -237,6 +237,7 @@ useWatchHardware('sleep', {
         </button>
       </template>
     </template>
+    <p class="polish-footnote">Not a medical device.</p>
   </section>
 </template>
 
@@ -250,13 +251,13 @@ useWatchHardware('sleep', {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(31px * var(--text-size, 1)));
+  font-size: max(18px, calc(31px * var(--text-size, 1)));
   font-weight: 700;
   margin: 0 0 18px;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   font-weight: 600;
   margin: 14px 0;
 }
@@ -273,7 +274,7 @@ h2 {
   color: #9ab5c8;
   flex: 1;
   border-radius: 32px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(24px * var(--text-size, 1)));
+  font-size: max(18px, calc(24px * var(--text-size, 1)));
 }
 
 .tabs .selected {
@@ -301,7 +302,7 @@ h2 {
   inset: 0;
   display: grid;
   place-items: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(93px * var(--text-size, 1)));
+  font-size: max(18px, calc(93px * var(--text-size, 1)));
   font-weight: 600;
   color: #a4e4ff;
   letter-spacing: -5px;
@@ -310,12 +311,12 @@ h2 {
 .rating {
   text-align: center;
   color: #7ad6ff;
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
 }
 
 .sleep-time {
   text-align: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(37px * var(--text-size, 1)));
+  font-size: max(18px, calc(37px * var(--text-size, 1)));
   margin: 22px 0 5px;
   letter-spacing: -1px;
 }
@@ -329,16 +330,16 @@ h2 {
   align-items: center;
   justify-content: space-between;
   min-height: 68px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
 }
 
 .score-row strong {
   color: #8adeff;
-  font-size: max(calc(12px / var(--watch-scale)), calc(27px * var(--text-size, 1)));
+  font-size: max(18px, calc(27px * var(--text-size, 1)));
 }
 
 .score-row small {
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   color: #7b919d;
 }
 
@@ -351,7 +352,7 @@ h2 {
 .stage-times {
   display: flex;
   justify-content: space-between;
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
   color: #92a4b3;
   margin-bottom: 20px;
 }
@@ -360,7 +361,7 @@ h2 {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
   min-height: 76px;
   border-top: 1px solid #ffffff15;
 }
@@ -373,25 +374,25 @@ h2 {
 
 .stage-row strong {
   margin-left: auto;
-  font-size: max(calc(12px / var(--watch-scale)), calc(24px * var(--text-size, 1)));
+  font-size: max(18px, calc(24px * var(--text-size, 1)));
   font-weight: 500;
 }
 
 .moon {
   text-align: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(91px * var(--text-size, 1)));
+  font-size: max(18px, calc(91px * var(--text-size, 1)));
   color: #8de1ff;
 }
 
 .schedule-time {
-  font-size: max(calc(12px / var(--watch-scale)), calc(60px * var(--text-size, 1)));
+  font-size: max(18px, calc(60px * var(--text-size, 1)));
   letter-spacing: -3px;
   margin: 0 0 25px;
 }
 
 .time-input {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
   color: #a4e4ff;
   margin: 20px 0;
 }
@@ -400,7 +401,7 @@ h2 {
   display: block;
   width: 100%;
   height: 90px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(37px * var(--text-size, 1)));
+  font-size: max(18px, calc(37px * var(--text-size, 1)));
   background: #1c2c3a;
   color: white;
   border-radius: 25px;
@@ -427,7 +428,7 @@ h2 {
 }
 
 .moon {
-  line-height: 1;
+  line-height: 1.2;
   margin: 12px 0;
 }
 
@@ -435,4 +436,17 @@ h2 {
   width: 68px;
   height: 68px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #37B7D6; }
+
+.score { width:196px; height:196px; margin:16px auto; }
+.score strong { font-size:88px; line-height:1.2; font-weight:600; }
+.score-row { min-height:76px; gap:12px; font-size:24px; }
+.stage-row { font-size:24px; line-height:1.25; gap:10px; }
+.schedule-time { font-size:72px; line-height:1.2; font-weight:600; }
+.time-input input { border-radius:30px; }
 </style>

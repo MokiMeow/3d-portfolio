@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import WatchGlyph from "../WatchGlyph.vue";
 import { useWatch, useWatchHardware } from "../watch";
-import MusicPlayer from '../MusicPlayer.vue';
+import MusicPlayer from './AppMusicPlayer.vue';
 const watch = useWatch();
 const player = ref(false);
 const albums = [{
@@ -69,7 +69,8 @@ useWatchHardware('music', {
         <WatchGlyph name="play" />
       </b>
     </button>
-    <p class="caption muted">Original visual artwork. Demo playback without streamed audio.</p>
+    
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -112,25 +113,25 @@ useWatchHardware('music', {
   background: radial-gradient(circle at 90% 0,#fff8,transparent 50%),var(--album-color);
   color: white;
   border-radius: 15px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(36px * var(--text-size, 1)));
+  font-size: max(18px, calc(36px * var(--text-size, 1)));
   flex-shrink: 0;
 }
 
 .album strong {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(24px * var(--text-size, 1)));
+  font-size: max(18px, calc(24px * var(--text-size, 1)));
 }
 
 .album small {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
   color: #aaa;
   margin-top: 6px;
 }
 
 .album b {
   margin-left: auto;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   color: #aaa;
 }
 
@@ -152,4 +153,10 @@ useWatchHardware('music', {
   width: 36px;
   height: 36px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #FF526F; }
 </style>

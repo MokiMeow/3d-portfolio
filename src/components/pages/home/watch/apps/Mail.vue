@@ -67,17 +67,9 @@ useWatchHardware('mail', {
 
 <template>
   <div class="watch-app root">
-    <h1>
-      Mail
-      <span v-if="!email" class="count">
-        {{ unread }}
-      </span>
-    </h1>
+    <h1>{{ email ? email.subject : 'Mail' }}</h1>
+    <p v-if="!email" class="caption muted">{{ unread }} unread</p>
     <template v-if="email">
-      <button class="back" @click="selected = null">
-        <WatchGlyph name="back" />
-        {{ folder === 'inbox' ? 'Inbox' : 'Archive' }}
-      </button>
       <p class="caption muted">
         {{ email.sender }}
         ·
@@ -134,8 +126,9 @@ useWatchHardware('mail', {
         </span>
       </button>
       <p v-if="!visible.length" class="empty">All clear. Even the spam is imaginary.</p>
-      <p class="caption muted">Fictional demo inbox.</p>
+      
     </template>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </div>
 </template>
 
@@ -149,19 +142,19 @@ useWatchHardware('mail', {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   margin: 0 0 20px;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
-  line-height: 1.12;
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
+  line-height: 1.2;
   margin: 14px 0 22px;
 }
 
 .count {
   color: #0a84ff;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
 }
 
 .back {
@@ -169,7 +162,7 @@ h2 {
   border: 0;
   background: none;
   color: #0a84ff;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
   padding: 0;
 }
 
@@ -191,17 +184,17 @@ h2 {
 }
 
 .mail strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
 }
 
 .mail b {
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   margin-top: 6px;
   font-weight: 500;
 }
 
 .mail small {
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   color: #aaa;
   margin-top: 7px;
 }
@@ -220,8 +213,8 @@ h2 {
 }
 
 .letter {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
-  line-height: 1.42;
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
+  line-height: 1.3;
   margin-bottom: 22px;
 }
 
@@ -235,7 +228,7 @@ h2 {
 }
 
 .empty {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
   line-height: 1.3;
   padding: 30px 10px;
 }
@@ -247,4 +240,17 @@ h2 {
 .preview {
   line-height: 1.3;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #0A84FF; }
+
+.mail { min-height:112px; }
+.mail > span:last-child { min-width:0; flex:1; }
+.mail strong { font-size:24px; }
+.mail b { font-size:24px; line-height:1.25; }
+.mail small { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:20px; line-height:1.25; }
+.letter { font-size:24px; line-height:1.3; overflow-wrap:anywhere; white-space:pre-line; }
 </style>

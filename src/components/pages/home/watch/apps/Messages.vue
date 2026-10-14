@@ -19,7 +19,7 @@ const threads = ref<Thread[]>([
     initial: 'A',
     messages: [
       {
-        text: 'Have you eaten? The demo dinner is ready 🍲',
+        text: 'Have you eaten? The demo dinner is ready.',
         mine: false
       }
     ]
@@ -133,7 +133,7 @@ useWatchHardware('messages', {
       {{ thread?.name || 'Messages' }}
     </h1>
     <template v-if="!thread">
-      <p class="caption muted">Demo conversations</p>
+      
       <button
         v-for="item in threads"
         :key="item.id"
@@ -157,10 +157,6 @@ useWatchHardware('messages', {
       </button>
     </template>
     <template v-else>
-      <button class="back" @click="selected = null; stop()">
-        <WatchGlyph name="back" />
-        Conversations
-      </button>
       <div class="bubbles">
         <div
           v-for="(message,i) in thread.messages"
@@ -190,11 +186,11 @@ useWatchHardware('messages', {
       </div>
       <div class="composer platter">
         <p class="caption muted">
-          {{ mode === 'dictation' ? 'Demo dictation' : mode === 'scribble' ? 'Draw a reply' : 'Reply' }}
+          {{ mode === 'dictation' ? 'Dictation' : mode === 'scribble' ? 'Draw a reply' : 'Reply' }}
         </p>
         <template v-if="mode === 'reply'">
           <button
-            v-for="reply in ['On my way!','Sounds good 👍','Thank you!']"
+            v-for="reply in ['On my way!','Sounds good','Thank you!']"
             :key="reply"
             class="quick"
             @click="send(reply)"
@@ -204,11 +200,11 @@ useWatchHardware('messages', {
         </template>
         <div v-if="mode === 'emoji'" class="emoji">
           <button
-            v-for="emoji in ['❤️','👍','😂','☕','👋','🎉']"
-            :key="emoji"
-            @click="send(emoji)"
+            v-for="reaction in [{glyph:'heart',text:'Love it!'}, {glyph:'check',text:'Sounds good!'}, {glyph:'smile',text:'That made me smile'}, {glyph:'coffee',text:'Coffee?'}, {glyph:'reply',text:'Hello!'}, {glyph:'star',text:'Congratulations!'}]"
+            :key="reaction.glyph"
+            :aria-label="reaction.text" @click="send(reaction.text)"
           >
-            {{ emoji }}
+            <WatchGlyph :name="reaction.glyph" />
           </button>
         </div>
         <template v-if="mode === 'dictation'">
@@ -277,7 +273,7 @@ useWatchHardware('messages', {
           <button aria-label="Quick replies" @click="mode = 'reply'; stop()">
             <WatchGlyph name="reply" />
           </button>
-          <button aria-label="Emoji replies" @click="mode = 'emoji'; stop()">
+          <button aria-label="Reaction replies" @click="mode = 'emoji'; stop()">
             <WatchGlyph name="smile" />
           </button>
           <button aria-label="Demo dictation" @click="mode = 'dictation'">
@@ -288,8 +284,9 @@ useWatchHardware('messages', {
           </button>
         </div>
       </div>
-      <p class="caption muted">Replies stay in this demo only.</p>
+      
     </template>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </div>
 </template>
 
@@ -303,7 +300,7 @@ useWatchHardware('messages', {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   margin: 0 0 18px;
 }
 
@@ -327,13 +324,13 @@ h1 {
   place-items: center;
   width: 62px;
   height: 62px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   flex-shrink: 0;
 }
 
 .preview {
   min-width: 0;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
 }
 
 .preview small {
@@ -341,7 +338,7 @@ h1 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   color: #aaa;
   max-width: 235px;
   margin-top: 7px;
@@ -349,7 +346,7 @@ h1 {
 
 .chevron {
   color: #888;
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   margin-left: auto;
 }
 
@@ -358,7 +355,7 @@ h1 {
   background: none;
   border: 0;
   color: #30d158;
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   text-align: left;
   padding: 0;
 }
@@ -376,7 +373,7 @@ h1 {
   padding: 18px 22px;
   border-radius: 28px;
   background: #2c2c2e;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
   line-height: 1.22;
 }
 
@@ -401,7 +398,7 @@ h1 {
   background: #303035;
   color: white;
   border-radius: 24px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   margin-bottom: 9px;
 }
 
@@ -418,7 +415,7 @@ h1 {
   border-radius: 24px;
   background: #363639;
   color: #30d158;
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
 }
 
 .emoji {
@@ -432,7 +429,7 @@ h1 {
   background: #303035;
   border: 0;
   border-radius: 20px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
 }
 
 input {
@@ -444,7 +441,7 @@ input {
   color: white;
   border-radius: 20px;
   padding: 14px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(24px * var(--text-size, 1)));
+  font-size: max(18px, calc(24px * var(--text-size, 1)));
   margin: 10px 0;
 }
 
@@ -491,4 +488,21 @@ button:disabled {
     transform: scaleY(0.35);
   }
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #34D35B; }
+
+.thread { gap:10px; }
+.preview { flex:1; min-width:0; }
+.preview small { max-width:none; white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.25; font-size:20px; }
+.avatar { width:48px; height:48px; }
+.bubble { border-radius:30px; font-size:24px; line-height:1.25; overflow-wrap:anywhere; }
+.bubble svg { width:100%; max-width:260px; }
+.quick { min-height:64px; border-radius:32px; font-size:24px; }
+.tools button { min-height:64px; border-radius:32px; }
+.emoji button { display:grid; place-items:center; color:#34d35b; min-width:0; }
+.emoji :deep(svg) { width:32px; height:32px; }
 </style>

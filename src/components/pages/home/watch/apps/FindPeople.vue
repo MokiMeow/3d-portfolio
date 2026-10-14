@@ -52,9 +52,9 @@ useWatchHardware('findPeople', {
 
 <template>
   <div class="watch-app root">
-    <h1>Find People</h1>
+    <h1>{{ person ? person.name : 'Find People' }}</h1>
     <template v-if="!person">
-      <p class="caption muted">Fictional friends</p>
+      
       <button
         v-for="item in people"
         :key="item.id"
@@ -71,7 +71,7 @@ useWatchHardware('findPeople', {
           <small>
             {{ item.location }}
           </small>
-          <small>Demo location</small>
+          
         </span>
         <span class="arrow">
           <WatchGlyph name="next" />
@@ -79,10 +79,6 @@ useWatchHardware('findPeople', {
       </button>
     </template>
     <template v-else>
-      <button class="back" @click="selected = null">
-        <WatchGlyph name="back" />
-        People
-      </button>
       <div class="map">
         <svg
           viewBox="0 0 370 260"
@@ -145,7 +141,7 @@ useWatchHardware('findPeople', {
             x="12"
             y="33"
             fill="#a3bca9"
-            font-size="16"
+            font-size="18"
           >DEMO PARK</text>
         </svg>
         <span class="map-label">DEMO MAP</span>
@@ -160,7 +156,7 @@ useWatchHardware('findPeople', {
         <p class="caption muted">
           {{ person.status }}
         </p>
-        <p class="caption" :style="{ color: person.color }">● Simulated status</p>
+        
       </div>
       <p v-if="route" class="caption route">
         A fictional path to
@@ -176,7 +172,8 @@ useWatchHardware('findPeople', {
       </button>
       <button class="watch-button" @click="watch.open('messages')">Open Messages</button>
     </template>
-    <p class="caption muted">Demo contacts. No people are tracked.</p>
+    
+    <p class="polish-footnote">Demo data, for fun.</p>
   </div>
 </template>
 
@@ -190,12 +187,12 @@ useWatchHardware('findPeople', {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   margin: 0 0 18px;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   margin: 16px 0;
 }
 
@@ -217,24 +214,24 @@ h2 {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
   font-weight: 700;
   flex-shrink: 0;
 }
 
 .person strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
 }
 
 .person small {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   color: #aaa;
   margin-top: 5px;
 }
 
 .arrow {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   color: #888;
   margin-left: auto;
 }
@@ -244,7 +241,7 @@ h2 {
   border: 0;
   background: none;
   color: #ffb46c;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
   padding: 0;
 }
 
@@ -264,12 +261,12 @@ h2 {
   left: 16px;
   bottom: 12px;
   color: #b9c8bd;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   letter-spacing: 2px;
 }
 
 .details {
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
   line-height: 1.2;
   margin-bottom: 20px;
 }
@@ -307,4 +304,17 @@ h2 {
   padding: 3px 6px;
   letter-spacing: 0.5px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #FFB46C; }
+
+.person > span:nth-child(2) { min-width:0; flex:1; }
+.person strong { font-size:24px; line-height:1.25; }
+.arrow { flex:0 0 24px; color:#ffffff59; }
+.map { border-radius:30px; }
+.map-label { font-size:18px; line-height:1.25; }
+.route { padding:16px 0; overflow-wrap:anywhere; }
 </style>

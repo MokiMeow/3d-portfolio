@@ -51,7 +51,7 @@ useWatchHardware('tides', {
         <WatchGlyph name="down" />
       </span>
     </button>
-    <span class="caption muted">Fictional beach forecast</span>
+    
     <div class="tide-metric">
       <strong>
         {{ tideHeight.toFixed(1) }}
@@ -164,6 +164,7 @@ useWatchHardware('tides', {
       @click="liveTide"
     >Return to now</button>
     <p class="caption muted">Illustrative data only. Check local tide information before entering the water.</p>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -177,14 +178,14 @@ useWatchHardware('tides', {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
-  line-height: 1.1;
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
+  line-height: 1.2;
   margin: 0 0 22px;
   font-weight: 700;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
   margin: 0 0 12px;
 }
 
@@ -211,7 +212,7 @@ h2 {
   background: #252527;
   color: white;
   padding: 0 20px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
 }
 
 .beach-button {
@@ -223,7 +224,7 @@ h2 {
   border: 0;
   background: transparent;
   color: #39AFFF;
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   text-align: left;
   padding: 0;
 }
@@ -236,13 +237,13 @@ h2 {
 }
 
 .tide-metric strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(68px * var(--text-size, 1)));
+  font-size: max(18px, calc(68px * var(--text-size, 1)));
   color: white;
   line-height: 1.2;
 }
 
 .tide-metric small {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
 }
 
 .tide-graph {
@@ -252,7 +253,7 @@ h2 {
 
 .tide-graph text {
   fill: #99999F;
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
 }
 
 .tide-row {
@@ -269,11 +270,11 @@ h2 {
 }
 
 .tide-row strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
 }
 
 .arrow {
-  font-size: max(calc(12px / var(--watch-scale)), calc(35px * var(--text-size, 1)));
+  font-size: max(18px, calc(35px * var(--text-size, 1)));
   color: #39AFFF;
 }
 
@@ -293,4 +294,18 @@ h2 {
   margin-top: 8px;
   height: 142px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #39AFFF; }
+
+.tide-metric strong { display:flex; align-items:baseline; gap:6px; font-size:80px; font-weight:600; line-height:1.2; }
+.tide-metric strong small { font-size:26px; font-weight:600; margin:0; }
+.tide-row { min-height:76px; gap:12px; }
+.tide-row > div { min-width:0; flex:1; }
+.tide-row > strong { font-size:24px; white-space:nowrap; }
+.tide-row .arrow { flex:0 0 24px; }
+.beach-button { min-height:64px; border-radius:32px; }
 </style>

@@ -188,6 +188,7 @@ useWatchHardware('calculator', {
       </div>
       <button class="watch-button full" @click="openTip">Tip & Split</button>
     </template>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -207,22 +208,22 @@ useWatchHardware('calculator', {
 .expression {
   text-align: right;
   min-height: 24px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
 }
 
 .calculator-app output {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(55px * var(--text-size, 1)));
+  font-size: max(18px, calc(55px * var(--text-size, 1)));
   font-weight: 300;
   text-align: right;
-  line-height: 1.15;
+  line-height: 1.2;
   margin: 8px 0 20px;
   overflow-wrap: anywhere;
   letter-spacing: -2px;
 }
 
 .calculator-app output.small {
-  font-size: max(calc(12px / var(--watch-scale)), calc(34px * var(--text-size, 1)));
+  font-size: max(18px, calc(34px * var(--text-size, 1)));
 }
 
 .keypad {
@@ -238,7 +239,7 @@ useWatchHardware('calculator', {
   border-radius: 50%;
   background: #333336;
   color: white;
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
 }
 
 .keypad .operation {
@@ -248,7 +249,7 @@ useWatchHardware('calculator', {
 .keypad .utility {
   background: #a5a5a7;
   color: #000;
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
 }
 
 .keypad .selected {
@@ -279,7 +280,7 @@ useWatchHardware('calculator', {
 
 .adjust strong {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(33px * var(--text-size, 1)));
+  font-size: max(18px, calc(33px * var(--text-size, 1)));
 }
 
 .adjust .selected {
@@ -298,7 +299,7 @@ useWatchHardware('calculator', {
   border: 0;
   color: #ff9f0a;
   border-radius: 50%;
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
 }
 
 .per-person {
@@ -307,12 +308,12 @@ useWatchHardware('calculator', {
 
 .per-person strong {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(53px * var(--text-size, 1)));
+  font-size: max(18px, calc(53px * var(--text-size, 1)));
   font-weight: 400;
 }
 
 .row {
-  font-size: max(calc(12px / var(--watch-scale)), calc(24px * var(--text-size, 1)));
+  font-size: max(18px, calc(24px * var(--text-size, 1)));
 }
 
 .calculator-app > h1 {
@@ -332,7 +333,7 @@ useWatchHardware('calculator', {
 
 .calculator-app output {
   font-size: 48px;
-  line-height: 1.05;
+  line-height: 1.2;
   margin: 0 0 8px;
 }
 
@@ -346,4 +347,20 @@ useWatchHardware('calculator', {
   height: 68px;
   font-size: 29px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #FF9500; }
+
+.calculator-app > h1 { position:static; font-size:34px; margin:0 0 12px; text-align:left; }
+.calculator-app output { font-size:64px; font-weight:600; margin:0 0 12px; line-height:1.2; }
+.calculator-app output.small { font-size:38px; }
+.keypad { grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+.keypad button { min-width:0; min-height:68px; height:68px; aspect-ratio:auto; font-size:29px; }
+.adjust-buttons button { width:64px; height:64px; }
+.per-person strong { overflow-wrap:anywhere; }
+
+.keypad button { min-height:68px !important; }
 </style>

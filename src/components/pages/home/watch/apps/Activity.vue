@@ -66,7 +66,7 @@ useWatchHardware('activity', {
 
 <template>
   <section class="watch-app activity-app">
-    <h1>Activity</h1>
+    <h1>{{ page === 'today' ? 'Activity' : page === 'history' ? 'History' : 'Awards' }}</h1>
     <nav class="tabs" aria-label="Activity views">
       <button
         v-for="tab in (['today', 'history', 'awards'] as const)"
@@ -82,70 +82,20 @@ useWatchHardware('activity', {
         :move="watch.health.move / watch.health.goals.move"
         :exercise="watch.health.exercise / watch.health.goals.exercise"
         :stand="watch.health.stand / watch.health.goals.stand"
-        :size="224"
+        :size="252" class="today-rings"
         :celebrate="celebration"
       />
       <p v-if="allClosed" class="closed">All rings closed!</p>
-      <div class="totals">
-        <article class="move">
-          <h2>Move</h2>
-          <p>
-            <strong>
-              {{ Math.round(watch.health.move) }}
-            </strong>
-            /
-            {{ watch.health.goals.move }}
-            <span>KCAL</span>
-          </p>
-          <WatchChart
-            :values="[4, 6, 14, 9, 24, 17, 21, 35, 29, 41, 26, 48]"
-            color="#FA114F"
-            :height="80"
-          />
-        </article>
-        <article class="exercise">
-          <h2>Exercise</h2>
-          <p>
-            <strong>
-              {{ watch.health.exercise }}
-            </strong>
-            /
-            {{ watch.health.goals.exercise }}
-            <span>MIN</span>
-          </p>
-        </article>
-        <article class="stand">
-          <h2>Stand</h2>
-          <p>
-            <strong>
-              {{ watch.health.stand }}
-            </strong>
-            /
-            {{ watch.health.goals.stand }}
-            <span>HRS</span>
-          </p>
-          <div class="stand-bars">
-            <i
-              v-for="n in watch.health.goals.stand"
-              :key="n"
-              :class="{ filled: n <= watch.health.stand }"
-            />
-          </div>
-        </article>
+      <div class="ring-summary">
+        <div class="move"><span>Move</span><strong>{{ Math.round(watch.health.move) }}</strong><small>/{{ watch.health.goals.move }} kcal</small></div>
+        <div class="exercise"><span>Exercise</span><strong>{{ watch.health.exercise }}</strong><small>/{{ watch.health.goals.exercise }} min</small></div>
+        <div class="stand"><span>Stand</span><strong>{{ watch.health.stand }}</strong><small>/{{ watch.health.goals.stand }} hrs</small></div>
       </div>
-      <div class="platter">
-        <p class="caption muted">TOTAL STEPS</p>
-        <p class="metric">
-          {{ watch.health.steps.toLocaleString() }}
-        </p>
-        <p class="caption muted">
-          {{ (watch.health.steps * .00072).toFixed(2) }}
-          KM · SIMULATED
-        </p>
-      </div>
+      <div class="platter"><h2>Total steps</h2><p class="metric">{{ watch.health.steps.toLocaleString() }}</p></div>
+      <div class="platter"><h2>Distance</h2><p class="metric">{{ (watch.health.steps * .00072).toFixed(2) }}<small>KM</small></p></div>
       <button class="watch-button" @click="addMove">Add a little movement</button>
       <button class="watch-button positive" @click="closeRings">Close all rings</button>
-      <p class="caption muted">Demo controls update your rings.</p>
+      
     </template>
     <template v-else-if="page === 'history'">
       <h2>This week</h2>
@@ -206,6 +156,7 @@ useWatchHardware('activity', {
         </p>
       </div>
     </template>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -219,13 +170,13 @@ useWatchHardware('activity', {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(31px * var(--text-size, 1)));
+  font-size: max(18px, calc(31px * var(--text-size, 1)));
   font-weight: 700;
   margin: 0 0 18px;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   margin: 0;
   font-weight: 600;
 }
@@ -245,7 +196,7 @@ h2 {
   border-radius: 26px;
   color: #b6b6bc;
   background: transparent;
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   text-transform: capitalize;
 }
 
@@ -260,19 +211,19 @@ h2 {
 }
 
 .totals p {
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   margin: 0;
-  line-height: 1.12;
+  line-height: 1.2;
 }
 
 .totals strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(60px * var(--text-size, 1)));
+  font-size: max(18px, calc(60px * var(--text-size, 1)));
   font-weight: 650;
   letter-spacing: -4px;
 }
 
 .totals p span {
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   display: block;
   letter-spacing: 1px;
 }
@@ -309,7 +260,7 @@ h2 {
 .closed {
   color: #A6FF00;
   text-align: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
 }
 
 .week {
@@ -321,14 +272,14 @@ h2 {
 
 .week p {
   text-align: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   margin-bottom: 10px;
 }
 
 .history-row {
   display: flex;
   justify-content: space-between;
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
 }
 
 .award {
@@ -351,7 +302,7 @@ h2 {
   left: 95px;
   top: -35px;
   color: #e9c26a;
-  font-size: max(calc(12px / var(--watch-scale)), calc(58px * var(--text-size, 1)));
+  font-size: max(18px, calc(58px * var(--text-size, 1)));
 }
 
 .award-title {
@@ -370,11 +321,29 @@ h2 {
 .award > span {
   left: calc(50% - 22px);
   top: -26px;
-  line-height: 1;
+  line-height: 1.2;
 }
 
 .award > span :deep(svg) {
   width: 44px;
   height: 44px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #FA114F; }
+
+.today-rings { display:block; margin:12px auto 20px; }
+.ring-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; text-align:center; margin-bottom:20px; }
+.ring-summary > div { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.ring-summary span { font-size:20px; }
+.ring-summary strong { font-size:36px; line-height:1.2; font-weight:600; }
+.ring-summary small { font-size:18px; }
+.activity-app .tabs button { min-height:64px; min-width:0; font-size:22px; }
+.activity-app .platter h2 { margin-top:0; }
+.history-row { flex-wrap:wrap; }
+.award { width:230px; }
+.week { grid-template-columns:repeat(4,minmax(0,1fr)); }
 </style>

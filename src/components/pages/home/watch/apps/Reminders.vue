@@ -67,7 +67,7 @@ useWatchHardware('reminders', {
 
 <template>
   <div class="watch-app root">
-    <h1>Reminders</h1>
+    <h1>{{ editing === 'new' ? 'New Reminder' : editing !== null ? 'Edit Reminder' : 'Reminders' }}</h1>
     <template v-if="editing !== null">
       <h2>
         {{ editing === 'new' ? 'New reminder' : 'Edit reminder' }}
@@ -130,8 +130,9 @@ useWatchHardware('reminders', {
       >
         {{ showCompleted ? 'Hide completed' : 'Show completed' }}
       </button>
-      <p class="caption muted">Demo list. Changes stay on this watch.</p>
+      
     </template>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </div>
 </template>
 
@@ -145,12 +146,12 @@ useWatchHardware('reminders', {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   margin: 0 0 20px;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   margin: 14px 0 24px;
 }
 
@@ -163,12 +164,12 @@ h2 {
 }
 
 .summary strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(63px * var(--text-size, 1)));
-  line-height: 1;
+  font-size: max(18px, calc(63px * var(--text-size, 1)));
+  line-height: 1.2;
 }
 
 .summary span {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
 }
 
 .reminder {
@@ -186,7 +187,7 @@ h2 {
   border: 0;
   background: none;
   color: #ff9f0a;
-  font-size: max(calc(12px / var(--watch-scale)), calc(27px * var(--text-size, 1)));
+  font-size: max(18px, calc(27px * var(--text-size, 1)));
   position: relative;
 }
 
@@ -212,7 +213,7 @@ h2 {
   background: none;
   border: 0;
   color: white;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
   line-height: 1.2;
   padding: 10px 4px;
 }
@@ -239,7 +240,7 @@ textarea {
   border: 1px solid #666;
   border-radius: 24px;
   color: white;
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
   padding: 18px;
   margin: 14px 0 22px;
   resize: vertical;
@@ -260,4 +261,18 @@ button:disabled {
 .reminder {
   padding: 6px 10px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #FF9500; }
+
+.reminder { align-items:center; }
+.reminder .text { min-width:0; flex:1; font-size:24px; line-height:1.25; overflow-wrap:anywhere; }
+.check { width:52px; height:64px; }
+.check::before { inset:13px 7px; }
+.summary strong { font-size:80px; font-weight:600; }
+.summary span { font-size:26px; font-weight:600; }
+textarea { border-radius:30px; line-height:1.3; }
 </style>

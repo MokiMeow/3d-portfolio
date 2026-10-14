@@ -179,6 +179,7 @@ const currentPoint = computed(() => ctx.navigation.path[ctx.navigation.retracing
 });
 useWatchHardware('compass', {
   crown: delta => {
+    if (page.value === 'waypoints') return false;
     zoom.value = clamp(zoom.value + delta * 0.08, 0.7, 2.5);
     return true;
   },
@@ -198,7 +199,7 @@ useWatchHardware('compass', {
 
 <template>
   <section class="watch-app compass-app">
-    <h1>Compass</h1>
+    <h1>{{ page === 'dial' ? 'Compass' : page === 'waypoints' ? 'Waypoints' : 'Backtrack' }}</h1>
     <template v-if="page === 'dial'">
       <div class="bearing">
         <strong>
@@ -320,7 +321,7 @@ useWatchHardware('compass', {
         :key="waypoint.id"
         class="platter waypoint"
       >
-        <span :style="{color:waypoint.color}">●</span>
+        <svg class="waypoint-dot" viewBox="0 0 24 24" aria-hidden="true" :style="{color:waypoint.color}"><circle cx="12" cy="12" r="7" fill="currentColor" /></svg>
         <div>
           <strong>
             {{ waypoint.name }}
@@ -400,8 +401,9 @@ useWatchHardware('compass', {
       >
         Stop
       </button>
-      <p class="caption muted">Demo route only. No GPS or real navigation.</p>
+      
     </template>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -415,14 +417,14 @@ useWatchHardware('compass', {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
-  line-height: 1.1;
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
+  line-height: 1.2;
   margin: 0 0 22px;
   font-weight: 700;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
   margin: 0 0 12px;
 }
 
@@ -449,17 +451,17 @@ h2 {
   background: #252527;
   color: white;
   padding: 0 20px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
 }
 
 .bearing {
   text-align: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(31px * var(--text-size, 1)));
+  font-size: max(18px, calc(31px * var(--text-size, 1)));
   color: #FF9F0A;
 }
 
 .bearing strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(58px * var(--text-size, 1)));
+  font-size: max(18px, calc(58px * var(--text-size, 1)));
   letter-spacing: -3px;
   color: white;
 }
@@ -471,7 +473,7 @@ h2 {
 }
 
 .compass-dial text {
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   font-weight: 700;
 }
 
@@ -486,7 +488,7 @@ h2 {
 }
 
 .facts strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
 }
 
 .orange {
@@ -498,7 +500,7 @@ h2 {
   display: flex;
   align-items: center;
   gap: 14px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
   margin-top: 14px;
 }
 
@@ -512,7 +514,7 @@ h2 {
   color: #FF453A;
   min-height: 76px;
   min-width: 72px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(31px * var(--text-size, 1)));
+  font-size: max(18px, calc(31px * var(--text-size, 1)));
 }
 
 .trail {
@@ -540,4 +542,19 @@ h2 {
   gap: 12px;
   margin-bottom: 12px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #FF6A13; }
+
+.waypoint-dot { width:24px; height:24px; flex:0 0 24px; }
+.waypoint > div { min-width:0; flex:1; }
+.waypoint strong { font-size:24px; line-height:1.25; }
+.waypoint .delete { flex:0 0 52px; min-width:0; }
+.bearing strong { font-size:80px; font-weight:600; line-height:1.2; }
+.facts { gap:18px; }
+.facts strong { font-size:26px; }
+.compass-dial { display:block; width:100%; max-width:340px; margin:14px auto; }
 </style>

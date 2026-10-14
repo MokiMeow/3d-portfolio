@@ -45,8 +45,7 @@ onDeactivated(() => {
 
 <template>
   <section class="watch-app ecg-app">
-    <h1>ECG</h1>
-    <p class="demo-label">SIMULATED · NONMEDICAL</p>
+    <h1>{{ complete ? 'Recording' : 'ECG' }}</h1>
     <template v-if="complete">
       <div class="done">
         <WatchGlyph name="check" />
@@ -64,9 +63,7 @@ onDeactivated(() => {
       >
         <path :d="trace" />
       </svg>
-      <div class="platter">
-        <p class="caption">This is a generated trace, not an ECG measurement or diagnosis.</p>
-      </div>
+      
       <button class="watch-button" @click="start">Record again</button>
       <button class="watch-button" @click="complete = false">Done</button>
     </template>
@@ -83,7 +80,7 @@ onDeactivated(() => {
       >
         <path :d="trace" />
       </svg>
-      <p class="caption">Keep still as the demo records.</p>
+      
       <p class="caption muted">On a real watch, rest your finger on the Digital Crown.</p>
       <button class="watch-button danger" @click="cancel">Cancel</button>
     </template>
@@ -98,8 +95,9 @@ onDeactivated(() => {
       <h2>A moment for your heart</h2>
       <button class="watch-button start" @click="start">Start demo ECG</button>
       <p class="caption muted">Explore a 30-second sample recording. No hardware contact is required.</p>
-      <p class="caption muted">This feature cannot assess your health.</p>
+      
     </template>
+    <p class="polish-footnote">Not a medical device.</p>
   </section>
 </template>
 
@@ -113,19 +111,19 @@ onDeactivated(() => {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(31px * var(--text-size, 1)));
+  font-size: max(18px, calc(31px * var(--text-size, 1)));
   font-weight: 700;
   margin: 0 0 14px;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
-  line-height: 1.1;
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
+  line-height: 1.2;
   margin: 20px 0;
 }
 
 .demo-label {
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   letter-spacing: 1px;
   color: #ff7590;
   margin-bottom: 25px;
@@ -157,23 +155,23 @@ h2 {
 }
 
 .count {
-  font-size: max(calc(12px / var(--watch-scale)), calc(93px * var(--text-size, 1)));
+  font-size: max(18px, calc(93px * var(--text-size, 1)));
   font-weight: 600;
   text-align: center;
-  line-height: 1.1;
+  line-height: 1.2;
   margin: 15px 0;
   color: #ff375f;
 }
 
 .count small {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
   color: #fff;
   letter-spacing: 0;
 }
 
 .done {
-  font-size: max(calc(12px / var(--watch-scale)), calc(83px * var(--text-size, 1)));
+  font-size: max(18px, calc(83px * var(--text-size, 1)));
   color: #ff375f;
   text-align: center;
 }
@@ -210,11 +208,22 @@ h2 {
   display: grid;
   place-items: center;
   margin: 16px 0;
-  line-height: 1;
+  line-height: 1.2;
 }
 
 .done :deep(svg) {
   width: 64px;
   height: 64px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #FF375F; }
+
+.intro-trace, .trace { display:block; border-radius:30px; background:#1c1c1e; padding:10px; }
+.count { font-size:96px; font-weight:600; margin:14px 0; }
+.count small { font-size:20px; margin-top:6px; }
+.ecg-app .platter:empty { display:none; }
 </style>

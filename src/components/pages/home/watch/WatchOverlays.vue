@@ -1,19 +1,14 @@
 <script setup lang="ts">
 import WatchGlyph from "./WatchGlyph.vue";
 import { useWatch, timeText, type FaceId, type OverlayId } from './watch';
-import WatchIcon from './WatchIcon.vue';
 import ActivityRings from './ActivityRings.vue';
+import NotificationCard from './apps/NotificationCard.vue';
+import PowerSlider from './apps/PowerSlider.vue';
 const props = defineProps<{
   kind: Exclude<OverlayId, null>;
 }>();
 const watch = useWatch();
 const detail = ref<'main' | 'medical' | 'sos' | 'airplay' | 'edit'>('main');
-const powerSliders = reactive({
-  off: 0,
-  medical: 0,
-  sos: 0,
-  backtrack: 0
-});
 const answer = ref(0);
 const replies = [
   'I checked your wrist. The bug is probably one level up the stack.',
@@ -28,7 +23,7 @@ const faces: {
 }[] = [{
   id: 'wayfinder',
   name: 'Wayfinder',
-  sample: '◉'
+  sample: ''
 }, {
   id: 'modularUltra',
   name: 'Modular Ultra',
@@ -40,7 +35,7 @@ const faces: {
 }, {
   id: 'activityDigital',
   name: 'Activity Digital',
-  sample: '◎'
+  sample: ''
 }, {
   id: 'utility',
   name: 'Utility',
@@ -56,17 +51,6 @@ watchEffect(() => {
   void props.kind;
   detail.value = 'main';
 });
-function slider(action: keyof typeof powerSliders): void {
-  if (powerSliders[action] < 96) return;
-  powerSliders[action] = 0;
-  if (action === 'off') watch.powerOff();
-  if (action === 'medical') detail.value = 'medical';
-  if (action === 'sos') detail.value = 'sos';
-  if (action === 'backtrack') {
-    watch.navigation.request = 'backtrack';
-    watch.open('compass');
-  }
-}
 function pickFace(face: FaceId): void {
   watch.settings.face = face;
   watch.haptic();
@@ -79,6 +63,7 @@ function airplay(): void {
 <template>
   <section
     class="watch-overlay"
+    :class="'overlay-' + kind"
     data-watch-scroll
     :aria-label="kind + ' panel'"
   >
@@ -95,9 +80,10 @@ function airplay(): void {
       </span>
     </header>
     <template v-if="kind === 'control'">
-      <h1>Control Centre</h1>
+      <h1>{{ detail === 'airplay' ? 'Audio Output' : 'Control Centre' }}</h1>
+      <div v-if="detail !== 'airplay'" class="battery-summary"><WatchGlyph name="bolt" /><strong>87%</strong><span>Battery</span></div>
       <template v-if="detail === 'airplay'">
-        <p class="muted caption">Simulated audio output</p>
+        <p class="muted caption">Choose output</p>
         <button class="watch-button positive" @click="detail = 'main'">
           <WatchGlyph name="check" />
           Watch speaker
@@ -116,7 +102,7 @@ function airplay(): void {
           :aria-pressed="watch.settings.lowPower"
           @click="watch.settings.lowPower = !watch.settings.lowPower"
         >
-          <b>87%</b>
+          <b><WatchGlyph name="bolt" /></b>
           <small>
             {{ watch.settings.lowPower ? 'Low Power on' : 'Battery' }}
           </small>
@@ -161,11 +147,11 @@ function airplay(): void {
           </small>
         </button>
         <button class="tile" @click="watch.open('findDevices')">
-          <WatchIcon name="findDevices" />
+          <b><WatchGlyph name="phone" /></b>
           <small>Ping iPhone</small>
         </button>
         <button class="tile" @click="watch.open('flashlight')">
-          <WatchIcon name="flashlight" />
+          <b><WatchGlyph name="sun" /></b>
           <small>Flashlight</small>
         </button>
         <button
@@ -213,7 +199,7 @@ function airplay(): void {
           <b>
             <WatchGlyph name="airplay" />
           </b>
-          <small>AirPlay demo</small>
+          <small>AirPlay</small>
         </button>
         <button
           class="tile"
@@ -255,35 +241,8 @@ function airplay(): void {
     </template>
     <template v-else-if="kind === 'notifications'">
       <h1>Notifications</h1>
-      <p v-if="!watch.notifications.value.length" class="empty">
-        All caught up.
-        <br />
-        Your wrist approves.
-      </p>
-      <article
-        v-for="note in watch.notifications.value"
-        :key="note.id"
-        class="notification platter"
-      >
-        <button class="note-open" @click="watch.open(note.app)">
-          <WatchIcon :name="note.app" :size="56" />
-          <span>
-            <b>
-              {{ note.title }}
-            </b>
-            <small>
-              {{ note.text }}
-            </small>
-          </span>
-        </button>
-        <button
-          class="note-clear"
-          :aria-label="'Dismiss ' + note.title"
-          @click="watch.notifications.value = watch.notifications.value.filter(item => item.id !== note.id)"
-        >
-          <WatchGlyph name="close" />
-        </button>
-      </article>
+      <div v-if="!watch.notifications.value.length" class="empty"><WatchGlyph name="check" /><p>All caught up</p></div>
+      <NotificationCard v-for="note in watch.notifications.value" :key="note.id" :note="note" :hour24="watch.settings.hour24" @open="watch.open(note.app)" @clear="watch.notifications.value = watch.notifications.value.filter(item => item.id !== note.id)" />
       <button
         v-if="watch.notifications.value.length"
         class="watch-button"
@@ -293,6 +252,7 @@ function airplay(): void {
       </button>
     </template>
     <template v-else-if="kind === 'stack'">
+      <h1>Smart Stack</h1>
       <div class="stack-date">
         {{ watch.now.value.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' }) }}
       </div>
@@ -300,8 +260,8 @@ function airplay(): void {
         {{ timeText(watch.now.value, watch.settings.hour24) }}
       </div>
       <button class="stack-card weather-card" @click="watch.open('weather')">
-        <span>Demo weather · Bengaluru</span>
-        <strong>26° ☀</strong>
+        <span>Weather · Bengaluru</span>
+        <strong class="stack-weather-reading">26° <WatchGlyph name="sun" /></strong>
         <small>A fine day to leave the desk.</small>
       </button>
       <button class="stack-card ring-card" @click="watch.open('activity')">
@@ -327,7 +287,7 @@ function airplay(): void {
         <small>No agenda. Excellent meeting.</small>
       </button>
       <button class="stack-card" @click="watch.open('nowPlaying')">
-        <span>NOW PLAYING · SIMULATED</span>
+        <span>NOW PLAYING</span>
         <strong>
           {{ watch.playback.playing ? 'A small soundtrack' : 'Quiet is also a playlist' }}
         </strong>
@@ -359,50 +319,9 @@ function airplay(): void {
       </template>
       <template v-else>
         <h1>Power controls</h1>
-        <label class="power-slider">
-          Power Off
-          <input
-            v-model.number="powerSliders.off"
-            type="range"
-            min="0"
-            max="100"
-            aria-label="Slide to power off"
-            @input="slider('off')"
-          />
-        </label>
-        <label class="power-slider">
-          Medical ID
-          <input
-            v-model.number="powerSliders.medical"
-            type="range"
-            min="0"
-            max="100"
-            aria-label="Slide to show simulated Medical ID"
-            @input="slider('medical')"
-          />
-        </label>
-        <label class="power-slider sos-slider">
-          Emergency SOS
-          <input
-            v-model.number="powerSliders.sos"
-            type="range"
-            min="0"
-            max="100"
-            aria-label="Slide to open simulated SOS"
-            @input="slider('sos')"
-          />
-        </label>
-        <label class="power-slider">
-          Compass Backtrack
-          <input
-            v-model.number="powerSliders.backtrack"
-            type="range"
-            min="0"
-            max="100"
-            aria-label="Slide to start Backtrack"
-            @input="slider('backtrack')"
-          />
-        </label>
+        <PowerSlider label="Power Off" glyph="power" tone="#ffffff" @complete="watch.powerOff()" />
+        <PowerSlider label="Medical ID" glyph="heart" tone="#ff526f" @complete="detail='medical'" />
+        <PowerSlider label="Emergency SOS" glyph="phone" tone="#ff453a" @complete="detail='sos'" />
         <p class="caption muted">Slide all the way right. Side button boots the watch after power off.</p>
       </template>
     </template>
@@ -431,7 +350,7 @@ function airplay(): void {
           @click="pickFace(face.id)"
         >
           <span class="face-sample" :style="{ color: watch.settings.accent }">
-            {{ face.sample }}
+            <WatchGlyph v-if="face.id === 'wayfinder' || face.id === 'activityDigital'" :name="face.id === 'wayfinder' ? 'location' : 'activity'" /><template v-else>{{ face.sample }}</template>
           </span>
           <span>
             {{ face.name }}
@@ -475,14 +394,15 @@ function airplay(): void {
       </template>
     </template>
     <template v-else-if="kind === 'waterLock'">
+      <h1>Water Lock</h1>
       <div class="water-symbol" aria-hidden="true">
         <WatchGlyph name="water" />
       </div>
-      <h1>Water Lock</h1>
       <p class="muted">Press and hold the Digital Crown to unlock.</p>
       <p class="caption muted">The water is simulated. The button still works.</p>
       <button class="watch-button" @click="watch.overlay(null); watch.haptic('success')">Unlock</button>
     </template>
+    <p class="overlay-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -494,7 +414,10 @@ function airplay(): void {
   overflow: auto;
   overscroll-behavior: contain;
   padding: 70px 24px 38px;
-  background: #050507f5;
+  /* Like watchOS: the face is still there, but blurred into colour so it never competes with the controls. */
+  background: rgb(0 0 0 / .78);
+  backdrop-filter: blur(22px) saturate(1.2) brightness(.7);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2) brightness(.7);
   font-size: 32px;
   line-height: 1.25;
   font-family: -apple-system, "SF Compact Rounded", "SF Pro Rounded", ui-rounded, "Inter", "Segoe UI", sans-serif;
@@ -805,7 +728,7 @@ h1 {
 
 .watch-overlay {
   padding: 80px 22px 64px;
-  font-size: max(calc(12px / var(--watch-scale)), 25px);
+  font-size: 25px;
   border-radius: inherit;
   scroll-padding-block: 70px;
 }
@@ -844,7 +767,7 @@ h1 {
 }
 
 .tile small {
-  font-size: max(calc(12px / var(--watch-scale)), 21px);
+  font-size: 21px;
   line-height: 1.2;
 }
 
@@ -890,4 +813,59 @@ h1 {
   width: 90px;
   height: 90px;
 }
+</style>
+
+<style scoped>
+.watch-overlay { box-sizing:border-box; padding:98px 22px 64px; font-family:'SF Pro Rounded','SF Pro Display',-apple-system,BlinkMacSystemFont,system-ui,sans-serif; font-size:24px; line-height:1.25; }
+.watch-overlay *, .watch-overlay *::before, .watch-overlay *::after { box-sizing:border-box; }
+.watch-overlay h1 { font-size:34px; font-weight:700; letter-spacing:-.3px; line-height:1.2; margin:0 0 14px; }
+.overlay-header { top:20px; left:36px; right:36px; font-size:23px; }
+.dismiss { width:52px; height:52px; border-radius:50%; }
+.dismiss :deep(svg) { width:26px; height:26px; }
+.watch-overlay .watch-button { width:100%; min-height:64px; border-radius:32px; padding:14px 18px; font-size:25px; font-weight:600; line-height:1.25; }
+.watch-overlay .platter { background:#1c1c1e; border-radius:30px; padding:18px 20px; margin-bottom:10px; }
+.watch-overlay .caption { font-size:20px; line-height:1.25; }
+.battery-summary { display:flex; align-items:center; justify-content:center; gap:8px; margin:12px 0 24px; color:#ffffff99; font-size:20px; }
+.battery-summary :deep(svg) { width:28px; height:28px; color:#30d158; }
+.battery-summary strong { font-size:34px; color:white; }
+.control-grid { grid-template-columns:repeat(2,minmax(0,1fr)); justify-items:center; gap:44px 20px; margin:12px 0 48px; }
+.control-grid .tile { position:relative; display:grid; place-items:center; width:92px; height:92px; border:0; border-radius:50%; background:#2c2c2e; color:white; }
+.control-grid .tile.enabled { background:white; color:black; }
+.control-grid .tile b { display:grid; place-items:center; }
+.control-grid .tile b :deep(svg) { width:38px; height:38px; }
+.control-grid .tile small { position:absolute; top:100px; left:50%; transform:translateX(-50%); width:156px; text-align:center; color:#ffffff99; font-size:18px; line-height:1.2; }
+.range-label { margin-top:10px; font-size:24px; }
+.empty { min-height:260px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:30px 0; }
+.empty :deep(svg) { width:60px; height:60px; color:#ffffff59; }
+.empty p { margin:0; font-size:25px; }
+.stack-card { border-radius:30px; background:#1c1c1e; border:0; padding:18px 20px; margin:10px 0; gap:10px; }
+.stack-card span { font-size:22px; line-height:1.25; min-width:0; }
+.stack-card strong { font-size:30px; line-height:1.25; overflow-wrap:anywhere; }
+.stack-card small { font-size:20px; line-height:1.25; }
+.stack-card.ring-card { gap:18px; }
+.ring-card :deep(svg) { flex:0 0 102px; }
+.stack-card .stack-weather-reading { display:flex; align-items:center; gap:12px; font-size:64px; }
+.stack-weather-reading :deep(svg) { width:44px; height:44px; color:#ffd60a; }
+.stack-date { font-size:22px; line-height:1.25; }
+.stack-time { font-size:80px; font-weight:600; line-height:1.2; margin:6px 0 20px; }
+.gallery-card { border-radius:30px; line-height:1.25; }
+.gallery-card > span:last-child { min-width:0; }
+.gallery-card small { font-size:20px; line-height:1.25; }
+.overlay-footnote { font-size:18px; color:#ffffff66; text-align:center; line-height:1.3; margin:28px 0 0; }
+.watch-overlay button { transition:transform 160ms ease; }
+.watch-overlay button:active { transform:scale(.96); }
+.watch-overlay :is(button,input,select):focus-visible { outline:3px solid white; outline-offset:3px; }
+@media (prefers-reduced-motion:reduce) { .watch-overlay *, .watch-overlay *::before, .watch-overlay *::after { animation:none !important; transition:none !important; } }
+</style>
+
+<style scoped>
+.watch-overlay.overlay-control h1 { color:#ffffff; }
+.watch-overlay.overlay-notifications h1 { color:#ffffff; }
+.watch-overlay.overlay-stack h1 { color:#ffffff; }
+.watch-overlay.overlay-power h1 { color:#ff453a; }
+.watch-overlay .tile { min-height:92px !important; }
+.watch-overlay .dismiss { min-height:52px !important; min-width:52px !important; }
+.watch-overlay .watch-button { min-height:64px !important; }
+.watch-overlay button { transition:transform 160ms ease !important; }
+.face-sample :deep(svg) { width:48px; height:48px; }
 </style>

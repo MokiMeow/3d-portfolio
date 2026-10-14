@@ -161,6 +161,7 @@ useWatchHardware('stopwatch', {
         </span>
       </div>
     </div>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -190,7 +191,7 @@ useWatchHardware('stopwatch', {
   background: none;
   border: 0;
   color: #888;
-  font-size: max(calc(12px / var(--watch-scale)), calc(27px * var(--text-size, 1)));
+  font-size: max(18px, calc(27px * var(--text-size, 1)));
   border-radius: 22px;
 }
 
@@ -200,7 +201,7 @@ useWatchHardware('stopwatch', {
 }
 
 .elapsed {
-  font-size: max(calc(12px / var(--watch-scale)), calc(59px * var(--text-size, 1)));
+  font-size: max(18px, calc(59px * var(--text-size, 1)));
   font-weight: 300;
   text-align: center;
   letter-spacing: -3px;
@@ -209,7 +210,7 @@ useWatchHardware('stopwatch', {
 }
 
 .elapsed.compact {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   letter-spacing: 0;
   margin: 16px 0;
 }
@@ -251,7 +252,7 @@ useWatchHardware('stopwatch', {
   top: 65%;
   width: 100%;
   text-align: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   color: #aaa;
 }
 
@@ -299,7 +300,7 @@ useWatchHardware('stopwatch', {
   bottom: -24px;
   width: 100%;
   text-align: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
 }
 
 .graph p {
@@ -310,7 +311,7 @@ useWatchHardware('stopwatch', {
 .laps {
   margin-top: 16px;
   font-variant-numeric: tabular-nums;
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
 }
 
 .current {
@@ -325,4 +326,18 @@ useWatchHardware('stopwatch', {
   width: 30px;
   height: 30px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #FF9500; }
+
+.styles { border-radius:30px; }
+.styles button { min-height:64px; }
+.elapsed { font-size:72px; font-weight:600; line-height:1.2; letter-spacing:-3px; margin:20px 0; overflow-wrap:anywhere; }
+.elapsed.compact { font-size:42px; margin:16px 0; }
+.stopwatch-app .button-row { justify-content:space-around; gap:30px; margin:16px 0 24px; }
+.stopwatch-app .button-row .watch-button { flex:0 0 112px; width:112px; height:112px; border-radius:50%; padding:12px; }
+.laps .row { font-size:24px; line-height:1.25; flex-wrap:wrap; }
 </style>

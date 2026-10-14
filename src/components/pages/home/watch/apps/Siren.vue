@@ -217,7 +217,7 @@ useWatchHardware('siren', {
       >
         {{ countdown }}
       </div>
-      <p class="caption">Starting quiet demonstration…</p>
+      
       <button class="watch-button stop-button" @click="stop">Cancel</button>
     </template>
     <template v-else>
@@ -230,7 +230,8 @@ useWatchHardware('siren', {
     <p v-if="phase!=='running'" class="caption muted">
       {{ soundStatus }}
     </p>
-    <p class="caption muted">This browser demo is quiet and cannot signal an emergency or contact help. Leaving this app stops it.</p>
+    
+    <p class="polish-footnote">Demo data, for fun. Cannot contact emergency services.</p>
   </section>
 </template>
 
@@ -244,14 +245,14 @@ useWatchHardware('siren', {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
-  line-height: 1.1;
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
+  line-height: 1.2;
   margin: 0 0 22px;
   font-weight: 700;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
   margin: 0 0 12px;
 }
 
@@ -278,7 +279,7 @@ h2 {
   background: #252527;
   color: white;
   padding: 0 20px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
 }
 
 .siren-app {
@@ -310,7 +311,7 @@ h1 {
   position: relative;
   background: linear-gradient(90deg,#FF9F0A var(--hold),#FF553A var(--hold)) !important;
   color: black !important;
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1))) !important;
+  font-size: max(18px, calc(26px * var(--text-size, 1))) !important;
   user-select: none;
   touch-action: none !important;
 }
@@ -318,11 +319,11 @@ h1 {
 .stop-button {
   background: #FF453A !important;
   color: white !important;
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1))) !important;
+  font-size: max(18px, calc(28px * var(--text-size, 1))) !important;
 }
 
 .countdown {
-  font-size: max(calc(12px / var(--watch-scale)), calc(93px * var(--text-size, 1)));
+  font-size: max(18px, calc(93px * var(--text-size, 1)));
   line-height: 1.2;
   font-weight: 700;
   color: #FF9F0A;
@@ -341,4 +342,14 @@ h1 {
   height: 104px;
   margin: 6px auto 12px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #FF553A; }
+
+.siren-symbol { width:144px; height:128px; margin:18px auto; }
+.countdown { font-size:96px; font-weight:600; }
+.siren-app .watch-button { min-height:64px; border-radius:32px; font-size:25px !important; }
 </style>

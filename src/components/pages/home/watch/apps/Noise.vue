@@ -135,7 +135,7 @@ onBeforeUnmount(stopMicrophone);
   <section class="watch-app noise-app">
     <h1>Noise</h1>
     <p class="source-label">
-      {{ mode === 'microphone' ? 'MICROPHONE · RELATIVE ESTIMATE' : 'SIMULATED SOUND LEVEL' }}
+      {{ mode === 'microphone' ? 'Microphone · relative estimate' : 'Sound level' }}
     </p>
     <p class="decibels" :class="{ elevated }">
       {{ level }}
@@ -160,7 +160,7 @@ onBeforeUnmount(stopMicrophone);
     </div>
     <div class="status" :class="{ elevated }">
       <span>
-        <span v-if="elevated">!</span>
+        <WatchGlyph v-if="elevated" name="info" />
         <WatchGlyph v-else name="check" />
       </span>
       <h2>
@@ -199,6 +199,7 @@ onBeforeUnmount(stopMicrophone);
       {{ message || 'Optional microphone access is requested only when you tap. Audio is never recorded or uploaded.' }}
     </p>
     <p v-if="mode === 'microphone'" class="caption muted">*Browser amplitude converted to a relative estimate. This is not calibrated dB SPL.</p>
+    <p class="polish-footnote">Not a medical device.</p>
   </section>
 </template>
 
@@ -212,13 +213,13 @@ onBeforeUnmount(stopMicrophone);
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(31px * var(--text-size, 1)));
+  font-size: max(18px, calc(31px * var(--text-size, 1)));
   font-weight: 700;
   margin: 0 0 22px;
 }
 
 .source-label {
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
   letter-spacing: .8px;
   color: #a5a5a8;
   line-height: 1.2;
@@ -226,16 +227,16 @@ h1 {
 }
 
 .decibels {
-  font-size: max(calc(12px / var(--watch-scale)), calc(120px * var(--text-size, 1)));
+  font-size: max(18px, calc(120px * var(--text-size, 1)));
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.2;
   letter-spacing: -7px;
   margin: 25px 0;
   color: #b6f31b;
 }
 
 .decibels small {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   letter-spacing: -1px;
   margin-left: 12px;
   color: #fff;
@@ -285,19 +286,19 @@ h1 {
   place-items: center;
   border: 3px solid currentColor;
   border-radius: 50%;
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
 }
 
 .status h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   font-weight: 600;
   margin: 0;
-  line-height: 1.1;
+  line-height: 1.2;
 }
 
 .status small {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   color: #9c9c9f;
   margin-top: 7px;
 }
@@ -329,4 +330,17 @@ h1 {
 .source-label {
   margin: 8px 0;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #FFD60A; }
+
+.source-label { font-size:20px; line-height:1.25; color:#ffffff99; }
+.noise-app .status { align-items:center; gap:14px; }
+.noise-app .status h2 { margin:0; font-size:24px; text-transform:none; color:inherit; }
+.noise-app .status small { display:block; margin-top:6px; font-size:20px; }
+.sound-meter { gap:5px; }
+.sound-meter i { min-width:0; flex:1; }
 </style>

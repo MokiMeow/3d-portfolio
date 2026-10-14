@@ -90,12 +90,8 @@ useWatchHardware('cameraRemote', {
 
 <template>
   <div class="watch-app root">
-    <h1>Camera Remote</h1>
+    <h1>{{ gallery ? (capture ? 'Capture' : 'Recent Captures') : 'Camera Remote' }}</h1>
     <template v-if="gallery">
-      <button class="back" @click="selected = null; gallery = false">
-        <WatchGlyph name="back" />
-        Viewfinder
-      </button>
       <h2>
         {{ capture ? 'Demo capture' : 'Recent captures' }}
       </h2>
@@ -114,7 +110,7 @@ useWatchHardware('cameraRemote', {
         <button class="watch-button danger" @click="captures = captures.filter(item => item.id !== selected); selected = null">
           Delete capture
         </button>
-        <button class="watch-button" @click="selected = null">All captures</button>
+
       </template>
       <template v-else>
         <button
@@ -204,11 +200,8 @@ useWatchHardware('cameraRemote', {
         {{ captures.length ? 'Demo capture saved.' : 'Tap shutter or Action button.' }}
       </p>
     </template>
-    <p class="caption muted">
-      Illustrated camera simulation.
-      <br />
-      No camera access or iPhone connection.
-    </p>
+    
+    <p class="polish-footnote">Demo data, for fun.</p>
   </div>
 </template>
 
@@ -222,12 +215,12 @@ useWatchHardware('cameraRemote', {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   margin: 0 0 18px;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   margin: 14px 0;
 }
 
@@ -261,7 +254,7 @@ h2 {
   bottom: 12px;
   left: 15px;
   color: white;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   letter-spacing: 1px;
   text-shadow: 0 1px 4px black;
 }
@@ -273,7 +266,7 @@ h2 {
   place-items: center;
   color: white;
   background: #0005;
-  font-size: max(calc(12px / var(--watch-scale)), calc(78px * var(--text-size, 1)));
+  font-size: max(18px, calc(78px * var(--text-size, 1)));
   font-weight: 500;
 }
 
@@ -290,7 +283,7 @@ h2 {
   border-radius: 28px;
   background: #252527;
   color: #ddd;
-  font-size: max(calc(12px / var(--watch-scale)), calc(24px * var(--text-size, 1)));
+  font-size: max(18px, calc(24px * var(--text-size, 1)));
 }
 
 .controls button[aria-pressed=true] {
@@ -335,14 +328,14 @@ h2 {
   border-radius: 18px;
   background: #454541;
   color: #eee;
-  font-size: max(calc(12px / var(--watch-scale)), calc(33px * var(--text-size, 1)));
+  font-size: max(18px, calc(33px * var(--text-size, 1)));
 }
 
 .thumbnail small {
   position: absolute;
   right: 5px;
   bottom: 3px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   background: #111b;
   border-radius: 10px;
   padding: 1px 5px;
@@ -362,7 +355,7 @@ h2 {
   border: 0;
   background: none;
   color: #ddd;
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   padding: 0;
 }
 
@@ -379,24 +372,24 @@ h2 {
 }
 
 .photo>span:first-child {
-  font-size: max(calc(12px / var(--watch-scale)), calc(34px * var(--text-size, 1)));
+  font-size: max(18px, calc(34px * var(--text-size, 1)));
   color: #d4bd94;
 }
 
 .photo strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
 }
 
 .photo small {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   color: #aaa;
   margin-top: 6px;
 }
 
 .photo b {
   margin-left: auto;
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   color: #888;
 }
 
@@ -410,12 +403,12 @@ h2 {
 
 .snapshot>span {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(83px * var(--text-size, 1)));
+  font-size: max(18px, calc(83px * var(--text-size, 1)));
   color: #d4bd94;
 }
 
 .snapshot strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
 }
 
 .watch-button {
@@ -432,7 +425,7 @@ h2 {
 }
 
 .preview-label {
-  font-size: max(21px, calc(12px / var(--watch-scale)));
+  font-size: 21px;
   background: #000a;
   padding: 3px 6px;
   border-radius: 6px;
@@ -456,4 +449,22 @@ h2 {
   width: 100%;
   height: 174px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #BDBDC2; }
+
+.viewfinder { border-radius:30px; }
+.viewfinder :deep(svg) { width:100%; height:140px; display:block; }
+.controls { gap:10px; margin-bottom:10px; }
+.controls button { min-height:64px; border-radius:32px; min-width:0; }
+.shutter-row { margin:12px 0 18px; }
+.shutter { width:96px; height:96px; flex:0 0 96px; }
+.photo { gap:12px; }
+.photo > span:nth-child(2) { flex:1; min-width:0; }
+.photo b { flex:0 0 24px; color:#ffffff59; }
+.snapshot { border-radius:30px; padding:20px; }
+.snapshot strong { display:block; margin-top:12px; line-height:1.25; }
 </style>

@@ -118,17 +118,8 @@ useWatchHardware('maps', {
 
 <template>
   <section class="watch-app maps-app">
-    <h1>Maps</h1>
-    <div class="map-caption">
-      <span class="caption">Offline demo</span>
-      <button
-        class="recenter"
-        @click="pan={x:0,y:0};zoom=1"
-        aria-label="Recenter map"
-      >
-        <WatchGlyph name="location" />
-      </button>
-    </div>
+    <h1>{{ place ? place.name : 'Maps' }}</h1>
+    <div class="map-frame">
     <svg
       class="map"
       viewBox="0 0 340 340"
@@ -169,8 +160,8 @@ useWatchHardware('maps', {
           x="18"
           y="36"
           fill="#80B990"
-          :font-size="Math.max(31, 31 / zoom)"
-        >BUG-FREE PARK</text>
+          font-size="18"
+        >PARK</text>
         <text
           x="144"
           y="150"
@@ -228,13 +219,19 @@ useWatchHardware('maps', {
           x="24"
           y="322"
           fill="white"
-          font-size="15"
+          font-size="18"
         >
           {{ Math.round(100/zoom) }}
           m
         </text>
       </g>
     </svg>
+      <div class="map-controls">
+        <button aria-label="Locate" @click="pan={x:0,y:0};zoom=1"><WatchGlyph name="location" /></button>
+        <button aria-label="Zoom in" @click="zoom=clamp(zoom+.2,.6,3)">+</button>
+        <button aria-label="Zoom out" @click="zoom=clamp(zoom-.2,.6,3)">−</button>
+      </div>
+    </div>
     <p class="caption muted">Crown to zoom · drag to explore</p>
     <template v-if="place">
       <div class="platter">
@@ -243,7 +240,7 @@ useWatchHardware('maps', {
         </h2>
         <p class="caption muted">
           {{ place.subtitle }}
-          · fictional
+         
         </p>
         <button class="watch-button" @click="toggleSaved">
           <WatchGlyph name="star" />
@@ -271,7 +268,7 @@ useWatchHardware('maps', {
         </div>
         <button class="watch-button" @click="endRoute">End route</button>
       </template>
-      <button class="watch-button" @click="selected=null;endRoute()">All places</button>
+
     </template>
     <template v-else>
       <h2>Saved places</h2>
@@ -306,6 +303,7 @@ useWatchHardware('maps', {
       </button>
     </template>
     <p class="caption muted">Drawn offline map. No live location or real directions.</p>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -319,14 +317,14 @@ useWatchHardware('maps', {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
-  line-height: 1.1;
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
+  line-height: 1.2;
   margin: 0 0 22px;
   font-weight: 700;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
   margin: 0 0 12px;
 }
 
@@ -353,7 +351,7 @@ h2 {
   background: #252527;
   color: white;
   padding: 0 20px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
 }
 
 .map-caption {
@@ -371,7 +369,7 @@ h2 {
   border-radius: 50%;
   background: #202124;
   color: #0A84FF;
-  font-size: max(calc(12px / var(--watch-scale)), calc(33px * var(--text-size, 1)));
+  font-size: max(18px, calc(33px * var(--text-size, 1)));
 }
 
 .map {
@@ -397,7 +395,7 @@ h2 {
 }
 
 .place-button strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
 }
 
 .maps-app h2 {
@@ -413,7 +411,7 @@ h2 {
 }
 
 .instruction strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
 }
 
 .route-progress {
@@ -436,4 +434,23 @@ h2 {
 .map-caption {
   margin-bottom: 10px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #30D158; }
+
+.map-frame { position:relative; width:calc(100% + 4px); margin-inline:-2px; }
+.map-frame .map { width:100%; height:340px; margin:0; border-radius:30px; }
+.map-controls { position:absolute; right:12px; bottom:12px; display:flex; flex-direction:column; gap:8px; }
+.map-controls button { display:grid; place-items:center; width:52px; height:52px; border:0; border-radius:50%; background:#1c1c1eef; color:#30d158; font-size:26px; box-shadow:0 3px 8px #0005; }
+.map-controls :deep(svg) { width:26px; height:26px; }
+.place-button .caption { display:flex; align-items:center; justify-content:space-between; width:100%; }
+.place-button .caption :deep(svg) { color:#ffffff59; }
+.maps-app .instruction strong { display:flex; gap:8px; align-items:center; line-height:1.25; }
+
+.map-controls button { min-height:52px !important; }
+
+.map-frame { width:calc(100% + 2px); margin-inline:-1px; }
 </style>

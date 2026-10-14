@@ -3,7 +3,7 @@ import { labDeviceBack } from '~/common/models/lab-device.model';
 import { WATCH_VIEWS } from './watch/registry';
 import { useWatchSystem } from './watch/useWatchSystem';
 import { useHardwareButton } from './watch/useHardwareButton';
-import { clamp, timeText, type FaceId, type WatchAppId } from './watch/watch';
+import { WATCH_APPS, clamp, timeText, type FaceId, type WatchAppId } from './watch/watch';
 import WatchFace from './watch/faces/WatchFace.vue';
 import WatchAppView from './watch/WatchAppView.vue';
 import WatchOverlays from './watch/WatchOverlays.vue';
@@ -25,7 +25,6 @@ const {
 } = system;
 const overlay = system.overlayId;
 const scale = ref(0.7);
-const zoom = ref(1);
 const crownAngle = ref(0);
 const watchRoot = ref<HTMLElement | null>(null);
 const screen = ref<HTMLElement | null>(null);
@@ -33,6 +32,15 @@ const scrollIndicator = ref(false);
 const scrollPosition = ref(0);
 const scrollRange = ref(0);
 const scrollThumb = ref(64);
+// Like watchOS, an app's large title slides up into the top bar once it scrolls out of view.
+const navTitle = ref('');
+const titled = ref(false);
+const appColor = computed(() => WATCH_APPS.find(app => app.id === activeApp.value)?.color ?? '#fff');
+// On the watch face a notification arrives as a full "long look" sheet; inside apps it drops in as a banner.
+const longLook = computed(() => !activeApp.value && view.value === 'face');
+const bannerApp = computed(() => WATCH_APPS.find(app => app.id === banner.value?.app)?.name ?? '');
+const bannerShift = ref(0);
+let bannerPull: { id: number; y: number; moved: boolean } | null = null;
 const origin = ref({
   x: 211,
   y: 257
@@ -65,7 +73,8 @@ let gesture: {
 let suppressScreenClick = false;
 let wheelRemainder = 0;
 let inertiaFrame = 0;
-let velocity = 0;
+// The crown moves a goal position and the content eases towards it: precise detents, no runaway momentum.
+let scrollGoal = 0;
 let scrollTarget: HTMLElement | null = null;
 let previousFrame = 0;
 let rubberBand: Animation | null = null;
@@ -112,7 +121,6 @@ function stopInertia(): void {
   rubberBand = null;
   cancelAnimationFrame(inertiaFrame);
   inertiaFrame = 0;
-  velocity = 0;
   scrollTarget = null;
 }
 function indicate(target: HTMLElement): void {
@@ -132,26 +140,25 @@ function inertialScroll(): void {
   const time = performance.now();
   const elapsed = previousFrame ? Math.min(32, time - previousFrame) : 16;
   previousFrame = time;
-  scrollTarget.scrollTop += velocity * elapsed / 16;
-  indicate(scrollTarget);
-  velocity *= Math.pow(0.82, elapsed / 16);
-  if (Math.abs(velocity) < 0.6) {
+  scrollGoal = clamp(scrollGoal, 0, scrollTarget.scrollHeight - scrollTarget.clientHeight);
+  const remaining = scrollGoal - scrollTarget.scrollTop;
+  if (Math.abs(remaining) < 0.6) {
+    scrollTarget.scrollTop = scrollGoal;
+    indicate(scrollTarget);
     stopInertia();
     return;
   }
+  scrollTarget.scrollTop += remaining * (1 - Math.pow(0.72, elapsed / 16));
+  indicate(scrollTarget);
   inertiaFrame = requestAnimationFrame(inertialScroll);
 }
 function rotate(delta: number): void {
   const amount = clamp(delta, -5, 5);
   crownAngle.value += amount * 26;
   if (system.crownTurn(amount)) return;
-  if (!activeApp.value && view.value === 'apps' && !overlay.value && settings.appView === 'grid') {
-    const nextZoom = clamp(zoom.value + amount * 0.07, 0.76, 1.35);
-    if (nextZoom !== zoom.value) {
-      zoom.value = nextZoom;
-      return;
-    }
-  }
+  scrollContent(amount);
+}
+function scrollContent(amount: number): void {
   const target = currentScroller();
   if (!target) return;
   const atEdge = amount < 0 ? target.scrollTop <= 0 : target.scrollTop + target.clientHeight >= target.scrollHeight - 1;
@@ -169,12 +176,28 @@ function rotate(delta: number): void {
     indicate(target);
     return;
   }
+  if (scrollTarget !== target) scrollGoal = target.scrollTop;
   scrollTarget = target;
-  velocity = clamp(velocity + amount * 18, -70, 70);
+  scrollGoal += amount * 16;
   if (!inertiaFrame) {
     previousFrame = 0;
     inertiaFrame = requestAnimationFrame(inertialScroll);
   }
+}
+// Scrolling over the screen always moves the content, the way a finger would; only the crown itself
+// reaches apps that use it as a dial (timers, maps, games).
+function screenWheel(event: WheelEvent): void {
+  if (Math.abs(event.deltaY) < 0.2) return;
+  if (!activeApp.value && view.value === 'face' && !overlay.value) {
+    wheel(event);
+    return;
+  }
+  system.wake();
+  const target = currentScroller();
+  if (!target) return;
+  stopInertia();
+  target.scrollTop += event.deltaY * (event.deltaMode === 1 ? 32 : 1) / scale.value;
+  indicate(target);
 }
 function wheel(event: WheelEvent): void {
   if (Math.abs(event.deltaY) < 0.2) return;
@@ -325,9 +348,35 @@ function scroll(event: Event): void {
   if (event.target instanceof HTMLElement) {
     indicate(event.target);
     measureScroll();
+    if (event.target.matches('.watch-app, .app-view')) {
+      titled.value = event.target.scrollTop > 46;
+      navTitle.value = event.target.querySelector('h1')?.textContent?.trim() || system.appName.value;
+    }
   }
 }
+// Notifications can be flicked away (up for a banner, down for the long look) or tapped to open their app.
+function bannerDown(event: PointerEvent): void {
+  if (!event.isPrimary) return;
+  bannerPull = { id: event.pointerId, y: event.clientY, moved: false };
+  if (event.currentTarget instanceof HTMLElement) event.currentTarget.setPointerCapture(event.pointerId);
+}
+function bannerMove(event: PointerEvent): void {
+  if (!bannerPull || bannerPull.id !== event.pointerId) return;
+  const dy = (event.clientY - bannerPull.y) / scale.value;
+  if (Math.abs(dy) > 6) bannerPull.moved = true;
+  bannerShift.value = longLook.value ? Math.max(0, dy) : Math.min(0, dy);
+}
+function bannerUp(event: PointerEvent): void {
+  if (!bannerPull || bannerPull.id !== event.pointerId) return;
+  const shift = bannerShift.value;
+  const moved = bannerPull.moved;
+  bannerPull = null;
+  bannerShift.value = 0;
+  if (Math.abs(shift) > 40) banner.value = null;
+  else if (!moved && banner.value && !longLook.value) system.open(banner.value.app);
+}
 watch([activeApp, overlay, view, dimmed], () => {
+  titled.value = false;
   stopInertia();
   void nextTick(scheduleMeasure);
 });
@@ -406,7 +455,7 @@ onBeforeUnmount(() => {
             :class="{ 'on-face': !activeApp && view === 'face' && !overlay,
             'is-dimmed': dimmed, reduced: reducedMotion, night: settings.nightMode, 'has-overlay': !!overlay, 'light-display': activeApp === 'flashlight' }"
             :style="{ '--origin-x': origin.x + 'px', '--origin-y': origin.y + 'px' }"
-            @wheel.prevent="wheel"
+            @wheel.prevent="screenWheel"
             @pointerdown="screenDown"
             @pointermove="screenMove"
             @pointerup="screenUp"
@@ -423,7 +472,6 @@ onBeforeUnmount(() => {
               <WatchFace v-if="!activeApp && view === 'face'" :inert="!!overlay" />
               <WatchAppView
                 v-else-if="!activeApp"
-                :zoom="zoom"
                 :inert="!!overlay"
                 @open="openFromIcon"
               />
@@ -440,7 +488,7 @@ onBeforeUnmount(() => {
               <div
                 v-if="!overlay"
                 class="status-bar"
-                aria-hidden="true"
+                :class="{ 'in-app': activeApp || view !== 'face', titled }"
               >
                 <template v-if="!activeApp && view === 'face'">
                   <i v-if="system.notifications.value.length" class="notification-dot" />
@@ -455,11 +503,21 @@ onBeforeUnmount(() => {
                   <button
                     class="app-back"
                     :aria-label="activeApp ? 'Back from ' + system.appName.value : 'Back to watch face'"
+                    :style="{ '--tint': activeApp ? appColor : '#fff' }"
                     @click="system.back()"
                   >
                     <WatchGlyph name="back" />
                   </button>
-                  <span class="app-time">
+                  <Transition name="nav-title">
+                    <span
+                      v-if="activeApp && titled && navTitle"
+                      class="nav-title"
+                      :style="{ color: appColor }"
+                    >
+                      {{ navTitle }}
+                    </span>
+                  </Transition>
+                  <span class="app-time" aria-hidden="true">
                     {{ statusTime }}
                   </span>
                 </template>
@@ -471,21 +529,50 @@ onBeforeUnmount(() => {
                   :kind="overlay"
                 />
               </Transition>
-              <Transition name="banner">
-                <button
-                  v-if="banner"
-                  class="notification-banner"
-                  @click="system.open(banner.app)"
+              <Transition :name="longLook ? 'long-look' : 'banner'">
+                <div
+                  v-if="banner && longLook"
+                  :key="'long' + banner.id"
+                  class="long-look"
+                  role="alert"
+                  :style="{ transform: bannerShift ? 'translateY(' + bannerShift + 'px)' : undefined }"
+                  @pointerdown="bannerDown"
+                  @pointermove="bannerMove"
+                  @pointerup="bannerUp"
+                  @pointercancel="bannerUp"
                 >
-                  <WatchIcon :name="banner.app" :size="48" />
-                  <span>
-                    <b>
-                      {{ banner.title }}
-                    </b>
-                    <small>
-                      {{ banner.text }}
-                    </small>
+                  <div class="look-head">
+                    <WatchIcon :name="banner.app" :size="58" />
+                    <span>{{ bannerApp }}</span>
+                    <time>now</time>
+                  </div>
+                  <b class="look-title">{{ banner.title }}</b>
+                  <p class="look-text">{{ banner.text }}</p>
+                  <div class="look-actions">
+                    <button class="look-open" @pointerdown.stop @click="system.open(banner.app)">Open</button>
+                    <button class="look-dismiss" @pointerdown.stop @click="banner = null">Dismiss</button>
+                  </div>
+                </div>
+                <button
+                  v-else-if="banner"
+                  :key="'banner' + banner.id"
+                  class="notification-banner"
+                  :style="{ transform: bannerShift ? 'translateY(' + bannerShift + 'px)' : undefined }"
+                  @pointerdown="bannerDown"
+                  @pointermove="bannerMove"
+                  @pointerup="bannerUp"
+                  @pointercancel="bannerUp"
+                >
+                  <WatchIcon :name="banner.app" :size="46" />
+                  <span class="banner-copy">
+                    <span class="banner-app">
+                      {{ bannerApp }}
+                      <time>now</time>
+                    </span>
+                    <b>{{ banner.title }}</b>
+                    <small>{{ banner.text }}</small>
                   </span>
+                  <i class="banner-grabber" aria-hidden="true" />
                 </button>
               </Transition>
               <div
@@ -496,11 +583,6 @@ onBeforeUnmount(() => {
               >
                 <i :style="{ height: scrollThumb + 'px', transform: 'translateY(' + scrollPosition * (300 - scrollThumb) + 'px)' }" />
               </div>
-              <div
-                v-if="scrollRange > 1 && scrollPosition < 0.98 && activeApp !== 'flashlight'"
-                class="scroll-shade"
-                aria-hidden="true"
-              />
             </div>
             <div
               v-if="booting"

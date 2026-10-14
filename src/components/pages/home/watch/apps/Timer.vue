@@ -68,7 +68,7 @@ useWatchHardware('timer', {
 
 <template>
   <section class="watch-app timer-app">
-    <h1>Timers</h1>
+    <h1>{{ custom ? 'Custom Timer' : 'Timers' }}</h1>
     <template v-if="custom">
       <p class="caption muted">Turn the Crown to adjust</p>
       <div class="time-picker">
@@ -132,6 +132,7 @@ useWatchHardware('timer', {
       </div>
       <button class="watch-button add" @click="custom=true">＋ Custom Timer</button>
     </template>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -160,16 +161,16 @@ useWatchHardware('timer', {
   background: #302211;
   color: #ff9f0a;
   border: 0;
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
 }
 
 .presets strong {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(34px * var(--text-size, 1)));
+  font-size: max(18px, calc(34px * var(--text-size, 1)));
 }
 
 .presets span {
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
 }
 
 .add {
@@ -183,7 +184,7 @@ useWatchHardware('timer', {
 }
 
 .running .metric {
-  font-size: max(calc(12px / var(--watch-scale)), calc(55px * var(--text-size, 1)));
+  font-size: max(18px, calc(55px * var(--text-size, 1)));
   font-variant-numeric: tabular-nums;
 }
 
@@ -218,12 +219,12 @@ useWatchHardware('timer', {
   min-height: 150px;
   background: #1c1c1e;
   color: white;
-  font-size: max(calc(12px / var(--watch-scale)), calc(55px * var(--text-size, 1)));
+  font-size: max(18px, calc(55px * var(--text-size, 1)));
 }
 
 .time-picker small {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   color: #aaa;
 }
 
@@ -231,4 +232,16 @@ useWatchHardware('timer', {
   border-color: #ff9f0a;
   color: #ff9f0a;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #FF9500; }
+
+.running .metric { justify-content:center; font-size:64px; letter-spacing:-2px; overflow-wrap:anywhere; }
+.presets { grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.presets button { border-radius:30px; min-height:96px; }
+.time-picker button { min-width:0; border-radius:30px; font-size:56px; overflow-wrap:anywhere; }
+.time-picker small { font-size:26px; font-weight:600; }
 </style>

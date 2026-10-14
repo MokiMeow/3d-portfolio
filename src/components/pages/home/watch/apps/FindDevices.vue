@@ -67,9 +67,9 @@ useWatchHardware('findDevices', {
 
 <template>
   <div class="watch-app root" :class="{ still: !animate }">
-    <h1>Find Devices</h1>
+    <h1>{{ device ? device.name : 'Find Devices' }}</h1>
     <template v-if="!device">
-      <p class="caption muted">Fictional devices</p>
+      
       <button
         v-for="item in devices"
         :key="item.id"
@@ -86,7 +86,7 @@ useWatchHardware('findDevices', {
           <small>
             {{ item.location }}
           </small>
-          <small class="online">● Demo online</small>
+          <small class="online">Online</small>
         </span>
         <span class="arrow">
           <WatchGlyph name="next" />
@@ -94,10 +94,6 @@ useWatchHardware('findDevices', {
       </button>
     </template>
     <template v-else>
-      <button class="back" @click="selected = null; stop()">
-        <WatchGlyph name="back" />
-        Devices
-      </button>
       <h2>
         {{ device.name }}
       </h2>
@@ -137,13 +133,13 @@ useWatchHardware('findDevices', {
             x="23"
             y="50"
             fill="#a3bca9"
-            font-size="16"
+            font-size="18"
           >IMAGINARY PARK</text>
           <text
             x="225"
             y="216"
             fill="#9ca69d"
-            font-size="16"
+            font-size="18"
           >STUDIO</text>
           <circle
             cx="75"
@@ -206,7 +202,8 @@ useWatchHardware('findDevices', {
         {{ directions ? 'Hide demo route' : 'Show demo directions' }}
       </button>
     </template>
-    <p class="caption muted">No location tracking or device connection.</p>
+
+    <p class="polish-footnote">Demo data, for fun.</p>
   </div>
 </template>
 
@@ -220,12 +217,12 @@ useWatchHardware('findDevices', {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   margin: 0 0 18px;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   margin: 8px 0 18px;
 }
 
@@ -242,30 +239,30 @@ h2 {
 }
 
 .glyph {
-  font-size: max(calc(12px / var(--watch-scale)), calc(53px * var(--text-size, 1)));
+  font-size: max(18px, calc(53px * var(--text-size, 1)));
   color: #ddd;
   min-width: 55px;
   text-align: center;
 }
 
 .device strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
 }
 
 .device small {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   color: #aaa;
   margin-top: 6px;
 }
 
 .device .online {
   color: #30d158;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
 }
 
 .arrow {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   color: #888;
   margin-left: auto;
 }
@@ -275,7 +272,7 @@ h2 {
   border: 0;
   background: none;
   color: #30d158;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
   padding: 0;
 }
 
@@ -296,12 +293,12 @@ h2 {
   bottom: 12px;
   left: 15px;
   color: #b9c8bd;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   letter-spacing: 2px;
 }
 
 .status {
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   margin-bottom: 18px;
 }
 
@@ -310,13 +307,13 @@ h2 {
   justify-content: center;
   align-items: center;
   gap: 18px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(24px * var(--text-size, 1)));
+  font-size: max(18px, calc(24px * var(--text-size, 1)));
   color: #30d158;
   margin-bottom: 18px;
 }
 
 .sound {
-  font-size: max(calc(12px / var(--watch-scale)), calc(34px * var(--text-size, 1)));
+  font-size: max(18px, calc(34px * var(--text-size, 1)));
   animation: ring .5s infinite alternate;
 }
 
@@ -326,7 +323,7 @@ h2 {
 
 .route {
   color: #65baff;
-  line-height: 1.35;
+  line-height: 1.3;
 }
 
 .watch-button {
@@ -371,4 +368,17 @@ h2 {
   padding: 3px 6px;
   letter-spacing: 0.5px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #30D158; }
+
+.device > span:nth-child(2) { min-width:0; flex:1; }
+.device strong { font-size:24px; line-height:1.25; }
+.arrow { flex:0 0 24px; color:#ffffff59; }
+.map { border-radius:30px; }
+.map-label { font-size:18px; line-height:1.25; }
+.route { padding:16px 0; overflow-wrap:anywhere; }
 </style>

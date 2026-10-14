@@ -1,0 +1,50 @@
+/* Local watchOS app rules. The shell owns top padding and scrolling. */
+.watch-app.watch-app.watch-app {
+  box-sizing: border-box;
+  padding-inline: 22px;
+  padding-bottom: 64px;
+  min-width: 0;
+  font-family: 'SF Pro Rounded', 'SF Pro Display', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-size: 24px;
+  line-height: 1.25;
+  scroll-padding-bottom: 64px;
+}
+.watch-app *, .watch-app *::before, .watch-app *::after { box-sizing: border-box; }
+.watch-app h1 {
+  position: static;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -.3px;
+  line-height: 1.2;
+  color: var(--app-accent);
+  margin: 0 0 12px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.watch-app h2 { font-size: 22px; font-weight: 650; letter-spacing: .6px; text-transform: uppercase; line-height: 1.25; color: rgba(255,255,255,.6); margin: 18px 0 10px; }
+.watch-app h3 { font-size: 24px; line-height: 1.25; }
+.watch-app p { line-height: 1.25; }
+.watch-app .caption, .watch-app small { font-size: 20px; line-height: 1.25; }
+.watch-app.watch-app .muted { color: rgba(255,255,255,.6); }
+.watch-app .platter { background: #1c1c1e; border-radius: 30px; padding: 18px 20px; margin-bottom: 10px; min-width: 0; }
+.watch-app .row { min-height: 76px; gap: 10px; font-size: 24px; }
+.watch-app .watch-button { min-height: 64px !important; border-radius: 32px; padding: 14px 18px; font-size: 25px; font-weight: 600; line-height: 1.25; max-width: 100%; }
+.watch-app .watch-button:is(.positive, .primary, .start, .add, .gold, .current, .dive-button, .directions, .orange, .blue, .microphone, .coffee-button, .duck-button, .roll-button) { background: color-mix(in srgb, var(--app-accent) 28%, #1c1c1e) !important; color: var(--app-accent) !important; }
+.watch-app .button-row { gap: 10px; }
+.watch-app .button-row > * { min-width: 0; flex: 1; }
+.watch-app button { cursor: pointer; transition: transform 160ms ease, background-color 160ms ease !important; }
+.watch-app button:active:not(:disabled) { transform: scale(.96); }
+.watch-app button:disabled { cursor: default; opacity: .5; }
+.watch-app :is(button, input, select, textarea):focus-visible { outline: 3px solid var(--app-accent); outline-offset: 3px; }
+.watch-app :is(input, select, textarea) { min-width: 0; max-width: 100%; font-size: 24px; }
+.watch-app :is(.metric, .bpm, .oxygen-value, .decibels, .detail-value) { display: flex; align-items: baseline; gap: 6px; font-size: 80px; font-weight: 600; letter-spacing: -2px; line-height: 1.2; flex-wrap: wrap; }
+.watch-app :is(.metric, .bpm, .oxygen-value, .decibels, .detail-value) small { font-size: 26px; font-weight: 600; letter-spacing: 0; margin-left: 0; }
+.watch-app :is(.chevron, .more) { color: rgba(255,255,255,.35); flex-shrink: 0; }
+.watch-app .polish-footnote { font-size: 18px; line-height: 1.3; color: rgba(255,255,255,.4); text-align: center; margin: 28px 0 0; }
+@media (prefers-reduced-motion: reduce) { .watch-app *, .watch-app *::before, .watch-app *::after { animation: none !important; transition: none !important; } }
+
+.watch-app :is(.tabs, .page-nav, .mode, .pages) > button { min-width:0; line-height:1.25; }
+.watch-app :is(.platter, .row, .button-row) > :is(span, div) { min-width:0; }
+.watch-app :is(.platter, .row) strong { overflow-wrap:anywhere; }
+.watch-app .watch-button { display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+.watch-app .watch-button :deep(svg) { width:26px; height:26px; flex:0 0 26px; }

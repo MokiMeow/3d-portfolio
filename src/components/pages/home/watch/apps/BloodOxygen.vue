@@ -44,8 +44,7 @@ onDeactivated(() => {
 
 <template>
   <section class="watch-app oxygen-app">
-    <h1>Blood Oxygen</h1>
-    <p class="demo-label">SIMULATED · NONMEDICAL</p>
+    <h1>{{ complete ? 'Results' : startedAt !== null ? 'Measuring' : 'Blood Oxygen' }}</h1>
     <div class="oxygen-orb" :class="{ moving }">
       <svg viewBox="0 0 240 240" aria-hidden="true">
         <circle
@@ -91,12 +90,12 @@ onDeactivated(() => {
         <small>%</small>
       </p>
       <h2>Sample complete</h2>
-      <p class="caption muted">A generated result for this demonstration.</p>
+      
       <button class="watch-button" @click="start">Measure again</button>
     </template>
     <template v-else-if="startedAt !== null">
       <h2>Keep still</h2>
-      <p class="caption muted">Rest your wrist as the demo counts down.</p>
+      
       <button class="watch-button danger" @click="cancel">Cancel</button>
     </template>
     <template v-else>
@@ -111,7 +110,8 @@ onDeactivated(() => {
         </p>
       </div>
     </template>
-    <p class="caption muted">No oxygen sensor is connected. This is not a medical reading.</p>
+    
+    <p class="polish-footnote">Not a medical device.</p>
   </section>
 </template>
 
@@ -125,20 +125,20 @@ onDeactivated(() => {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(31px * var(--text-size, 1)));
+  font-size: max(18px, calc(31px * var(--text-size, 1)));
   font-weight: 700;
   margin: 0 0 12px;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   font-weight: 600;
   text-align: center;
   margin: 16px 0;
 }
 
 .demo-label {
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   letter-spacing: 1px;
   color: #77baff;
 }
@@ -181,9 +181,9 @@ h2 {
   inset: 0;
   display: grid;
   place-items: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(70px * var(--text-size, 1)));
+  font-size: max(18px, calc(70px * var(--text-size, 1)));
   font-weight: 650;
-  line-height: 1;
+  line-height: 1.2;
   text-shadow: 0 2px 12px #000;
 }
 
@@ -194,8 +194,8 @@ h2 {
 
 .oxygen-value {
   text-align: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(93px * var(--text-size, 1)));
-  line-height: 1;
+  font-size: max(18px, calc(93px * var(--text-size, 1)));
+  line-height: 1.2;
   letter-spacing: -6px;
   color: #67baff;
   margin: 15px 0;
@@ -203,7 +203,7 @@ h2 {
 
 .oxygen-value small,
 .metric small {
-  font-size: max(calc(12px / var(--watch-scale)), calc(31px * var(--text-size, 1)));
+  font-size: max(18px, calc(31px * var(--text-size, 1)));
   letter-spacing: 0;
 }
 
@@ -232,4 +232,15 @@ h2 {
 .oxygen-app h2 {
   margin: 8px 0;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #0A84FF; }
+
+.oxygen-orb { width:184px; height:184px; margin:18px auto; }
+.oxygen-app .oxygen-value { justify-content:center; font-size:96px; margin:12px 0; }
+.oxygen-app .metric { font-size:80px; }
+.oxygen-app .platter .caption { margin:0 0 8px; }
 </style>

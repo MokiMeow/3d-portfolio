@@ -96,7 +96,7 @@ onBeforeUnmount(stopPlayback);
         <span />
       </button>
       <p class="caption muted">
-        {{recording?'Simulated recording':'Demo microphone'}}
+        {{recording?'Recording…':'Tap to record'}}
       </p>
     </div>
     <h2>Recordings</h2>
@@ -131,7 +131,8 @@ onBeforeUnmount(stopPlayback);
       </div>
     </article>
     <p v-if="!memos.length" class="caption muted">Tap record to create a demo memo.</p>
-    <p class="caption muted disclaimer">Simulated recording and playback. No microphone access or audio capture.</p>
+    
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -173,7 +174,7 @@ onBeforeUnmount(stopPlayback);
 }
 
 .duration {
-  font-size: max(calc(12px / var(--watch-scale)), calc(37px * var(--text-size, 1)));
+  font-size: max(18px, calc(37px * var(--text-size, 1)));
   font-variant-numeric: tabular-nums;
   margin: 12px 0;
 }
@@ -222,18 +223,18 @@ onBeforeUnmount(stopPlayback);
 }
 
 .play-icon {
-  font-size: max(calc(12px / var(--watch-scale)), calc(27px * var(--text-size, 1)));
+  font-size: max(18px, calc(27px * var(--text-size, 1)));
   color: #ff453a;
   width: 36px;
 }
 
 .memo strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
   display: block;
 }
 
 .memo small {
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   color: #aaa;
   display: block;
   margin-top: 7px;
@@ -245,7 +246,7 @@ onBeforeUnmount(stopPlayback);
   color: #ff453a;
   min-width: 72px;
   min-height: 80px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
 }
 
 .play-progress {
@@ -264,8 +265,8 @@ onBeforeUnmount(stopPlayback);
 }
 
 .disclaimer {
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
-  line-height: 1.4;
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
+  line-height: 1.3;
 }
 
 @keyframes wave {
@@ -302,4 +303,24 @@ onBeforeUnmount(stopPlayback);
   height: 60px;
   transform: scale(0.55);
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #FF453A; }
+
+.recording-panel { margin:8px 0 20px; }
+.waveform { height:44px; }
+.duration { font-size:40px; margin:8px 0; }
+.record { width:112px; height:112px; display:grid; margin:12px auto; }
+.record span { width:84px; height:84px; transition:transform 160ms ease; }
+.record.recording span { width:84px; height:84px; }
+.memo { align-items:center; }
+.memo-play { min-width:0; }
+.memo-play > span:last-child { min-width:0; overflow-wrap:anywhere; }
+.memo .delete { min-width:44px; min-height:64px; }
+.memo .play-icon { flex:0 0 30px; }
+
+.record { min-height:112px !important; }
 </style>

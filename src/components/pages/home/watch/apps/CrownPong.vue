@@ -224,6 +224,7 @@ onBeforeUnmount(() => {
       {{ watch.reducedMotion.value ? 'Gentle speed · ' : '' }}
       Crown, drag, or ← →
     </p>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -237,7 +238,7 @@ onBeforeUnmount(() => {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   margin: 0 0 10px;
 }
 
@@ -259,12 +260,12 @@ h1 {
 }
 
 .scores strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(34px * var(--text-size, 1)));
-  line-height: 1.1;
+  font-size: max(18px, calc(34px * var(--text-size, 1)));
+  line-height: 1.2;
 }
 
 .scores .caption {
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   letter-spacing: 2px;
 }
 
@@ -272,7 +273,7 @@ h1 {
   background: #242426;
   border-radius: 20px;
   padding: 8px 15px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
   color: #aeaeB2;
 }
 
@@ -316,7 +317,7 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   font-weight: 800;
   letter-spacing: 4px;
   color: #ffffffa0;
@@ -331,7 +332,7 @@ h1 {
 .status {
   margin: 13px 0;
   text-align: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   min-height: 29px;
 }
 
@@ -342,9 +343,9 @@ h1 {
 }
 
 .footer {
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
   text-align: center;
-  line-height: 1.6;
+  line-height: 1.3;
   margin: 13px 0 0;
 }
 
@@ -358,6 +359,18 @@ h1 {
 }
 
 .footer {
-  line-height: 1.35;
+  line-height: 1.3;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #B6F31B; }
+
+.court { max-width:none; }
+.court-label { inset:38px 12px; font-size:30px; letter-spacing:2px; line-height:1.2; background:#10151b80; border-radius:20px; }
+.scores { min-height:70px; gap:12px; }
+.scores strong { line-height:1.2; font-size:36px; }
+.level { white-space:nowrap; font-size:20px; }
 </style>

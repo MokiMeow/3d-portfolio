@@ -108,10 +108,6 @@ function swipeEnd(event: PointerEvent) {
   if (Math.abs(delta) > 45) page.value = clamp(page.value + (delta < 0 ? 1 : -1), 0, 3);
 }
 useWatchHardware('weather', {
-  crown: delta => {
-    page.value = clamp(page.value + Math.sign(delta), 0, 3);
-    return true;
-  },
   back: () => {
     if (page.value) {
       page.value = 0;
@@ -136,7 +132,6 @@ useWatchHardware('weather', {
         <WatchGlyph name="down" />
       </span>
     </button>
-    <p class="caption demo">DEMO FORECAST</p>
     <div
       class="pages"
       role="tablist"
@@ -269,7 +264,7 @@ useWatchHardware('weather', {
           <span>
           </span>
         </div>
-        <p class="caption muted">Demo peak at 1 PM</p>
+        
       </div>
       <div class="platter detail wind">
         <div>
@@ -294,7 +289,7 @@ useWatchHardware('weather', {
             y="23"
             text-anchor="middle"
             fill="white"
-            font-size="17"
+            font-size="18"
           >
             N
           </text>
@@ -322,7 +317,7 @@ useWatchHardware('weather', {
         </div>
       </div>
     </div>
-    <p class="caption muted footer">Fictional weather data. Swipe or turn the Crown to change pages.</p>
+    
     <div class="dots" aria-hidden="true">
       <span
         v-for="index in 4"
@@ -331,6 +326,7 @@ useWatchHardware('weather', {
       >
       </span>
     </div>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -344,14 +340,14 @@ useWatchHardware('weather', {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
-  line-height: 1.1;
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
+  line-height: 1.2;
   margin: 0 0 22px;
   font-weight: 700;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
   margin: 0 0 12px;
 }
 
@@ -378,7 +374,7 @@ h2 {
   background: #252527;
   color: white;
   padding: 0 20px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
 }
 
 .weather-app {
@@ -395,7 +391,7 @@ h2 {
   border: 0;
   background: transparent;
   color: white;
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   text-align: left;
   padding: 0;
   margin-top: -18px;
@@ -404,7 +400,7 @@ h2 {
 .demo {
   color: #8AD7FF;
   letter-spacing: 2px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   margin: 2px 0 14px;
 }
 
@@ -424,7 +420,7 @@ h2 {
   border-radius: 18px;
   background: transparent;
   color: #BCD7E9;
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
 }
 
 .pages .selected {
@@ -443,8 +439,8 @@ h2 {
 
 .temperature {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(93px * var(--text-size, 1)));
-  line-height: 1;
+  font-size: max(18px, calc(93px * var(--text-size, 1)));
+  line-height: 1.2;
   letter-spacing: -5px;
 }
 
@@ -453,7 +449,7 @@ h2 {
 }
 
 .high-low {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
   margin: 0 0 22px;
 }
 
@@ -475,7 +471,7 @@ h2 {
 }
 
 .outlook strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
 }
 
 .hour-row {
@@ -484,7 +480,7 @@ h2 {
   justify-content: space-between;
   min-height: 82px;
   border-bottom: 1px solid #ffffff15;
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
 }
 
 .hour-row>strong:first-child {
@@ -493,7 +489,7 @@ h2 {
 
 .weather-icon {
   color: #FFD75F;
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
 }
 
 .weather-icon.rain {
@@ -502,7 +498,7 @@ h2 {
 
 .rain-chance {
   color: #7AD0FF;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
 }
 
 .day-row {
@@ -511,7 +507,7 @@ h2 {
   gap: 10px;
   min-height: 80px;
   border-bottom: 1px solid #ffffff15;
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
 }
 
 .day-row>strong:first-child {
@@ -519,7 +515,7 @@ h2 {
 }
 
 .day-row .weather-icon {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
 }
 
 .low {
@@ -549,12 +545,12 @@ h2 {
 .detail>strong,
 .wind strong {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(51px * var(--text-size, 1)));
+  font-size: max(18px, calc(51px * var(--text-size, 1)));
   line-height: 1.3;
 }
 
 .detail small {
-  font-size: max(calc(12px / var(--watch-scale)), calc(24px * var(--text-size, 1)));
+  font-size: max(18px, calc(24px * var(--text-size, 1)));
   font-weight: 500;
 }
 
@@ -603,7 +599,7 @@ h2 {
   align-items: center;
   justify-content: space-between;
   min-height: 58px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
 }
 
 .dots {
@@ -645,7 +641,7 @@ h2 {
 
 .pages button {
   padding: 4px;
-  font-size: max(21px, calc(12px / var(--watch-scale)));
+  font-size: 21px;
 }
 
 .sun {
@@ -681,4 +677,19 @@ h2 {
 .weather-reading .temperature {
   font-size: 82px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #51B9F6; }
+
+.weather-app .pages { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.weather-app .pages button { min-height:64px; border-radius:32px; font-size:22px; }
+.temperature { font-size:88px; font-weight:600; line-height:1.2; }
+.hour-row, .day-row { min-height:76px; gap:8px; }
+.day-row .range { min-width:20px; flex:1; }
+.details .extra > div { gap:10px; min-height:76px; }
+.details .detail > strong { display:flex; align-items:baseline; flex-wrap:wrap; gap:6px; font-size:72px; font-weight:600; line-height:1.2; }
+.details .detail > strong small { font-size:26px; font-weight:600; margin:0; }
 </style>

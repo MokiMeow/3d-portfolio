@@ -97,7 +97,7 @@ useWatchHardware('translate', {
 
 <template>
   <section class="watch-app translate-app">
-    <h1>Translate</h1>
+    <h1>{{ savedView ? 'Favorites' : 'Translate' }}</h1>
     <template v-if="savedView">
       <h2>Favorites</h2>
       <p v-if="!favorites.length" class="caption muted">Save a translation using the star.</p>
@@ -109,7 +109,7 @@ useWatchHardware('translate', {
       >
         {{(phrases[index] ?? phrases[0])[source]}}
       </button>
-      <button class="watch-button full" @click="savedView=false">Back</button>
+
     </template>
     <template v-else>
       <div class="languages">
@@ -134,7 +134,7 @@ useWatchHardware('translate', {
         </label>
       </div>
       <label class="phrase-selector caption">
-        Choose a demo phrase
+        Choose a phrase
         <select v-model.number="phrase">
           <option
             v-for="(item,index) in phrases"
@@ -189,8 +189,9 @@ useWatchHardware('translate', {
         {{favorites.length}}
         )
       </button>
-      <p class="caption muted disclaimer">Small phrase dictionary. Voice and speech are visual demos; no microphone or audio.</p>
+      
     </template>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -221,7 +222,7 @@ useWatchHardware('translate', {
 .languages label>span {
   display: block;
   color: #aaa;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   margin-bottom: 4px;
 }
 
@@ -232,7 +233,7 @@ useWatchHardware('translate', {
   border: 0;
   border-radius: 18px;
   min-height: 76px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
   padding: 0 8px;
 }
 
@@ -242,7 +243,7 @@ useWatchHardware('translate', {
   background: none;
   border: 0;
   color: #0a84ff;
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   flex-shrink: 0;
 }
 
@@ -250,7 +251,7 @@ useWatchHardware('translate', {
   display: block;
   margin: 20px 0;
   color: #aaa;
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
 }
 
 .phrase-selector select {
@@ -261,19 +262,19 @@ useWatchHardware('translate', {
   color: white;
   border: 0;
   border-radius: 20px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(24px * var(--text-size, 1)));
+  font-size: max(18px, calc(24px * var(--text-size, 1)));
   padding: 12px;
   margin-top: 10px;
 }
 
 .original {
-  font-size: max(calc(12px / var(--watch-scale)), calc(24px * var(--text-size, 1)));
+  font-size: max(18px, calc(24px * var(--text-size, 1)));
   color: #aaa;
   margin: 0 0 18px;
 }
 
 .translated {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   margin: 0;
   overflow-wrap: anywhere;
 }
@@ -291,7 +292,7 @@ useWatchHardware('translate', {
   border: 0;
   background: none;
   color: #0a84ff;
-  font-size: max(calc(12px / var(--watch-scale)), calc(27px * var(--text-size, 1)));
+  font-size: max(18px, calc(27px * var(--text-size, 1)));
 }
 
 .speech-bars {
@@ -326,8 +327,8 @@ useWatchHardware('translate', {
 }
 
 .disclaimer {
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
-  line-height: 1.4;
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
+  line-height: 1.3;
 }
 
 @keyframes speak {
@@ -352,4 +353,19 @@ useWatchHardware('translate', {
 .original {
   margin-bottom: 8px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #0A84FF; }
+
+.languages { display:grid; grid-template-columns:minmax(0,1fr) 44px minmax(0,1fr); gap:8px; }
+.languages > button { width:44px; height:64px; min-height:64px; }
+.languages select { min-height:64px; font-size:22px; border-radius:30px; }
+.translation { overflow-wrap:anywhere; }
+.translation-controls button { width:64px; height:64px; }
+.translation-controls { gap:10px; }
+.speech-bars { flex:1; justify-content:center; min-width:0; }
+.saved { font-size:24px; line-height:1.25; text-align:left; justify-content:flex-start; }
 </style>

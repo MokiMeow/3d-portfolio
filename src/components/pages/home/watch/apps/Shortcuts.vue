@@ -93,6 +93,7 @@ function music() {
         <small>Demo player</small>
       </button>
     </div>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -126,19 +127,19 @@ function music() {
 }
 
 .shortcut>span {
-  font-size: max(calc(12px / var(--watch-scale)), calc(27px * var(--text-size, 1)));
+  font-size: max(18px, calc(27px * var(--text-size, 1)));
   display: block;
   margin-bottom: 16px;
 }
 
 .shortcut strong {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
-  line-height: 1.12;
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
+  line-height: 1.2;
 }
 
 .shortcut small {
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   display: block;
   margin-top: 8px;
   opacity: .75;
@@ -173,7 +174,7 @@ function music() {
   border-radius: 22px;
   background: #251633;
   color: #e6bcff;
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
 }
 
 .shortcuts {
@@ -196,4 +197,18 @@ function music() {
   font-size: 21px;
   line-height: 1.3;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #CD79FF; }
+
+.shortcuts { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.shortcut { height:204px; min-height:204px; border-radius:30px; padding:18px; display:flex; flex-direction:column; gap:10px; }
+.shortcut > span { align-self:flex-start; margin:0; }
+.shortcut > span :deep(svg) { width:30px; height:30px; }
+.shortcut strong { font-size:24px; line-height:1.25; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; min-height:60px; }
+.shortcut small { font-size:20px; line-height:1.25; margin:0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.result { line-height:1.25; }
 </style>

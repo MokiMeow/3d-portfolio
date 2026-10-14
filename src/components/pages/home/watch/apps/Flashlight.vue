@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { useWatch, useWatchHardware } from "../watch";
+import { useWatch, useWatchHardware, clamp } from "../watch";
 const watch = useWatch();
 const page = ref(0);
+const brightness = ref(.8);
 const modes = ['White', 'Flashing', 'Red'];
 const pointerX = ref<number | null>(null);
 function cycle(delta: number) {
@@ -16,7 +17,7 @@ function swipe(event: PointerEvent) {
 }
 useWatchHardware('flashlight', {
   crown: delta => {
-    cycle(Math.sign(delta));
+    brightness.value = clamp(brightness.value + delta * .05, .15, 1);
     return true;
   }
 });
@@ -24,15 +25,16 @@ useWatchHardware('flashlight', {
 
 <template>
   <section
-    class="watch-app flashlight"
+    class="watch-app flashlight-app"
     :class="{red:page===2,flashing:page===1&&!watch.reducedMotion.value&&!watch.dimmed.value,dimmed:watch.dimmed.value}"
     @pointerdown.stop="pointerX=$event.clientX"
     @pointerup.stop="swipe"
     @pointercancel="pointerX=null"
   >
-    <div class="beam" />
+    <h1>Flashlight</h1>
+    <div class="beam" :style="{ opacity: brightness }" />
     <div class="flash-content">
-      <h1>Flashlight</h1>
+
       <p>
         {{modes[page]}}
       </p>
@@ -48,9 +50,11 @@ useWatchHardware('flashlight', {
           <span :class="{selected:page===index}" />
         </button>
       </div>
-      <p class="caption">Swipe to change light</p>
+      <p class="caption">Crown for brightness · swipe for mode</p>
+      <label class="brightness-control">Brightness {{ Math.round(brightness * 100) }}%<input v-model.number="brightness" type="range" min=".15" max="1" step=".05" aria-label="Flashlight brightness" /></label>
       <button class="off" @click="watch.home()">Turn Off</button>
     </div>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -63,19 +67,17 @@ useWatchHardware('flashlight', {
   font-family: inherit;
 }
 
-.flashlight {
-  padding: 58px 24px 24px;
+.flashlight-app {
   position: relative;
   background: white;
   color: #141414;
-  overflow: hidden;
   isolation: isolate;
   text-align: center;
   height: 100%;
 }
 
-.flashlight h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+.flashlight-app h1 {
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
 }
 
 .beam {
@@ -118,7 +120,7 @@ useWatchHardware('flashlight', {
 }
 
 .flash-content>p:first-of-type {
-  font-size: max(calc(12px / var(--watch-scale)), calc(36px * var(--text-size, 1)));
+  font-size: max(18px, calc(36px * var(--text-size, 1)));
   font-weight: 600;
   margin: auto 0 20px;
 }
@@ -149,7 +151,7 @@ useWatchHardware('flashlight', {
 }
 
 .caption {
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
 }
 
 .off {
@@ -158,7 +160,7 @@ useWatchHardware('flashlight', {
   padding: 0 45px;
   border: 0;
   background: #0002;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
   color: inherit;
   margin-top: auto;
 }
@@ -179,4 +181,22 @@ useWatchHardware('flashlight', {
     animation: none;
   }
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #FFFFFF; }
+
+.flashlight-app { background:#000; color:white; height:auto; min-height:100%; }
+.flashlight-app .beam { position:relative; inset:auto; z-index:0; height:180px; width:100%; border-radius:30px; margin:10px 0 18px; overflow:hidden; }
+.flash-content { height:auto; }
+.flash-content > p:first-of-type { margin:0 0 10px; font-size:30px; }
+.flashlight-app .caption { color:#ffffff99; }
+.pages span { background:#ffffff55; }
+.pages .selected { background:white; }
+.brightness-control { display:flex; flex-direction:column; gap:10px; width:100%; font-size:20px; }
+.brightness-control input { width:100%; min-height:64px; accent-color:white; }
+.off { width:100%; min-height:64px; border-radius:32px; background:#1c1c1e; margin-top:16px; color:white; }
+.red { color:white; }
 </style>

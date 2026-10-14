@@ -2,37 +2,75 @@
 import WatchGlyph from "./WatchGlyph.vue";
 import { WATCH_APPS, useWatch, type WatchAppId } from './watch';
 import WatchIcon from './WatchIcon.vue';
-defineProps<{
-  zoom: number;
-}>();
 const emit = defineEmits<{
   open: [id: WatchAppId, event: MouseEvent];
 }>();
 const watch = useWatch();
 const sorted = [...WATCH_APPS].sort((a, b) => a.name.localeCompare(b.name));
-const positions = WATCH_APPS.map((app, index) => ({
-  ...app,
-  x: 48 + index % 4 * 88 + (Math.floor(index / 4) % 2 ? 44 : 0),
-  y: 40 + Math.floor(index / 4) * 78
-}));
+
+// The honeycomb: rows of four and three, offset like cells, every app exactly once.
+const SCREEN = { width: 422, height: 514 };
+const ICON = 84;
+const GAP_X = 98;
+const ROW = 86;
+const TOP = 168;
+const cells = (() => {
+  const list: { id: WatchAppId; name: string; x: number; y: number }[] = [];
+  let index = 0;
+  for (let row = 0; index < WATCH_APPS.length; row++) {
+    const count = row % 2 ? 3 : 4;
+    for (let column = 0; column < count && index < WATCH_APPS.length; column++, index++) {
+      const app = WATCH_APPS[index]!;
+      list.push({ id: app.id, name: app.name, x: SCREEN.width / 2 + (column - (count - 1) / 2) * GAP_X, y: TOP + row * ROW });
+    }
+  }
+  return list;
+})();
+const contentHeight = (cells.at(-1)?.y ?? 0) + 230;
 
 const viewport = ref<HTMLElement | null>(null);
-const panX = ref(0);
-let drag: { id: number; x: number; y: number; top: number; pan: number; moved: boolean } | null = null;
+const scrollTop = ref(0);
+let frame = 0;
+function track(): void {
+  if (frame) return;
+  frame = requestAnimationFrame(() => {
+    frame = 0;
+    scrollTop.value = viewport.value?.scrollTop ?? 0;
+  });
+}
+// Icons are full size near the middle of the screen and shrink and draw inward towards the rim,
+// the fisheye that makes the real grid feel like a dome under glass.
+const placed = computed(() => cells.map(cell => {
+  const dx = (cell.x - SCREEN.width / 2) / 196;
+  const dy = (cell.y - scrollTop.value - SCREEN.height / 2 - 18) / 250;
+  const distance = Math.hypot(dx, dy);
+  const scale = distance < 0.56 ? 1 : Math.max(0.34, 1 - (distance - 0.56) * 0.95);
+  const pull = (1 - scale) * 0.32;
+  return {
+    ...cell,
+    style: {
+      left: cell.x + 'px',
+      top: cell.y + 'px',
+      transform: 'translate(-50%, -50%) translate(' + (-dx * 196 * pull) + 'px, ' + (-dy * 250 * pull) + 'px) scale(' + scale + ')',
+      opacity: String(Math.min(1, scale * 1.6 - 0.2)),
+    },
+  };
+}));
+
+// Mouse users can drag the grid like a finger would.
+let drag: { id: number; y: number; top: number; moved: boolean } | null = null;
 let suppressClick = false;
 function panStart(event: PointerEvent): void {
-  if (event.button !== 0 || !event.isPrimary || !viewport.value) return;
-  if (event.pointerType === 'touch' && watch.settings.appView === 'list') return;
-  drag = { id: event.pointerId, x: event.clientX, y: event.clientY, top: viewport.value.scrollTop, pan: panX.value, moved: false };
+  if (event.button !== 0 || !event.isPrimary || !viewport.value || event.pointerType === 'touch') return;
+  drag = { id: event.pointerId, y: event.clientY, top: viewport.value.scrollTop, moved: false };
   suppressClick = false;
 }
 function panMove(event: PointerEvent): void {
   if (!drag || drag.id !== event.pointerId || !viewport.value) return;
-  if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 6) return;
+  if (Math.abs(event.clientY - drag.y) < 6) return;
   drag.moved = true;
-  const scale = viewport.value.getBoundingClientRect().width / 422;
+  const scale = viewport.value.getBoundingClientRect().width / SCREEN.width;
   viewport.value.scrollTop = drag.top - (event.clientY - drag.y) / scale;
-  if (watch.settings.appView === 'grid') panX.value = Math.min(100, Math.max(-100, drag.pan + (event.clientX - drag.x) / scale));
 }
 function panEnd(): void {
   if (drag?.moved) suppressClick = true;
@@ -48,8 +86,10 @@ onMounted(() => {
   window.addEventListener('pointermove', panMove);
   window.addEventListener('pointerup', panEnd);
   window.addEventListener('pointercancel', panEnd);
+  track();
 });
 onBeforeUnmount(() => {
+  cancelAnimationFrame(frame);
   window.removeEventListener('pointermove', panMove);
   window.removeEventListener('pointerup', panEnd);
   window.removeEventListener('pointercancel', panEnd);
@@ -59,11 +99,13 @@ onBeforeUnmount(() => {
 <template>
   <section
     ref="viewport"
-    @pointerdown.stop="panStart"
-    @click.capture="blockDragClick"
     class="app-view"
+    :class="watch.settings.appView"
     data-watch-scroll
     aria-label="Watch apps"
+    @pointerdown="panStart"
+    @click.capture="blockDragClick"
+    @scroll.passive="track"
   >
     <template v-if="watch.settings.appView === 'list'">
       <h1>Apps</h1>
@@ -73,7 +115,7 @@ onBeforeUnmount(() => {
         class="app-row"
         @click="emit('open', app.id, $event)"
       >
-        <WatchIcon :name="app.id" :size="64" />
+        <WatchIcon :name="app.id" :size="58" />
         <span>
           {{ app.name }}
         </span>
@@ -82,37 +124,25 @@ onBeforeUnmount(() => {
         </span>
       </button>
     </template>
-    <template v-else>
-      <div class="suggested">
-        <span>SUGGESTED APPS</span>
-        <div>
-          <button
-            v-for="app in WATCH_APPS.slice(0, 5)"
-            :key="app.id"
-            :aria-label="app.name"
-            @click="emit('open', app.id, $event)"
-          >
-            <WatchIcon :name="app.id" :size="64" />
-          </button>
-        </div>
-      </div>
-      <div class="honey-space" :style="{ height: (940 * zoom) + 'px' }">
-        <div class="honeycomb" :style="{ transform: 'translateX(' + panX + 'px) scale(' + zoom + ')' }">
-          <button
-            v-for="app in positions"
-            :key="app.id"
-            class="app-orb"
-            :aria-label="app.name"
-            :title="app.name"
-            :style="{ left: app.x + 'px', top: app.y + 'px' }"
-            @click="emit('open', app.id, $event)"
-          >
-            <WatchIcon :name="app.id" :size="80" />
-          </button>
-        </div>
-      </div>
-    </template>
+    <div
+      v-else
+      class="honeycomb"
+      :style="{ height: contentHeight + 'px' }"
+    >
+      <button
+        v-for="app in placed"
+        :key="app.id"
+        class="app-orb"
+        :aria-label="app.name"
+        :title="app.name"
+        :style="app.style"
+        @click="emit('open', app.id, $event)"
+      >
+        <WatchIcon :name="app.id" :size="ICON" />
+      </button>
+    </div>
     <button class="view-toggle" @click="watch.settings.appView = watch.settings.appView === 'grid' ? 'list' : 'grid'">
+      <WatchGlyph :name="watch.settings.appView === 'grid' ? 'list' : 'grid'" />
       {{ watch.settings.appView === 'grid' ? 'List View' : 'Grid View' }}
     </button>
   </section>
@@ -126,10 +156,13 @@ onBeforeUnmount(() => {
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-width: none;
-  padding: 76px 16px 64px;
-  scroll-padding-block: 76px;
   border-radius: inherit;
   font-family: -apple-system, "SF Compact Rounded", "SF Pro Rounded", ui-rounded, "Inter", "Segoe UI", sans-serif;
+  touch-action: pan-y;
+}
+
+.app-view.list {
+  padding: 98px 22px 40px;
 }
 
 .app-view :deep(*) {
@@ -137,24 +170,34 @@ onBeforeUnmount(() => {
 }
 
 h1 {
-  font-size: 36px;
-  padding-left: 16px;
-  margin: 12px 0 20px;
+  font-size: 34px;
+  padding-left: 8px;
+  margin: 0 0 14px;
 }
 
 .app-row {
   width: 100%;
-  min-height: 94px;
+  min-height: 84px;
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 16px;
   text-align: left;
   border: 0;
-  padding: 14px 10px;
+  padding: 10px 18px 10px 12px;
   font-size: 26px;
-  background: #161618;
-  border-radius: 32px;
+  font-weight: 550;
+  background: #1c1c1e;
+  border-radius: 30px;
   margin: 8px 0;
+  transition: transform 140ms ease, background 160ms ease;
+}
+
+.app-row:hover {
+  background: #262629;
+}
+
+.app-row:active {
+  transform: scale(0.97);
 }
 
 .app-row :deep(svg) {
@@ -163,87 +206,66 @@ h1 {
 
 .chevron {
   margin-left: auto;
-  color: #85858a;
-}
-
-.suggested {
-  text-align: center;
-  margin: 2px 0 6px;
-}
-
-.suggested > span {
-  font-size: max(21px, calc(12px / var(--watch-scale)));
-  letter-spacing: 1px;
-  color: #8e8e98;
-}
-
-.suggested > div {
-  display: flex;
-  justify-content: center;
-  margin-top: 14px;
-  gap: 4px;
-}
-
-.suggested button {
-  display: grid;
-  place-items: center;
-  background: transparent;
-  border: 0;
-  padding: 0;
-  width: 74px;
-  height: 78px;
-}
-
-.honey-space {
-  touch-action: none;
-  position: relative;
-  margin-left: -16px;
+  color: #6e6e74;
 }
 
 .honeycomb {
-  position: absolute;
-  left: 0;
-  top: 0;
+  position: relative;
   width: 422px;
-  height: 940px;
-  transform-origin: 211px 0;
-  transition: transform 240ms ease-out;
 }
 
 .app-orb {
   position: absolute;
   display: grid;
   place-items: center;
-  width: 90px;
-  height: 90px;
-  background: transparent;
+  width: 92px;
+  height: 92px;
+  margin: 0;
   padding: 0;
+  background: transparent;
   border: 0;
   border-radius: 50%;
-  transform: translate(-50%, -50%);
-  transition: transform 240ms ease, opacity 240ms ease;
+  will-change: transform;
+  transition: filter 160ms ease;
 }
 
 .app-orb:hover {
-  opacity: 0.8;
+  filter: brightness(1.12);
 }
 
-.app-orb:active {
-  transform: translate(-50%, -50%) scale(0.9);
+.app-orb:active :deep(svg) {
+  transform: scale(0.88);
+}
+
+.app-orb :deep(svg) {
+  border-radius: 50%;
+  transition: transform 140ms ease;
+  box-shadow: 0 6px 16px #0009;
 }
 
 .view-toggle {
-  width: 100%;
-  min-height: 80px;
-  border: 1px solid #ffffff30;
-  border-radius: 44px;
-  background: #222225;
-  font-size: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: calc(100% - 64px);
+  min-height: 70px;
+  margin: 0 32px 64px;
+  border: 0;
+  border-radius: 36px;
+  background: #1f1f22;
+  box-shadow: inset 0 1px 0 #ffffff1a;
+  font-size: 25px;
+  font-weight: 600;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .honeycomb {
-    transition: none;
-  }
+.list .view-toggle {
+  width: 100%;
+  margin: 14px 0 30px;
+}
+
+.view-toggle :deep(svg) {
+  width: 24px;
+  height: 24px;
 }
 </style>

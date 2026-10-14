@@ -101,7 +101,7 @@ useWatchHardware('alarms', {
 
 <template>
   <section class="watch-app alarm-app">
-    <h1>Alarms</h1>
+    <h1>{{ editor ? (editingId === null ? 'New Alarm' : 'Edit Alarm') : 'Alarms' }}</h1>
     <article v-if="ringing" class="platter ringing">
       <p class="caption">Alarm</p>
       <div class="metric">
@@ -172,6 +172,7 @@ useWatchHardware('alarms', {
       </article>
       <button class="watch-button add" @click="edit()">＋ Add Alarm</button>
     </template>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -206,15 +207,15 @@ useWatchHardware('alarms', {
 }
 
 .alarm-edit strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(51px * var(--text-size, 1)));
-  line-height: 1;
+  font-size: max(18px, calc(51px * var(--text-size, 1)));
+  line-height: 1.2;
   font-weight: 400;
 }
 
 .alarm-edit small {
   display: block;
   color: #aaa;
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
   margin-top: 8px;
 }
 
@@ -264,14 +265,14 @@ useWatchHardware('alarms', {
   align-items: center;
   gap: 8px;
   margin: 22px 0;
-  font-size: max(calc(12px / var(--watch-scale)), calc(50px * var(--text-size, 1)));
+  font-size: max(18px, calc(50px * var(--text-size, 1)));
 }
 
 .time-picker button {
   background: #1c1c1e;
   border: 2px solid transparent;
   color: #fff;
-  font-size: max(calc(12px / var(--watch-scale)), calc(55px * var(--text-size, 1)));
+  font-size: max(18px, calc(55px * var(--text-size, 1)));
   min-height: 100px;
   width: 43%;
   border-radius: 25px;
@@ -295,7 +296,7 @@ useWatchHardware('alarms', {
   background: #1c1c1e;
   color: #aaa;
   border-radius: 50%;
-  font-size: max(calc(12px / var(--watch-scale)), calc(24px * var(--text-size, 1)));
+  font-size: max(18px, calc(24px * var(--text-size, 1)));
 }
 
 .days .selected {
@@ -338,4 +339,16 @@ useWatchHardware('alarms', {
   left: 5px;
   transform: translateX(36px);
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #FF9500; }
+
+.alarm-edit strong { font-size:48px; font-weight:600; }
+.alarm-edit small { line-height:1.25; }
+.time-picker button { border-radius:30px; }
+.days { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.toggle span { transition:transform 160ms ease; }
 </style>

@@ -102,6 +102,7 @@ onDeactivated(() => {
 
 <template>
   <section class="watch-app workout-app">
+    <h1>{{ countdownAt !== null ? 'Starting Workout' : summary ? 'Summary' : workout.active ? workout.type : 'Workout' }}</h1>
     <template v-if="countdownAt !== null">
       <div class="countdown">
         <p class="caption">
@@ -114,7 +115,6 @@ onDeactivated(() => {
       </div>
     </template>
     <template v-else-if="summary">
-      <h1>Summary</h1>
       <p class="caption lime">
         {{ summary.type }}
       </p>
@@ -137,13 +137,10 @@ onDeactivated(() => {
           <small>KM</small>
         </p>
       </div>
-      <p class="caption muted">Activity rings updated. Simulated workout.</p>
+      
       <button class="watch-button positive" @click="summary = null">Done</button>
     </template>
     <template v-else-if="workout.active">
-      <h1 class="active-title">
-        {{ workout.type }}
-      </h1>
       <nav class="page-nav" aria-label="Workout pages">
         <button
           v-for="(label, i) in ['Controls', 'Metrics', 'Music']"
@@ -182,7 +179,7 @@ onDeactivated(() => {
         </div>
         <p class="caption muted">
           {{ pace }}
-          / KM · SIMULATED
+          / KM
         </p>
       </template>
       <template v-else-if="page === 0">
@@ -227,7 +224,6 @@ onDeactivated(() => {
       </template>
     </template>
     <template v-else>
-      <h1>Workout</h1>
       <button
         v-for="choice in choices"
         :key="choice.name"
@@ -263,8 +259,9 @@ onDeactivated(() => {
           <WatchGlyph name="next" />
         </span>
       </button>
-      <p class="caption muted">Simulated workouts. Action button starts an Outdoor Walk.</p>
+      
     </template>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -278,13 +275,13 @@ onDeactivated(() => {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(31px * var(--text-size, 1)));
+  font-size: max(18px, calc(31px * var(--text-size, 1)));
   font-weight: 700;
   margin: 0 0 20px;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   font-weight: 600;
 }
 
@@ -314,14 +311,14 @@ h2 {
 }
 
 .workout-choice strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   font-weight: 650;
   display: block;
-  line-height: 1.1;
+  line-height: 1.2;
 }
 
 .workout-choice small {
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
   color: #b6f31b;
   display: block;
   margin-top: 7px;
@@ -329,7 +326,7 @@ h2 {
 
 .more {
   margin-left: auto;
-  font-size: max(calc(12px / var(--watch-scale)), calc(36px * var(--text-size, 1)));
+  font-size: max(18px, calc(36px * var(--text-size, 1)));
   color: #666;
 }
 
@@ -340,7 +337,7 @@ h2 {
 
 .countdown strong {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(183px * var(--text-size, 1)));
+  font-size: max(18px, calc(183px * var(--text-size, 1)));
   color: #b6f31b;
   font-weight: 500;
   line-height: 1.2;
@@ -357,7 +354,7 @@ h2 {
   min-height: 66px;
   background: #1c1c1e;
   border-radius: 30px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   color: #b6b6bc;
 }
 
@@ -367,12 +364,12 @@ h2 {
 }
 
 .active-title {
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   color: #b6f31b;
 }
 
 .elapsed {
-  font-size: max(calc(12px / var(--watch-scale)), calc(58px * var(--text-size, 1)));
+  font-size: max(18px, calc(58px * var(--text-size, 1)));
   color: #ffd60a;
   font-variant-numeric: tabular-nums;
   letter-spacing: -2px;
@@ -386,24 +383,24 @@ h2 {
 }
 
 .live-metric strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(60px * var(--text-size, 1)));
-  line-height: 1.15;
+  font-size: max(18px, calc(60px * var(--text-size, 1)));
+  line-height: 1.2;
   font-weight: 600;
   letter-spacing: -3px;
 }
 
 .live-metric small {
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
 }
 
 .heart {
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   color: #fa114f;
 }
 
 .paused {
   text-align: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   color: #ffd60a;
   letter-spacing: 3px;
 }
@@ -430,7 +427,7 @@ h2 {
   height: 150px;
   border-radius: 30px;
   background: linear-gradient(140deg,#ff2d55,#652371);
-  font-size: max(calc(12px / var(--watch-scale)), calc(91px * var(--text-size, 1)));
+  font-size: max(18px, calc(91px * var(--text-size, 1)));
   line-height: 150px;
   text-align: center;
   margin: auto;
@@ -438,17 +435,17 @@ h2 {
 
 .summary-check {
   color: #b6f31b;
-  font-size: max(calc(12px / var(--watch-scale)), calc(73px * var(--text-size, 1)));
+  font-size: max(18px, calc(73px * var(--text-size, 1)));
   text-align: center;
 }
 
 .summary-time {
-  font-size: max(calc(12px / var(--watch-scale)), calc(53px * var(--text-size, 1)));
+  font-size: max(18px, calc(53px * var(--text-size, 1)));
   font-variant-numeric: tabular-nums;
 }
 
 .metric small {
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
 }
 
 .workout-choice {
@@ -475,7 +472,7 @@ h2 {
 }
 
 .summary-check {
-  line-height: 1;
+  line-height: 1.2;
   margin: 16px 0;
 }
 
@@ -487,7 +484,7 @@ h2 {
 .music-art {
   display: grid;
   place-items: center;
-  line-height: 1;
+  line-height: 1.2;
   width: 108px;
   height: 108px;
 }
@@ -496,4 +493,23 @@ h2 {
   width: 56px;
   height: 56px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #B6F31B; }
+
+.workout-choice > span:nth-child(2) { min-width:0; flex:1; }
+.workout-choice strong { font-size:25px; line-height:1.25; }
+.workout-choice small { font-size:20px; line-height:1.25; }
+.workout-choice .more { flex:0 0 24px; }
+.countdown strong { font-size:96px; line-height:1.2; font-weight:600; }
+.live-metric { align-items:baseline; flex-wrap:wrap; gap:6px; }
+.live-metric strong { font-size:72px; font-weight:600; line-height:1.2; }
+.live-metric small { font-size:26px; font-weight:600; }
+.live-metric .heart { flex:0 0 28px; }
+.summary-time { font-size:64px; font-weight:600; line-height:1.2; overflow-wrap:anywhere; }
+.page-nav button { min-height:64px; font-size:22px; }
+.controls button { height:76px; }
 </style>

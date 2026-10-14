@@ -2,7 +2,7 @@
 import WatchGlyph from "../WatchGlyph.vue";
 import { useWatch, useWatchHardware, type ActionId } from '../watch';
 import WatchIcon from '../WatchIcon.vue';
-import WristRoll from '../WristRoll.vue';
+import WristRoll from './AppWristRoll.vue';
 const watch = useWatch();
 type Page = 'main' | 'about' | 'general' | 'display' | 'sounds' | 'appView' | 'action' | 'clock' | 'band' | 'reset';
 const page = ref<Page>('main');
@@ -119,20 +119,10 @@ useWatchHardware('settings', {
 
 <template>
   <section class="watch-app settings-app" data-watch-scroll>
+    <h1>{{ wristRoll ? 'Wrist Roll' : title }}</h1>
     <WristRoll v-if="wristRoll" @close="wristRoll = false" />
     <template v-else>
-      <button
-        v-if="page !== 'main'"
-        class="back-button"
-        aria-label="Back to Settings"
-        @click="page = 'main'"
-      >
-        <WatchGlyph name="back" />
-        Settings
-      </button>
-      <h1>
-        {{ title }}
-      </h1>
+
       <template v-if="page === 'main'">
         <div class="settings-intro">
           <WatchIcon name="settings" :size="66" />
@@ -183,7 +173,7 @@ useWatchHardware('settings', {
         </div>
         <div class="info-row">
           <span>Model</span>
-          <b>Apple Watch Ultra 4</b>
+          <b>Apple Watch Ultra</b>
         </div>
         <div class="info-row">
           <span>Case</span>
@@ -195,7 +185,7 @@ useWatchHardware('settings', {
           @click="versionTap"
         >
           <span>Version</span>
-          <b>watchOS 27.0.1</b>
+          <b>watchOS 11</b>
         </button>
         <div class="info-row">
           <span>Display</span>
@@ -205,7 +195,7 @@ useWatchHardware('settings', {
           <span>Storage</span>
           <b>64 GB · simulated</b>
         </div>
-        <p class="caption muted">A portfolio simulation inspired by watchOS. It does not measure health or connect to Apple services.</p>
+        
       </template>
       <template v-else-if="page === 'general'">
         <div class="platter">
@@ -438,6 +428,7 @@ useWatchHardware('settings', {
         <button class="watch-button" @click="page = 'main'">Keep my wrist</button>
       </template>
     </template>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -458,7 +449,7 @@ useWatchHardware('settings', {
   color: #65b4ff;
   border: 0;
   background: transparent;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
 }
 
 .settings-intro {
@@ -466,7 +457,7 @@ useWatchHardware('settings', {
   gap: 16px;
   align-items: center;
   margin-bottom: 20px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
   color: #bbb;
 }
 
@@ -482,7 +473,7 @@ useWatchHardware('settings', {
   flex-shrink: 0;
   border-radius: 15px;
   background: #37373c;
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
 }
 
 .setting-symbol.red {
@@ -496,7 +487,7 @@ useWatchHardware('settings', {
 
 .row b {
   color: #919198;
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
 }
 
 .toggle {
@@ -545,7 +536,7 @@ useWatchHardware('settings', {
 }
 
 .about-watch span {
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   color: #ff6a13;
   letter-spacing: 4px;
 }
@@ -570,13 +561,13 @@ useWatchHardware('settings', {
 .info-row span {
   display: block;
   color: #b4b4bb;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
 }
 
 .info-row b {
   display: block;
   margin-top: 6px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
   font-weight: 500;
 }
 
@@ -590,7 +581,7 @@ useWatchHardware('settings', {
 
 .slider-setting b {
   float: right;
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
   color: #aaa;
 }
 
@@ -666,4 +657,19 @@ useWatchHardware('settings', {
 .toggle::before {
   transition: transform 240ms ease;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #AEAEB2; }
+
+.settings-app .row { min-height:76px; border-radius:30px; background:#1c1c1e; padding:18px 20px; }
+.settings-app .row > span { min-width:0; }
+.settings-app .row > span:nth-child(2) { font-size:24px; line-height:1.25; }
+.settings-app .row b { color:#ffffff59; }
+.info-row { background:#1c1c1e; border:0; border-radius:30px; margin-bottom:10px; padding:18px 20px; }
+.info-row b { font-size:24px; line-height:1.25; overflow-wrap:anywhere; }
+.slider-setting { font-size:24px; line-height:1.25; }
+.toggle::before { transition:transform 160ms ease; }
 </style>

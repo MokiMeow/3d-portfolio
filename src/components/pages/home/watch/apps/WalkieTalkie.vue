@@ -136,21 +136,8 @@ watchEffect(() => {
 <template>
   <section class="watch-app walkie-app">
     <h1>Walkie-Talkie</h1>
-    <button
-      class="availability"
-      role="switch"
-      :aria-checked="available"
-      @click="availability"
-    >
-      <span>
-        {{available?'Available':'Unavailable'}}
-      </span>
-      <i :class="{on:available}">
-        <b />
-      </i>
-    </button>
     <label class="friend-select caption">
-      Demo friend
+      Friend
       <select v-model="friend" @change="changeFriend">
         <option v-for="name in friends" :key="name">
           {{name}}
@@ -184,7 +171,21 @@ watchEffect(() => {
     <p class="status" role="status">
       {{status}}
     </p>
-    <p class="caption muted disclaimer">Demo radio conversation. No microphone or live connection. Quiet tones follow Sound settings.</p>
+    
+        <button
+      class="availability"
+      role="switch"
+      :aria-checked="available"
+      @click="availability"
+    >
+      <span>
+        {{available?'Available':'Unavailable'}}
+      </span>
+      <i :class="{on:available}">
+        <b />
+      </i>
+    </button>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -199,7 +200,7 @@ watchEffect(() => {
 
 .walkie-app h1 {
   color: #ffd60a;
-  font-size: max(calc(12px / var(--watch-scale)), calc(29px * var(--text-size, 1)));
+  font-size: max(18px, calc(29px * var(--text-size, 1)));
 }
 
 .availability {
@@ -213,7 +214,7 @@ watchEffect(() => {
   color: white;
   border-radius: 26px;
   padding: 12px 18px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(24px * var(--text-size, 1)));
+  font-size: max(18px, calc(24px * var(--text-size, 1)));
 }
 
 .availability i {
@@ -244,7 +245,7 @@ watchEffect(() => {
 
 .friend-select {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   color: #aaa;
   margin-top: 18px;
 }
@@ -258,7 +259,7 @@ watchEffect(() => {
   border: 0;
   border-radius: 24px;
   padding: 0 18px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(27px * var(--text-size, 1)));
+  font-size: max(18px, calc(27px * var(--text-size, 1)));
 }
 
 .talk-area {
@@ -294,12 +295,12 @@ watchEffect(() => {
 }
 
 .talk strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
   display: block;
 }
 
 .talk span {
-  font-size: max(calc(12px / var(--watch-scale)), calc(23px * var(--text-size, 1)));
+  font-size: max(18px, calc(23px * var(--text-size, 1)));
   display: block;
   margin-top: 10px;
   opacity: .65;
@@ -316,15 +317,15 @@ watchEffect(() => {
 .status {
   color: #ffd60a;
   text-align: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(24px * var(--text-size, 1)));
+  font-size: max(18px, calc(24px * var(--text-size, 1)));
   min-height: 65px;
   margin: 0 0 20px;
   line-height: 1.25;
 }
 
 .disclaimer {
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
-  line-height: 1.4;
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
+  line-height: 1.3;
 }
 
 @keyframes radio {
@@ -362,4 +363,22 @@ watchEffect(() => {
   left: 4px;
   transform: translateX(32px);
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #FFD60A; }
+
+.friend-select { display:flex; align-items:center; gap:10px; margin:8px 0; font-size:20px; }
+.friend-select select { flex:1; min-width:0; width:auto; min-height:64px; margin:0; border-radius:32px; font-size:24px; }
+.talk-area { width:204px; height:204px; margin:14px auto 18px; }
+.talk { width:188px; height:188px; }
+.talk strong { font-size:25px; }
+.talk span { font-size:20px; margin-top:8px; }
+.status { min-height:50px; font-size:22px; }
+.availability { min-height:76px; border-radius:30px; }
+.availability b { transition:transform 160ms ease; }
+
+.talk { min-height:188px !important; }
 </style>

@@ -61,7 +61,7 @@ useWatchHardware('phone', {
 
 <template>
   <div class="watch-app root">
-    <h1>Phone</h1>
+    <h1>{{ call !== 'idle' ? caller : page === 'recents' ? 'Recents' : page === 'keypad' ? 'Keypad' : 'Phone' }}</h1>
     <template v-if="call !== 'idle'">
       <div class="caller">
         <div class="avatar">
@@ -140,7 +140,7 @@ useWatchHardware('phone', {
             {{ name }}
           </span>
           <span class="positive">
-            <WatchGlyph name="rocket" />
+            <WatchGlyph name="phone" />
           </span>
         </button>
         <button class="watch-button" @click="caller = 'Amma'; call = 'incoming'">Simulate incoming</button>
@@ -190,8 +190,9 @@ useWatchHardware('phone', {
           </button>
         </div>
       </template>
-      <p class="caption muted note">Demo contacts. No calls are placed.</p>
+      
     </template>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </div>
 </template>
 
@@ -205,12 +206,12 @@ useWatchHardware('phone', {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   margin: 0 0 20px;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   margin: 14px 0;
 }
 
@@ -227,12 +228,12 @@ h2 {
   border-radius: 24px;
   background: #1c1c1e;
   color: #aaa;
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
 }
 
 .tabs span {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   text-transform: capitalize;
 }
 
@@ -249,7 +250,7 @@ h2 {
   width: 100%;
   border: 0;
   color: white;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
   margin-bottom: 10px;
   text-align: left;
 }
@@ -278,7 +279,7 @@ h2 {
   width: 108px;
   height: 108px;
   margin: auto;
-  font-size: max(calc(12px / var(--watch-scale)), calc(44px * var(--text-size, 1)));
+  font-size: max(18px, calc(44px * var(--text-size, 1)));
 }
 
 .caller {
@@ -296,7 +297,7 @@ h2 {
   flex-direction: column;
   gap: 6px;
   margin-bottom: 10px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
 }
 
 .keypad {
@@ -312,14 +313,14 @@ h2 {
   border-radius: 40px;
   background: #2c2c2e;
   color: white;
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
 }
 
 .digits {
   min-height: 42px;
   text-align: center;
   word-break: break-all;
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
 }
 
 .note {
@@ -353,4 +354,20 @@ button:disabled {
   width: 26px;
   height: 26px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #34D35B; }
+
+.tabs button { min-width:0; min-height:76px; border-radius:30px; }
+.tabs span { font-size:20px; line-height:1.25; }
+.contact > span:nth-child(2) { flex:1; min-width:0; }
+.contact > span:last-child { flex:0 0 24px; }
+.contact strong, .recent strong { font-size:24px; }
+.keypad { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.keypad button { min-height:76px; font-size:30px; }
+.caller h2 { color:white; text-transform:none; font-size:28px; }
+.digits { line-height:1.25; overflow-wrap:anywhere; }
 </style>

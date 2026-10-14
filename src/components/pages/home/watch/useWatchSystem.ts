@@ -222,12 +222,14 @@ export function useWatchSystem() {
     notifications.value.unshift(item);
     notifications.value = notifications.value.slice(0, 30);
     if (!settings.focus && powered.value && !settings.theatre) {
+      // A real watch lights up for a notification instead of showing it on a dimmed screen.
+      wake();
       banner.value = item;
       haptic('success');
       clearTimeout(bannerTimer);
       bannerTimer = window.setTimeout(() => {
         banner.value = null;
-      }, 4500);
+      }, 6500);
     }
   }
   function setOverlay(id: OverlayId): void {

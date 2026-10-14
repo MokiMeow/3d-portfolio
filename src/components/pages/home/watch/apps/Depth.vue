@@ -50,6 +50,10 @@ useWatchHardware('depth', {
   action: () => {
     if (mode.value !== 'dive') start();else paused.value = !paused.value;
     return true;
+  }, back: () => {
+    if (mode.value === 'desk') return false;
+    reset();
+    return true;
   }
 });
 </script>
@@ -118,8 +122,9 @@ useWatchHardware('depth', {
         </strong>
       </div>
     </div>
-    <p class="caption muted">Demo only. Depth, temperature and stop timing are fictional. This screen is not a dive instrument.</p>
-    <p v-if="ctx.reducedMotion.value && mode==='dive'" class="caption muted">Simulation paused while reduced motion is enabled.</p>
+    
+
+    <p class="polish-footnote">Demo data, for fun. Not a dive instrument.</p>
   </section>
 </template>
 
@@ -133,14 +138,14 @@ useWatchHardware('depth', {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
-  line-height: 1.1;
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
+  line-height: 1.2;
   margin: 0 0 22px;
   font-weight: 700;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
   margin: 0 0 12px;
 }
 
@@ -167,7 +172,7 @@ h2 {
   background: #252527;
   color: white;
   padding: 0 20px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
 }
 
 .depth-app {
@@ -203,13 +208,13 @@ h2 {
 }
 
 .depth-reading strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(80px * var(--text-size, 1)));
+  font-size: max(18px, calc(80px * var(--text-size, 1)));
   line-height: 1.3;
   letter-spacing: -4px;
 }
 
 .depth-reading small {
-  font-size: max(calc(12px / var(--watch-scale)), calc(31px * var(--text-size, 1)));
+  font-size: max(18px, calc(31px * var(--text-size, 1)));
   font-weight: 500;
   margin-left: 8px;
 }
@@ -230,7 +235,7 @@ h2 {
 }
 
 .readings strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
 }
 
 .dive-button {
@@ -244,11 +249,11 @@ h2 {
   align-items: center;
   color: #FFD60A;
   margin-top: 16px;
-  font-size: max(calc(12px / var(--watch-scale)), calc(28px * var(--text-size, 1)));
+  font-size: max(18px, calc(28px * var(--text-size, 1)));
 }
 
 .safety strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(45px * var(--text-size, 1)));
+  font-size: max(18px, calc(45px * var(--text-size, 1)));
 }
 
 .watch-button {
@@ -266,7 +271,7 @@ h2 {
 
 .depth-reading strong {
   font-size: 70px;
-  line-height: 1.15;
+  line-height: 1.2;
 }
 
 .depth-reading .muted {
@@ -287,4 +292,17 @@ h2 {
 .waterline {
   transition: transform 300ms ease;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #00C8FF; }
+
+.water-scene { height:auto; min-height:242px; }
+.depth-reading { padding:20px 18px; gap:8px; }
+.depth-reading strong { display:flex; align-items:baseline; gap:6px; font-size:80px; font-weight:600; line-height:1.2; }
+.depth-reading strong small { font-size:26px; font-weight:600; margin:0; }
+.depth-reading .muted { line-height:1.3; max-width:100%; }
+.readings > div { min-height:76px; gap:12px; }
 </style>

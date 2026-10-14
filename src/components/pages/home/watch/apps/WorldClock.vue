@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import WatchGlyph from "../WatchGlyph.vue";
 import { useWatch, useWatchHardware } from "../watch";
 interface City {
   name: string;
@@ -85,7 +86,7 @@ useWatchHardware('worldClock', {
 
 <template>
   <section class="watch-app world-app">
-    <h1>World Clock</h1>
+    <h1>{{ adding ? 'Add City' : selected ? selected.name : 'World Clock' }}</h1>
     <template v-if="adding">
       <p class="caption muted">Choose a city</p>
       <button
@@ -148,7 +149,8 @@ useWatchHardware('worldClock', {
             {{time(city)}}
           </b>
           <small>
-            {{hour(city)>=6&&hour(city)<18?'☀ Day':'☾ Night'}}
+            <WatchGlyph :name="hour(city)>=6&&hour(city)<18?'sun':'moon'" />
+            {{ hour(city)>=6&&hour(city)<18?'Day':'Night' }}
           </small>
         </span>
       </button>
@@ -160,6 +162,7 @@ useWatchHardware('worldClock', {
         ＋ Add City
       </button>
     </template>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -189,13 +192,13 @@ useWatchHardware('worldClock', {
 }
 
 .city strong {
-  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  font-size: max(18px, calc(25px * var(--text-size, 1)));
   display: block;
 }
 
 .city small {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
   color: #aaa;
   margin-top: 8px;
 }
@@ -205,7 +208,7 @@ useWatchHardware('worldClock', {
 }
 
 .time b {
-  font-size: max(calc(12px / var(--watch-scale)), calc(30px * var(--text-size, 1)));
+  font-size: max(18px, calc(30px * var(--text-size, 1)));
   font-weight: 400;
   white-space: nowrap;
 }
@@ -240,7 +243,7 @@ useWatchHardware('worldClock', {
   top: calc(50% - 18px);
   width: 36px;
   text-align: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
 }
 
 .clock-dial i {
@@ -272,7 +275,7 @@ useWatchHardware('worldClock', {
 }
 
 .city-time {
-  font-size: max(calc(12px / var(--watch-scale)), calc(41px * var(--text-size, 1)));
+  font-size: max(18px, calc(41px * var(--text-size, 1)));
   text-align: center;
 }
 
@@ -280,4 +283,19 @@ useWatchHardware('worldClock', {
 .world-app>p {
   text-align: center;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #7CAFFF; }
+
+.city { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:center; }
+.city strong { font-size:24px; line-height:1.25; }
+.city small { font-size:20px; line-height:1.25; }
+.time b { font-size:28px; font-weight:600; }
+.time small { display:flex; align-items:center; justify-content:flex-end; gap:6px; }
+.time small :deep(svg) { width:20px; height:20px; }
+.city-time { font-size:60px; font-weight:600; line-height:1.2; overflow-wrap:anywhere; }
+.clock-dial { margin:20px auto; }
 </style>

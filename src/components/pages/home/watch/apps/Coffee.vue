@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import WatchGlyph from "../WatchGlyph.vue";
 import { useWatch, useWatchHardware } from '../watch';
 const watch = useWatch();
 const confirming = ref(false);
@@ -44,6 +45,10 @@ function stamp(at: number) {
 useWatchHardware('coffee', { action: () => {
     logCup();
     return true;
+  }, back: () => {
+    if (!confirming.value) return false;
+    confirming.value = false;
+    return true;
   } });
 </script>
 
@@ -85,11 +90,7 @@ useWatchHardware('coffee', { action: () => {
         <span>+12h</span>
       </div>
     </div>
-    <p class="caption muted note">
-      Wrist math: 80 mg per cup,
-      <br />
-      a 5-hour half-life. Just a demo.
-    </p>
+    
     <h2>Recent cups</h2>
     <div v-if="!history.length" class="platter caption muted">No coffee yet. A rare calm.</div>
     <div
@@ -98,7 +99,7 @@ useWatchHardware('coffee', { action: () => {
       class="platter entry"
     >
       <div>
-        <strong>☕ Coffee</strong>
+        <strong><WatchGlyph name="coffee" /> Coffee</strong>
         <span class="caption muted">
           {{ stamp(entry.at) }}
         </span>
@@ -129,6 +130,7 @@ useWatchHardware('coffee', { action: () => {
         </div>
       </div>
     </template>
+    <p class="polish-footnote">Demo data, for fun.</p>
   </section>
 </template>
 
@@ -142,7 +144,7 @@ useWatchHardware('coffee', { action: () => {
 }
 
 h1 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(31px * var(--text-size, 1)));
+  font-size: max(18px, calc(31px * var(--text-size, 1)));
   margin: 0 0 8px;
 }
 
@@ -171,8 +173,8 @@ h1 {
 }
 
 .cup-count .metric {
-  font-size: max(calc(12px / var(--watch-scale)), calc(70px * var(--text-size, 1)));
-  line-height: 1;
+  font-size: max(18px, calc(70px * var(--text-size, 1)));
+  line-height: 1.2;
   display: block;
 }
 
@@ -193,16 +195,16 @@ h1 {
 }
 
 .caffeine .row {
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
 }
 
 .caffeine strong {
   color: #d5b497;
-  font-size: max(calc(12px / var(--watch-scale)), calc(27px * var(--text-size, 1)));
+  font-size: max(18px, calc(27px * var(--text-size, 1)));
 }
 
 .caffeine small {
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
 }
 
 .caffeine svg {
@@ -227,18 +229,18 @@ h1 {
 .axis {
   display: flex;
   justify-content: space-between;
-  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  font-size: max(18px, calc(21px * var(--text-size, 1)));
 }
 
 .note {
   text-align: center;
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
-  line-height: 1.45;
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
+  line-height: 1.3;
   margin: 18px 0 22px;
 }
 
 h2 {
-  font-size: max(calc(12px / var(--watch-scale)), calc(26px * var(--text-size, 1)));
+  font-size: max(18px, calc(26px * var(--text-size, 1)));
   margin: 12px 0;
 }
 
@@ -252,12 +254,12 @@ h2 {
 
 .entry strong {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(24px * var(--text-size, 1)));
+  font-size: max(18px, calc(24px * var(--text-size, 1)));
 }
 
 .entry .caption {
   display: block;
-  font-size: max(calc(12px / var(--watch-scale)), calc(22px * var(--text-size, 1)));
+  font-size: max(18px, calc(22px * var(--text-size, 1)));
   margin-top: 6px;
 }
 
@@ -268,7 +270,7 @@ h2 {
   border-radius: 50%;
   background: #39332f;
   color: #d5b497;
-  font-size: max(calc(12px / var(--watch-scale)), calc(31px * var(--text-size, 1)));
+  font-size: max(18px, calc(31px * var(--text-size, 1)));
 }
 
 .remove:focus-visible {
@@ -299,4 +301,19 @@ h2 {
   padding: 10px 12px;
   min-height: 68px;
 }
+</style>
+
+<style scoped src="./app-polish.css"></style>
+
+<style scoped>
+.watch-app { --app-accent: #C7976A; }
+
+.cup-count { gap:18px; }
+.cup-count .metric { margin:0; }
+.caffeine .row { flex-wrap:wrap; }
+.caffeine strong { display:flex; align-items:baseline; gap:6px; font-size:36px; font-weight:600; }
+.entry > div { min-width:0; flex:1; }
+.entry strong { display:flex; align-items:center; gap:8px; font-size:24px; }
+.entry strong :deep(svg) { width:26px; height:26px; }
+.entry .remove { flex:0 0 64px; width:64px; height:64px; }
 </style>
