@@ -623,6 +623,32 @@ const iconFactories = {
     + '<path d="M38 21h44v30H38Zm8 21 8-8 8 5 11-12M60 51v15m0-4-8 10m8-10 8 10"/></g>'
     + '<path d="M18 47h34l-4 11H22Zm8 14h18v16H26Zm-7 19h32v5H19Z" fill="#fff"/>'
     + '<path d="M31 47V35c0-6 8-6 8-1" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>'),
+  nightsky: (uid) => art(plate(uid, '#080f36', '#6844a5'),
+    '<path d="M75 17a15 15 0 1 0 9 23 13 13 0 0 1-9-23Z" fill="#fff"/>'
+    + '<path d="m23 62 17-26 17 18 16 20" fill="none" stroke="#fff" stroke-width="1.8" stroke-dasharray="2 4" stroke-linecap="round" opacity=".65"/>'
+    + '<g fill="#fff"><circle cx="23" cy="62" r="3.5"/><circle cx="40" cy="36" r="4"/><circle cx="57" cy="54" r="3"/><circle cx="73" cy="74" r="3.5"/><circle cx="22" cy="24" r="1.4"/><circle cx="48" cy="79" r="1.5"/><circle cx="82" cy="57" r="1.2"/></g>'
+    + '<path d="M35 62v13m-6.5-6.5h13M58 23v8m-4-4h8" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>'),
+  objects: (uid) => art(plate(uid, '#8c8781', '#f8f7f5'),
+    gradient(uid + '-object-sphere', ['#fff', '#c5c6cc'], true)
+    + '<path d="m45 29 26 15-26 15-26-15Z" fill="#fff"/>'
+    + '<path d="m19 44 26 15v29L19 73Z" fill="#f0f0f2"/>'
+    + '<path d="m45 59 26-15v29L45 88Z" fill="#d3d4da"/>'
+    + '<ellipse cx="54" cy="48" rx="37" ry="15" transform="rotate(-35 54 48)" fill="none" stroke="#fff" stroke-width="1.5" opacity=".5"/>'
+    + '<circle cx="76" cy="26" r="12" fill="url(#' + uid + '-object-sphere)"/>'
+    + '<path d="m22 44 23 13 23-13M45 59v26" fill="none" stroke="#fff" stroke-width="1.2" opacity=".7"/>'),
+  beatstudio: (uid) => art(plate(uid, '#ef278c', '#ff963f'),
+    '<g fill="#fff"><rect x="20" y="22" width="24" height="24" rx="5"/><rect x="50" y="22" width="24" height="24" rx="5" opacity=".85"/>'
+    + '<rect x="20" y="52" width="24" height="24" rx="5" opacity=".85"/><rect x="50" y="52" width="24" height="24" rx="5"/></g>'
+    + '<path d="M13 50h10l4-10 5 20 5-16 5 6h10l4-8 5 16 5-22 5 14h16" fill="none" stroke="#d83c67" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>'
+    + '<path d="M13 50h10l4-10 5 20 5-16 5 6h10l4-8 5 16 5-22 5 14h16" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'),
+  zengarden: (uid) => art(plate(uid, '#a6b995', '#285a49'),
+    '<g fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".75">'
+    + '<path d="M15 70c7-25 29-34 47-15M15 79c12-33 36-34 52-17M23 86c10-24 29-31 46-16M33 90c8-16 20-22 33-14"/></g>'
+    + '<path d="M26 62c0-10 9-18 19-17 12 0 19 9 17 17-1 6-34 9-36 0Z" fill="#fff"/>'
+    + '<path d="M31 60c4 4 19 4 27 0" fill="none" stroke="#7d9b7c" stroke-width="2" opacity=".4"/>'
+    + '<path d="M69 57c-2-12 3-16 1-28m0 13 10-8m-10 2-8-8" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>'
+    + '<path d="M60 57h24l-4 9H64Z" fill="#fff"/>'
+    + '<path d="M56 28c-3-7 4-14 11-11 5-7 16-3 15 3 11 0 13 12 2 14H61c-8 0-10-3-5-6Z" fill="#fff"/>'),
 } satisfies Record<string, AppIconFactory>;
 
 export type AppIconKey = keyof typeof iconFactories;

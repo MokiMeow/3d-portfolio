@@ -5,32 +5,34 @@ import { VISION, VISION_APPS, VISION_ENVIRONMENTS, type VisionAppId, type Vision
 import { createAmbience } from './vision/ambience';
 import VisionEnvironment from './vision/VisionEnvironment.vue';
 import VisionIcon from './vision/VisionIcon.vue';
-import Encounter from './vision/apps/Encounter.vue';
-import Files from './vision/apps/Files.vue';
-import Freeform from './vision/apps/Freeform.vue';
-import Mac from './vision/apps/Mac.vue';
-import Messages from './vision/apps/Messages.vue';
-import Mindfulness from './vision/apps/Mindfulness.vue';
-import Music from './vision/apps/Music.vue';
-import Notes from './vision/apps/Notes.vue';
-import Photos from './vision/apps/Photos.vue';
-import Safari from './vision/apps/Safari.vue';
-import Settings from './vision/apps/Settings.vue';
-import Store from './vision/apps/Store.vue';
-import TV from './vision/apps/TV.vue';
-import YouTube from './vision/apps/YouTube.vue';
-import Arcade from './vision/apps/Arcade.vue';
-import FaceTime from './vision/apps/FaceTime.vue';
-import Weather from './vision/apps/Weather.vue';
-import Maps from './vision/apps/Maps.vue';
-import Clock from './vision/apps/Clock.vue';
-import Keynote from './vision/apps/Keynote.vue';
 
 type Win = { id: VisionAppId; x: number; y: number; w: number; h: number; z: number; full?: { x: number; y: number; w: number; h: number } };
+// Apps load on first open, so the headset itself starts quickly; each window shows its glass until the app arrives.
 const VIEWS: Record<VisionAppId, Component> = {
-  tv: TV, youtube: YouTube, photos: Photos, safari: Safari, music: Music, notes: Notes, mindfulness: Mindfulness, mac: Mac,
-  freeform: Freeform, settings: Settings, messages: Messages, files: Files, encounter: Encounter, store: Store,
-  arcade: Arcade, facetime: FaceTime, weather: Weather, maps: Maps, clock: Clock, keynote: Keynote,
+  tv: defineAsyncComponent(() => import('./vision/apps/TV.vue')),
+  youtube: defineAsyncComponent(() => import('./vision/apps/YouTube.vue')),
+  photos: defineAsyncComponent(() => import('./vision/apps/Photos.vue')),
+  safari: defineAsyncComponent(() => import('./vision/apps/Safari.vue')),
+  music: defineAsyncComponent(() => import('./vision/apps/Music.vue')),
+  notes: defineAsyncComponent(() => import('./vision/apps/Notes.vue')),
+  mindfulness: defineAsyncComponent(() => import('./vision/apps/Mindfulness.vue')),
+  mac: defineAsyncComponent(() => import('./vision/apps/Mac.vue')),
+  freeform: defineAsyncComponent(() => import('./vision/apps/Freeform.vue')),
+  settings: defineAsyncComponent(() => import('./vision/apps/Settings.vue')),
+  messages: defineAsyncComponent(() => import('./vision/apps/Messages.vue')),
+  files: defineAsyncComponent(() => import('./vision/apps/Files.vue')),
+  encounter: defineAsyncComponent(() => import('./vision/apps/Encounter.vue')),
+  store: defineAsyncComponent(() => import('./vision/apps/Store.vue')),
+  arcade: defineAsyncComponent(() => import('./vision/apps/Arcade.vue')),
+  facetime: defineAsyncComponent(() => import('./vision/apps/FaceTime.vue')),
+  weather: defineAsyncComponent(() => import('./vision/apps/Weather.vue')),
+  maps: defineAsyncComponent(() => import('./vision/apps/Maps.vue')),
+  clock: defineAsyncComponent(() => import('./vision/apps/Clock.vue')),
+  keynote: defineAsyncComponent(() => import('./vision/apps/Keynote.vue')),
+  nightsky: defineAsyncComponent(() => import('./vision/apps/NightSky.vue')),
+  objects: defineAsyncComponent(() => import('./vision/apps/Objects.vue')),
+  beatstudio: defineAsyncComponent(() => import('./vision/apps/BeatStudio.vue')),
+  zengarden: defineAsyncComponent(() => import('./vision/apps/ZenGarden.vue')),
 };
 const NAMES = Object.fromEntries(VISION_APPS.map(item => [item.id, item.name])) as Record<VisionAppId, string>;
 // The Home View honeycomb: pages of rows of 4, 5 and 5, each cell 146 apart, like the real Home View.

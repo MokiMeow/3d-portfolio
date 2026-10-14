@@ -1,0 +1,343 @@
+.objects-app {
+  position:absolute;
+  inset:0;
+  display:grid;
+  grid-template-columns:242px minmax(0,1fr);
+  gap:18px;
+  padding:24px;
+  border-radius:inherit;
+  overflow:hidden;
+  color:var(--vk-text);
+  background:radial-gradient(ellipse at 75% 32%,#75889c2b,transparent 65%);
+  font-size:17px;
+  container-type:size
+}
+.objects-app * {
+  box-sizing:border-box
+}
+.objects-app h1,.objects-app h2,.objects-app p {
+  margin:0
+}
+.objects-app button {
+  font:inherit;
+  color:inherit;
+  border:0;
+  cursor:pointer
+}
+.objects-app :focus-visible {
+  outline:2px solid #d1e6ff;
+  outline-offset:3px
+}
+.objects-app svg {
+  width:22px;
+  height:22px;
+  stroke:currentColor;
+  fill:none;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  flex:none
+}
+.object-sidebar {
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  min-height:0;
+  padding:20px 10px 14px
+}
+.collection-heading {
+  padding:0 10px
+}
+.eyebrow {
+  font-size:9px;
+  letter-spacing:.15em;
+  color:var(--vk-tertiary);
+  margin-bottom:9px!important
+}
+.collection-heading h1 {
+  margin-bottom:8px
+}
+.collection-heading>.vk-footnote {
+  font-size:12px
+}
+.object-list {
+  min-height:0;
+  flex:1
+}
+.object-row {
+  gap:10px!important;
+  padding:6px 8px!important;
+  min-height:68px!important;
+  margin:2px 0;
+  background:transparent
+}
+.object-thumb {
+  display:grid;
+  place-items:center;
+  width:54px;
+  height:54px;
+  flex:none;
+  border-radius:17px!important;
+  color:#c7d8e8
+}
+.object-thumb img {
+  width:56px;
+  height:56px;
+  object-fit:contain;
+  pointer-events:none
+}
+.object-name {
+  min-width:0
+}
+.object-name strong {
+  font-size:13px;
+  font-weight:600;
+  display:block
+}
+.object-name small {
+  display:block;
+  font-size:10px;
+  margin-top:4px
+}
+.collection-note {
+  font-size:10px;
+  text-align:center
+}
+.object-main {
+  min-width:0;
+  min-height:0;
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-end
+}
+.object-stage {
+  position:absolute;
+  inset:0 0 165px
+}
+.stage-heading {
+  position:absolute;
+  top:0;
+  left:2px;
+  display:flex;
+  gap:14px;
+  align-items:center;
+  pointer-events:none
+}
+.stage-heading p {
+  font-size:11px
+}
+.stage-heading .vk-chip {
+  font-size:11px
+}
+.view-controls {
+  position:absolute;
+  top:45px;
+  right:0;
+  padding:5px!important;
+  flex-direction:column;
+  border-radius:26px!important
+}
+.object-caption {
+  width:100%;
+  text-align:center;
+  padding:0 12px 18px;
+  pointer-events:none
+}
+.object-caption h2 {
+  margin-bottom:7px
+}
+.object-caption>.vk-body {
+  font-size:15px
+}
+.object-caption>.vk-footnote {
+  font-size:11px;
+  line-height:1.5;
+  margin:7px auto 0;
+  max-width:480px
+}
+.object-ornament {
+  justify-content:center;
+  gap:4px!important;
+  max-width:100%;
+  padding:7px!important;
+  border-radius:28px!important;
+  flex-wrap:wrap
+}
+.object-ornament>.vk-button {
+  padding:0 12px;
+  font-size:12px;
+  gap:7px
+}
+.object-ornament svg {
+  width:19px;
+  height:19px
+}
+.object-ornament .place-button {
+  padding:0 16px
+}
+.object-status {
+  position:absolute;
+  top:80px;
+  left:50%;
+  transform:translateX(-50%);
+  max-width:90%;
+  width:300px;
+  z-index:3;
+  text-align:center;
+  padding:16px!important;
+  font-size:13px
+}
+.object-status .vk-button {
+  margin-top:12px
+}
+.solid .object-sidebar {
+  background:#33363d
+}
+.night {
+  background:radial-gradient(ellipse at 75% 32%,#26304b80,#09101b40)
+}
+.compact {
+  padding:22px 16px 14px;
+  display:flex;
+  flex-direction:column;
+  gap:10px
+}
+.compact .object-sidebar {
+  padding:0;
+  background:none;
+  box-shadow:none;
+  overflow:visible;
+  gap:8px;
+  flex:none
+}
+.compact .collection-heading {
+  padding:0 6px
+}
+.compact .collection-heading h1 {
+  font-size:26px;
+  margin-bottom:0
+}
+.compact .eyebrow {
+  font-size:8px;
+  margin-bottom:6px!important
+}
+.compact .collection-heading>.vk-footnote,.compact .collection-note,.compact .object-name small {
+  display:none
+}
+.compact .object-list {
+  display:flex;
+  gap:6px;
+  flex:none;
+  padding:3px 2px 6px;
+  overflow-x:auto;
+  max-width:100%
+}
+.compact .object-row {
+  display:flex;
+  flex-direction:column;
+  gap:5px!important;
+  flex:0 0 94px;
+  width:94px;
+  padding:6px!important;
+  min-height:94px!important;
+  text-align:center;
+  border-radius:20px
+}
+.compact .object-name strong {
+  font-size:10px;
+  white-space:normal;
+  line-height:1.25
+}
+.compact .object-thumb {
+  width:52px;
+  height:48px;
+  background:transparent;
+  box-shadow:none
+}
+.compact .object-main {
+  flex:1;
+  min-height:0
+}
+.compact .stage-heading {
+  left:6px;
+  right:6px
+}
+.compact .stage-heading .vk-chip {
+  font-size:10px;
+  min-height:26px;
+  padding:0 9px
+}
+.compact .stage-heading p {
+  font-size:9px
+}
+.compact .view-controls {
+  top:36px;
+  right:0;
+  padding:3px!important
+}
+.compact .object-stage {
+  inset:0 0 180px
+}
+.compact .object-caption {
+  padding:0 12px 12px
+}
+.compact .object-caption h2 {
+  font-size:19px;
+  margin-bottom:5px
+}
+.compact .object-caption>.vk-body {
+  font-size:12px
+}
+.compact .object-caption>.vk-footnote {
+  font-size:9px;
+  margin-top:5px;
+  line-height:1.4
+}
+.compact .object-ornament {
+  width:100%;
+  border-radius:24px!important;
+  gap:5px!important
+}
+.compact .object-ornament>.vk-button {
+  padding:0 9px;
+  font-size:10px;
+  min-height:44px;
+  gap:4px;
+  flex:1 0 28%
+}
+.compact .object-ornament svg {
+  width:17px;
+  height:17px
+}
+.compact .object-ornament .place-button {
+  flex-basis:50%
+}
+.compact .object-status {
+  top:42px;
+  font-size:11px;
+  width:220px
+}
+@container(max-width:650px) {
+  .objects-app:not(.compact) .object-ornament>.vk-button {
+    font-size:11px;
+    padding:0 9px
+  }
+  .objects-app:not(.compact) .object-ornament svg {
+    display:none
+  }
+}
+@media(prefers-reduced-motion:reduce) {
+  .objects-app * {
+    scroll-behavior:auto!important
+  }
+}
+.compact.objects-app {
+  overflow-y:auto;
+  overscroll-behavior:contain
+}
+.compact .object-main {
+  min-height:330px;
+  flex-shrink:0
+}

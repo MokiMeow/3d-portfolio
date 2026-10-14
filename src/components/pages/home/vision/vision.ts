@@ -22,6 +22,10 @@ export const VISION_APPS = [
   { id: 'maps', name: 'Maps', size: [1080, 660] },
   { id: 'clock', name: 'Clock', size: [900, 600] },
   { id: 'keynote', name: 'Keynote', size: [1120, 680] },
+  { id: 'nightsky', name: 'Night Sky', size: [1120, 700] },
+  { id: 'objects', name: 'Objects', size: [1040, 660] },
+  { id: 'beatstudio', name: 'Beat Studio', size: [1100, 680] },
+  { id: 'zengarden', name: 'Zen Garden', size: [1000, 640] },
 ] as const;
 export type VisionAppId = (typeof VISION_APPS)[number]['id'];
 
