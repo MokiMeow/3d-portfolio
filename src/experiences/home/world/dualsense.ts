@@ -15,7 +15,7 @@ import {
 } from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { TessellateModifier } from "three/examples/jsm/modifiers/TessellateModifier.js";
-import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { mergeGeometries, mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 export interface DualSenseKit {
   geo: <T extends BufferGeometry>(geometry: T) => T;
@@ -131,6 +131,28 @@ export function dualSenseFactory(kit: DualSenseKit) {
     return part;
   };
 
+  // Each part shares geometry, so a controller is dozens of tiny meshes. Bake the parts that share a
+  // material into one mesh, so every controller costs a handful of draw calls.
+  const mergeByMaterial = (pad: Group, keep: Mesh) => {
+    const groups = new Map<Material, BufferGeometry[]>();
+    for (const part of [...pad.children] as Mesh[]) {
+      if (part === keep || Array.isArray(part.material)) continue;
+      part.updateMatrix();
+      const baked = part.geometry.index ? part.geometry.toNonIndexed() : part.geometry.clone();
+      baked.applyMatrix4(part.matrix);
+      if (!baked.getAttribute("uv")) continue;
+      const list = groups.get(part.material) ?? [];
+      list.push(baked);
+      groups.set(part.material, list);
+      pad.remove(part);
+    }
+    for (const [material, parts] of groups) {
+      const merged = mergeGeometries(parts);
+      parts.forEach(part => part.dispose());
+      if (merged) pad.add(new Mesh(geo(merged), material));
+    }
+  };
+
   return function create() {
     const pad = new Group();
     pad.name = "dualsense";
@@ -169,6 +191,7 @@ export function dualSenseFactory(kit: DualSenseKit) {
       trigger.rotation.x = 0.45;
     }
     add(pad, portGeometry, piano, 0, TOP - 7, -36.6);
+    mergeByMaterial(pad, body);
     return { group: pad, body };
   };
 }
