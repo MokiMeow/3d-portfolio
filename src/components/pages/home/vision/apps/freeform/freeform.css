@@ -1,0 +1,548 @@
+.freeform-app {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  container-type: size;
+  position: relative;
+  color: var(--vk-text, #fff);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+.freeform-app :deep(*) {
+  font-family: inherit;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+h2,
+p {
+  margin: 0;
+}
+
+.layout {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  gap: 16px;
+  padding: 20px;
+  align-items: center;
+}
+
+.rail {
+  flex: none;
+  position: relative;
+  z-index: 2;
+}
+
+.rail-label {
+  display: none;
+  position: absolute;
+  left: 62px;
+  padding: 10px 16px;
+  border-radius: 20px;
+  background: #42464e;
+  white-space: nowrap;
+  font-size: 15px;
+}
+
+.rail button:hover .rail-label,
+.rail button:focus-visible .rail-label {
+  display: block;
+}
+
+.workspace {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 60px;
+  flex: none;
+}
+
+.titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.eyebrow {
+  letter-spacing: .12em;
+  color: #ffffffb8;
+  padding-left: 8px;
+}
+
+.board-title {
+  padding: 6px 8px;
+  min-height: 44px;
+  font-size: 29px;
+  font-weight: 700;
+  letter-spacing: -.03em;
+  border-radius: 16px;
+  background: transparent;
+  text-align: left;
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.freeform-app .canvas {
+  position: relative;
+  flex: 1;
+  min-height: 50px;
+  overflow: hidden;
+  touch-action: none;
+  background-image: radial-gradient(circle, #ffffff24 1px, transparent 1.4px);
+  background-color: #24272bd9;
+  cursor: grab;
+}
+
+.canvas.drawing {
+  cursor: crosshair;
+}
+
+.canvas:active {
+  cursor: grabbing;
+}
+
+.world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+.connections {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.freeform-app .board-item {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 4px;
+  pointer-events: auto;
+  cursor: inherit;
+  transform-origin: center;
+  touch-action: none;
+}
+
+.board-item.paper {
+  filter: drop-shadow(0 9px 10px #0003);
+}
+
+.board-item svg {
+  display: block;
+  overflow: visible;
+}
+
+.board-item.chosen {
+  outline: 2px solid #91caff;
+}
+
+.board-item:active {
+  transform: rotate(0deg);
+}
+
+.selection-frame {
+  position: absolute;
+  pointer-events: none;
+  transform-origin: center;
+  border: 1px solid #ffffff70;
+}
+
+.freeform-app .handle {
+  position: absolute;
+  pointer-events: auto;
+  width: 44px;
+  height: 44px;
+  transform: scale(var(--inverse-zoom));
+  z-index: 3;
+  touch-action: none;
+  background: #365d80 !important;
+}
+
+.freeform-app .handle:active {
+  transform: scale(calc(var(--inverse-zoom) * .97));
+}
+
+.handle.resize {
+  right: -22px;
+  bottom: -22px;
+  transform-origin: center;
+}
+
+.handle.rotate {
+  left: calc(50% - 22px);
+  top: -56px;
+}
+
+.contextbar {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  flex: none;
+}
+
+.hint {
+  flex: 1;
+  min-width: 0;
+}
+
+.fit {
+  min-width: 74px;
+  padding: 0 10px !important;
+}
+
+.toolbar {
+  align-self: center;
+  max-width: 100%;
+  flex: none;
+  overflow-x: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff66 transparent;
+  border-radius: 28px;
+  padding-bottom: 12px;
+}
+
+.freeform-app .toolbar button {
+  width: 58px;
+  height: 64px;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.tool-label {
+  font-size: 12px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.freeform-app .toolbar::-webkit-scrollbar {
+  display: block;
+  height: 4px;
+}
+
+.toolbar::-webkit-scrollbar-thumb {
+  background: #ffffff66;
+  border-radius: 4px;
+}
+
+.freeform-app .toolbar .control-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.empty {
+  position: absolute;
+  inset: 20px;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: #11131899;
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  z-index: 5;
+}
+
+.freeform-app .popover {
+  width: min(560px, 100%);
+  background: linear-gradient(145deg, #454951, #30343c);
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff66 transparent;
+  line-height: 1.55;
+  max-height: 100%;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.sheet-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  flex: none;
+}
+
+.sheet-heading h2 {
+  min-width: 0;
+}
+
+.board-browser {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.board-card {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.board-card img {
+  width: 100%;
+  height: 120px;
+  object-fit: contain;
+  border-radius: 18px;
+  background: #0003;
+}
+
+.board-card strong {
+  overflow-wrap: anywhere;
+}
+
+.board-card[aria-pressed="true"] {
+  outline: 2px solid #a9d5ff;
+}
+
+.primary-action {
+  min-height: 60px;
+  align-self: flex-start;
+  margin-top: 12px;
+}
+
+.shape-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.swatches span {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+}
+
+.stroke-label {
+  display: block;
+}
+
+.stroke-label output {
+  float: right;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.link-list {
+  display: grid;
+  gap: 6px;
+}
+
+.link-list button {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+form label {
+  display: grid;
+  gap: 10px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+@container (max-width: 650px) {
+  .layout {
+    padding: 16px;
+    gap: 8px;
+  }
+  .rail {
+    padding: 5px;
+  }
+  .rail .large {
+    width: 44px;
+    height: 44px;
+  }
+  .board-title {
+    font-size: 23px;
+  }
+  .hint {
+    display: none;
+  }
+  .contextbar {
+    justify-content: center;
+  }
+  .freeform-app .toolbar .large {
+    width: 54px;
+    height: 62px;
+  }
+}
+
+@container (max-width: 450px) {
+  .layout {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: stretch;
+  }
+  .freeform-app .rail {
+    display: flex;
+    flex-direction: row;
+    align-self: flex-start;
+    padding: 4px;
+    gap: 4px;
+    box-shadow: none;
+    background: #ffffff12;
+  }
+  .freeform-app .rail .large {
+    width: 44px;
+    height: 44px;
+  }
+  .workspace {
+    width: 100%;
+    flex: 1;
+    height: auto;
+    gap: 8px;
+  }
+  .titles {
+    padding-left: 0;
+  }
+  .eyebrow {
+    font-size: 12px;
+  }
+  .board-title {
+    font-size: 20px;
+  }
+  .heading {
+    gap: 4px;
+    min-height: 64px;
+  }
+  .freeform-app .heading .vk-icon {
+    width: 44px;
+    height: 44px;
+  }
+  .contextbar {
+    gap: 3px;
+  }
+  .freeform-app .fit {
+    min-width: 62px;
+    font-size: 16px;
+  }
+  .popover {
+    padding: 18px;
+    gap: 16px;
+    border-radius: 24px;
+    font-size: 15px;
+  }
+  .sheet-heading h2 {
+    font-size: 21px;
+  }
+  .board-browser {
+    grid-template-columns: 1fr;
+  }
+}
+
+@container (max-height: 400px) {
+  .layout {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .workspace {
+    gap: 5px;
+  }
+  .heading {
+    min-height: 44px;
+  }
+  .eyebrow {
+    display: none;
+  }
+  .board-title {
+    font-size: 22px;
+  }
+  .toolbar {
+    padding: 5px;
+  }
+  .freeform-app .toolbar .large {
+    width: 48px;
+    height: 48px;
+  }
+  .tool-label {
+    display: none;
+  }
+  .contextbar .vk-icon {
+    width: 44px;
+    height: 44px;
+  }
+  .rail {
+    padding: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

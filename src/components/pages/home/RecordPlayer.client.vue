@@ -230,11 +230,16 @@ onBeforeUnmount(() => {
   destroy();
   music.value.open = false;
 });
+
+// Presentation only: reveal link controls without touching playback state.
+const expanded = ref(false);
+watch(() => music.value.open, () => { expanded.value = false; });
 </script>
 <template>
   <aside
     v-if="music.open"
     class="record-panel"
+    :class="{ 'is-expanded': expanded && !compact }"
     aria-label="Record player"
     @pointerdown.stop
     @pointerup.stop
@@ -248,611 +253,159 @@ onBeforeUnmount(() => {
     @keydown.esc="close"
   >
     <header>
-      <div class="wordmark">
-        <span class="signal" :class="{ live: music.playing }"></span>OFF THE
-        CLOCK<span class="edition">01</span>
+      <div v-show="!compact" class="turntable" :class="{ running: music.playing }" aria-hidden="true">
+        <div class="platter"><div class="vinyl"><span class="record-label"></span></div></div>
       </div>
-      <button
-        @click="compact = !compact"
-        :aria-label="
-          compact ? 'Expand record player' : 'Minimize music controls'
-        "
-      >
-        {{ compact ? "+" : "−" }}
-      </button>
-      <button @click="close" aria-label="Close record player and stop playback">
-        ×
+      <div class="track-copy">
+        <div class="wordmark"><span class="signal" :class="{ live: music.playing }" aria-hidden="true"></span>OFF THE CLOCK<span class="edition">01</span></div>
+        <h2 :title="title">{{ title }}</h2>
+        <p>{{ current ? current.kind === "audio" ? "YOUR AUDIO" : current.kind.toUpperCase() : "THE ROOM SELECTOR" }}</p>
+      </div>
+      <button type="button" @click="close" aria-label="Close record player and stop playback">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg>
       </button>
     </header>
-    <div
-      v-if="!current"
-      v-show="!compact"
-      class="turntable"
-      :class="{ running: music.playing }"
-      aria-hidden="true"
-    >
-      <span class="deck-mark">STEREO / HIGH FIDELITY</span>
-      <div class="platter">
-        <div class="vinyl">
-          <div class="record-label">
-            <small>MOHITH LAB</small><strong>After<br />hours.</strong
-            ><span>33⅓ &nbsp; / &nbsp; SIDE A</span><i></i>
-          </div>
-        </div>
-      </div>
-      <div class="tonearm"><i></i></div>
-      <span class="deck-speed">33<span>●</span>45</span>
-    </div>
-    <div
-      v-if="current?.kind === 'youtube' || current?.kind === 'spotify'"
-      ref="mount"
-      class="provider-player"
-      :class="current.kind"
-      :key="current.url"
-    ></div>
-    <audio
-      v-if="current?.kind === 'audio'"
-      ref="audio"
-      :src="current.url"
-      controls
-      preload="metadata"
-      @playing="playing(true)"
-      @pause="playing(false)"
-      @ended="playing(false)"
-      @error="
-        error =
-          'This audio link is unavailable or does not allow playback here.'
-      "
-    />
     <div class="transport">
-      <div class="track-copy">
-        <p>
-          {{
-            current
-              ? current.kind === "audio"
-                ? "YOUR AUDIO"
-                : current.kind.toUpperCase()
-              : "THE ROOM SELECTOR"
-          }}
-        </p>
-        <h2 :title="title">{{ title }}</h2>
-        <span>{{
-          current ? "Your soundtrack. Your pace." : "Warm beats. No hurry."
-        }}</span>
-      </div>
-      <button
-        class="play-button"
-        @click="music.playing ? pause() : play()"
-        :disabled="busy"
-        :aria-label="music.playing ? 'Pause music' : 'Play music'"
-      >
-        <svg v-if="music.playing" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M7 5h3v14H7zM14 5h3v14h-3z" />
-        </svg>
-        <svg v-else viewBox="0 0 24 24" aria-hidden="true">
-          <path d="m9 5 11 7-11 7z" />
-        </svg>
+      <button type="button" @click="compact = !compact" :aria-label="compact ? 'Expand record player' : 'Minimize music controls'" :aria-expanded="!compact" aria-controls="music-secondary">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="compact ? 'm8 10 4 4 4-4M6 4h12' : 'm8 14 4-4 4 4M6 20h12'" /></svg>
+      </button>
+      <button class="play-button" type="button" @click="music.playing ? pause() : play()" :disabled="busy" :aria-label="music.playing ? 'Pause music' : 'Play music'">
+        <svg v-if="music.playing" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14" /></svg>
+        <svg v-else viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7z" /></svg>
+      </button>
+      <button type="button" class="source-button" @click="expanded = compact || !expanded; compact = false" :aria-expanded="expanded && !compact" aria-controls="music-secondary" aria-label="Show or hide music link controls" :class="{ selected: expanded && !compact }">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 13 4-4M8 16l-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 1 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" /></svg>
       </button>
     </div>
     <p id="music-message" class="message" :class="{ error }" role="status">
-      <span class="level" :class="{ active: music.playing }" aria-hidden="true"
-        ><i></i><i></i><i></i><i></i></span
-      >{{
-        error || status || (music.playing ? "Playing" : "Ready when you are.")
-      }}
+      <span class="level" :class="{ active: music.playing }" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span>{{ error || status || (music.playing ? "Playing" : "Ready when you are.") }}</span>
     </p>
-    <form v-show="!compact" @submit.prevent="submit">
-      <label for="music-link"
-        >Make it your soundtrack.<span>PASTE A LINK</span></label
-      >
-      <div class="link-row">
-        <input
-          id="music-link"
-          v-model="input"
-          type="url"
-          placeholder="Song, mix, or a good conversation…"
-          autocomplete="off"
-          spellcheck="false"
-          required
-          :aria-invalid="!!error"
-          aria-describedby="music-message"
-        /><button type="submit" :disabled="busy" aria-label="Play music link">
-          {{ busy ? "…" : "↗" }}
-        </button>
-      </div>
-      <p class="services">YouTube <i>·</i> Spotify <i>·</i> Audio files</p>
-    </form>
-    <footer v-if="current">
-      <button @click="roomRadio">↶ Room radio</button
-      ><a :href="current.url" target="_blank" rel="noopener noreferrer"
-        >Open original ↗</a
-      >
-    </footer>
-    <p v-if="current?.kind === 'spotify' && !compact" class="service-note">
-      Spotify controls full playback and previews. Some tracks need a sign-in.
-    </p>
+    <div id="music-secondary" v-show="!compact && expanded" class="player-secondary">
+      <form @submit.prevent="submit">
+        <label for="music-link">Make it your soundtrack.<span>PASTE A LINK</span></label>
+        <div class="link-row">
+          <input id="music-link" v-model="input" type="url" placeholder="Song, mix, or a good conversation…" autocomplete="off" spellcheck="false" required :aria-invalid="!!error" aria-describedby="music-message" />
+          <button type="submit" :disabled="busy" aria-label="Play music link" :aria-busy="busy"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7z" /></svg></button>
+        </div>
+        <p class="services">YouTube <i>·</i> Spotify <i>·</i> Audio files</p>
+      </form>
+      <footer v-if="current">
+        <button type="button" @click="roomRadio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h11a6 6 0 0 1 0 12M3 10l5-5M3 10l5 5" /></svg>Room radio</button>
+        <a :href="current.url" target="_blank" rel="noopener noreferrer">Open original<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10" /></svg></a>
+      </footer>
+      <p v-if="current?.kind === 'spotify' && !compact" class="service-note">Spotify controls full playback and previews. Some tracks need a sign-in.</p>
+    </div>
+    <div v-if="current?.kind === 'youtube' || current?.kind === 'spotify'" ref="mount" class="provider-player" :class="current.kind" :key="current.url"></div>
+    <audio v-if="current?.kind === 'audio'" ref="audio" :src="current.url" controls preload="metadata" @playing="playing(true)" @pause="playing(false)" @ended="playing(false)" @error="error = 'This audio link is unavailable or does not allow playback here.'" />
   </aside>
 </template>
 <style scoped>
 .record-panel {
+  --ink: #14110e;
+  --paper: #f1e9dc;
+  --brass: #d2bd94;
+  --dim: #b8aa96;
+  --keyboard-inset: max(0px, calc(100dvh - var(--visual-height, 100dvh) - var(--visual-top, 0px)));
+  --player-bottom: calc(90px + env(safe-area-inset-bottom) + var(--keyboard-inset));
   position: fixed;
   z-index: 70;
-  right: clamp(16px, 4vw, 64px);
-  bottom: 90px;
-  width: min(370px, calc(100vw - 32px));
-  max-height: calc(var(--visual-height,100dvh) - 130px);
+  right: max(clamp(16px, 4vw, 64px), env(safe-area-inset-right));
+  bottom: var(--player-bottom);
+  width: min(388px, calc(100vw - 32px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+  max-height: calc(var(--visual-height, 100dvh) - 130px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  box-sizing: border-box;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 20px;
-  color: #e0e2e5;
-  background: #232426;
-  border: 1px solid #67686a66;
-  border-radius: 12px;
-  box-shadow:
-    0 24px 75px #0005,
-    0 2px 5px #0002;
-  font-family: inherit;
+  color: var(--paper);
+  background: rgb(20 17 14 / .86);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid rgb(255 255 255 / .12);
+  border-radius: 24px;
+  box-shadow: 0 24px 64px rgb(0 0 0 / .32), inset 0 1px 0 rgb(255 255 255 / .04);
   pointer-events: auto;
   scrollbar-width: thin;
-}
-header {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-bottom: 17px;
-}
-.wordmark {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  font-size: 10px;
-  line-height: 1.2;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-}
-.edition {
-  font: 10px monospace;
-  color: #92969b;
-  letter-spacing: 0;
-  margin-left: 4px;
-}
-.signal {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #646c71;
-}
-.signal.live {
-  background: #78c9e3;
-  box-shadow: 0 0 0 3px #78c9e318;
-}
-button {
-  border-radius: 50%;
-  transition:
-    background 0.18s,
-    transform 0.18s;
-  cursor: pointer;
-}
-button:hover {
-  background: #ffffff0d;
-}
-button:active {
-  transform: scale(0.96);
-}
-button:disabled {
-  opacity: 0.5;
-  cursor: wait;
-}
-header > button {
-  width: 32px;
-  height: 32px;
-  font-size: 22px;
-  line-height: 1;
-  background: #303236;
-}
-button:focus-visible,
-input:focus-visible,
-a:focus-visible {
-  outline: 2px solid #80cce5;
-  outline-offset: 4px;
-}
-.turntable {
-  height: 212px;
-  position: relative;
-  overflow: hidden;
-  border: 1px solid #5e5148;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #40332c, #594337 58%, #362c27);
-  box-shadow:
-    inset 0 1px 0 #ffffff16,
-    inset 0 -2px 4px #00000050;
-}
-.deck-mark {
-  position: absolute;
-  left: 14px;
-  top: 12px;
-  font: 7px monospace;
-  letter-spacing: 0.14em;
-  color: #baa291;
-}
-.platter {
-  position: absolute;
-  width: 180px;
-  height: 180px;
-  left: 29px;
-  top: 23px;
-  background: #878e7f;
-  border: 3px solid #454b42;
-  border-radius: 50%;
-  box-shadow:
-    2px 5px 8px #3035265a,
-    inset 0 0 0 2px #c8c9b5;
-}
-.vinyl {
-  position: absolute;
-  inset: 3px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: repeating-radial-gradient(
-    circle,
-    #1c211c 0 1px,
-    #30372c 1.4px 2px,
-    #1d231d 2.8px 3.3px
-  );
-  animation: spin 4s linear infinite;
-  animation-play-state: paused;
-}
-.vinyl:before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 40deg,
-    transparent 0 10%,
-    #d2dac620 17%,
-    transparent 27% 60%,
-    #d2dac61c 67%,
-    transparent 79%
-  );
-}
-.running .vinyl {
-  animation-play-state: running;
-}
-.record-label {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  width: 78px;
-  height: 78px;
-  border-radius: 50%;
-  color: #1a2e39;
-  background: #80bcd0;
-  border: 1px solid #aad8e5;
-  box-shadow: 0 0 0 5px #141b1680;
-}
-.record-label small {
-  font: 5px monospace;
-  letter-spacing: 0.12em;
-  margin-bottom: 4px;
-}
-.record-label strong {
-  font:
-    italic 20px/0.87 Georgia,
-    serif;
-  letter-spacing: -1px;
-  text-align: center;
-}
-.record-label span {
-  font: 5px monospace;
-  margin-top: 6px;
-}
-.record-label i {
-  position: absolute;
-  top: 37px;
-  left: 37px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #b7bbb1;
-  border: 1px solid #3a3e36;
-}
-.tonearm {
-  position: absolute;
-  left: 264px;
-  top: 34px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: radial-gradient(#454c42 0 4px, #bdc2b6 5px 7px, #6b7565 8px);
-  box-shadow: 1px 2px 3px #0004;
-  transform: rotate(-9deg);
-  transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.tonearm:before {
-  content: "";
-  position: absolute;
-  left: 5px;
-  top: 9px;
-  width: 5px;
-  height: 128px;
-  border: 1px solid #8c9787;
-  background: linear-gradient(90deg, #899681, #edf0df, #a9b3a0);
-  box-shadow: 2px 3px 3px #35432b40;
-}
-.tonearm i {
-  position: absolute;
-  left: 0;
-  top: 127px;
-  width: 16px;
-  height: 26px;
-  background: linear-gradient(90deg, #313a2d, #505c47);
-  border-radius: 2px;
-  box-shadow: 1px 2px 2px #0004;
-}
-.running .tonearm {
-  transform: rotate(36deg);
-}
-.deck-speed {
-  position: absolute;
-  right: 14px;
-  bottom: 13px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font: 7px monospace;
-  color: #b5a89b;
-}
-.deck-speed span {
-  color: #86cbe0;
-  font-size: 5px;
-}
-.transport {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 20px 0 10px;
-}
-.track-copy {
-  flex: 1;
-  min-width: 0;
-}
-.track-copy p {
-  font: 8px monospace;
-  letter-spacing: 0.14em;
-  color: #a7adb3;
-  margin: 0 0 6px;
-}
-.track-copy h2 {
-  font-size: 23px;
-  line-height: 1.15;
-  font-weight: 500;
-  letter-spacing: -0.045em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.track-copy > span {
-  display: block;
-  font-size: 11px;
-  color: #abb0b6;
-  margin-top: 6px;
-}
-.play-button {
-  display: grid;
-  place-items: center;
-  width: 52px;
-  height: 52px;
-  flex-shrink: 0;
-  background: #77bed5;
-  color: #182a31;
-  box-shadow: 0 2px 4px #25332426;
-}
-.play-button:hover {
-  background: #a0d8e8;
-}
-.play-button svg {
-  width: 24px;
-  height: 24px;
-  fill: currentColor;
-}
-.message {
-  min-height: 18px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 10px;
-  line-height: 1.5;
-  color: #b3bbc0;
-  margin: 3px 0 17px;
-}
-.message.error {
-  color: #f0a088;
-}
-.level {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  height: 12px;
-}
-.level i {
-  width: 2px;
-  height: 3px;
-  background: #7bc8df;
-}
-.level.active i {
-  animation: meter 1s ease-in-out infinite alternate;
-}
-.level.active i:nth-child(2) {
-  animation-delay: -0.3s;
-}
-.level.active i:nth-child(3) {
-  animation-delay: -0.8s;
-}
-.level.active i:nth-child(4) {
-  animation-delay: -0.5s;
-}
-form {
-  border-top: 1px solid #ffffff1c;
-  padding-top: 16px;
-}
-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 12px;
-  font-weight: 500;
-  margin-bottom: 10px;
-}
-label > span {
-  font: 7px monospace;
-  letter-spacing: 0.1em;
-  color: #a5afb4;
-}
-.link-row {
-  display: flex;
-  background: transparent;
-  border: 1px solid #ffffff26;
-  border-radius: 0;
-  border-width: 0 0 1px;
-  padding: 4px 0;
-}
-.link-row input {
-  width: 0;
-  min-width: 0;
-  flex: 1;
-  padding: 8px;
-  font-size: 12px;
-  background: transparent;
-  color: #e1e6e9;
-  user-select: text;
-}
-.link-row input::placeholder {
-  color: #969fa5;
-}
-.link-row button {
-  border-radius: 50%;
-  width: 42px;
-  height: 42px;
-  background: transparent;
-  font-size: 23px;
-  line-height: 1;
-  color: #88cfe3;
-}
-.services {
-  font-size: 9px;
-  color: #99a4aa;
-  margin-top: 9px;
-  display: flex;
-  gap: 8px;
-}
-.services i {
-  font-style: normal;
-  color: #59656c;
-}
-.provider-player {
-  overflow: hidden;
-  border-radius: 10px;
-  min-height: 152px;
-  background: #1c221b;
-}
-.provider-player.youtube {
-  min-height: 202px;
-}
-.provider-player :deep(iframe) {
-  display: block;
-  width: 100%;
-  border: 0;
-}
-audio {
-  width: 100%;
-}
-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 14px;
-  font-size: 10px;
-}
-footer button {
-  padding: 4px 0;
-  border-radius: 4px;
-}
-.service-note {
-  font-size: 9px;
-  color: #858a7d;
-  line-height: 1.6;
-  margin-top: 10px;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@keyframes meter {
-  to {
-    height: 12px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .vinyl,
-  .level.active i {
-    animation: none;
-  }
-  .tonearm,
-  button {
-    transition: none;
-  }
-}
-@media (max-width: 480px) {
-  .record-panel {
-    bottom: 98px;
-    max-height: calc(var(--visual-height,100dvh) - 106px - env(safe-area-inset-bottom));
-    padding: 17px;
-  }
-  header > button {
-    width: 40px;
-    height: 40px;
-  }
-  .link-row input {
-    font-size: 16px;
-  }
-  .turntable {
-    height: 205px;
-  }
-  .platter {
-    left: 20px;
-  }
-  .tonearm {
-    left: 250px;
-  }
-}
+  scrollbar-color: #75654d transparent;
+  color-scheme: dark;
+}
+header { position: sticky; top: 0; z-index: 2; background: rgb(20 17 14 / .96); border-radius: 12px; display: flex; align-items: center; gap: 12px; }
+.track-copy { flex: 1; min-width: 0; }
+.wordmark { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 8px; line-height: 1.5; letter-spacing: .12em; }
+.edition { color: var(--brass); font-variant-numeric: tabular-nums; }
+.signal { width: 4px; height: 4px; flex-shrink: 0; border-radius: 50%; background: var(--dim); }
+.signal.live { background: #ff5a4f; box-shadow: 0 0 0 3px rgb(255 90 79 / .12); }
+.track-copy h2 { margin: 4px 0; font-size: 20px; line-height: 1.2; font-weight: 500; letter-spacing: -.03em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.track-copy p { margin: 0; color: var(--dim); font-size: 9px; line-height: 1.5; letter-spacing: .1em; }
+.turntable { position: relative; width: 48px; height: 48px; flex-shrink: 0; }
+.platter { position: absolute; inset: 0; border: 1px solid rgb(210 189 148 / .4); border-radius: 50%; padding: 3px; }
+.vinyl { display: grid; place-items: center; height: 100%; border-radius: 50%; background: repeating-radial-gradient(circle, #14110e 0 2px, #393129 2px 3px); animation: spin 5s linear infinite; animation-play-state: paused; }
+.vinyl::before { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: conic-gradient(transparent 20%, rgb(241 233 220 / .12) 27%, transparent 35% 70%, rgb(241 233 220 / .12) 77%, transparent 85%); }
+.record-label { width: 16px; height: 16px; border: 6px solid var(--brass); border-radius: 50%; background: var(--ink); }
+.running .vinyl { animation-play-state: running; }
+button, footer a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 44px; min-height: 44px; flex-shrink: 0; border: 0; border-radius: 50%; color: var(--brass); background: transparent; cursor: pointer; transition: background 200ms ease-out, color 200ms ease-out, transform 200ms ease-out; }
+button svg, a svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+button:hover, footer a:hover, .source-button.selected { background: rgb(210 189 148 / .1); color: var(--paper); }
+button:active, footer a:active { transform: scale(.96); }
+button:disabled { opacity: .5; cursor: wait; }
+button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+.transport { display: flex; align-items: center; justify-content: center; gap: 28px; margin: 16px 0 12px; }
+.play-button { width: 60px; height: 60px; color: var(--ink); background: var(--brass); box-shadow: 0 4px 20px rgb(210 189 148 / .14), inset 0 1px 0 rgb(255 255 255 / .35); }
+.play-button:hover { background: #e4cfa6; color: var(--ink); }
+.play-button svg { width: 24px; height: 24px; }
+.message { display: flex; align-items: center; gap: 8px; min-height: 20px; margin: 0; font-size: 11px; line-height: 1.5; color: var(--dim); }
+.message.error { color: var(--brass); }
+.level { display: flex; align-items: center; justify-content: center; gap: 2px; height: 16px; width: 20px; flex-shrink: 0; }
+.level i { width: 3px; height: 12px; border-radius: 2px; background: var(--brass); transform: scaleY(.25); }
+.level.active i { animation: meter 800ms ease-in-out infinite alternate; }
+.level.active i:nth-child(2) { animation-delay: -300ms; }
+.level.active i:nth-child(3) { animation-delay: -600ms; }
+.level.active i:nth-child(4) { animation-delay: -150ms; }
+.player-secondary { margin-top: 16px; padding-top: 16px; border-top: 1px solid rgb(255 255 255 / .08); }
+label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; font-size: 12px; line-height: 1.5; }
+label > span { font-size: 8px; letter-spacing: .08em; color: var(--dim); }
+.link-row { display: flex; align-items: center; padding: 4px; border: 1px solid rgb(210 189 148 / .2); border-radius: 12px; background: rgb(0 0 0 / .16); }
+.link-row input { width: 0; min-width: 0; flex: 1; min-height: 44px; padding: 8px; font-size: 16px; color: var(--paper); background: transparent; border: 0; border-radius: 8px; user-select: text; }
+.link-row input::placeholder { color: var(--dim); }
+.services { display: flex; gap: 8px; margin: 8px 0 0; color: var(--dim); font-size: 10px; line-height: 1.6; }
+.services i { color: var(--brass); font-style: normal; }
+footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 11px; }
+footer button, footer a { border-radius: 8px; padding: 0 8px; }
+footer a { text-decoration: underline; text-underline-offset: 4px; }
+footer svg { width: 16px; height: 16px; }
+.service-note { margin: 8px 0 0; color: var(--dim); font-size: 11px; line-height: 1.6; }
+.provider-player { overflow: hidden; border: 1px solid rgb(255 255 255 / .08); border-radius: 12px; min-height: 152px; margin-top: 16px; background: var(--ink); }
+.provider-player.youtube { min-height: 202px; }
+.provider-player :deep(iframe) { display: block; width: 100%; border: 0; }
+audio { display: block; width: 100%; margin-top: 16px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes meter { to { transform: scaleY(1); } }
+/* Leave room for the mobile navigation, safe areas, and software keyboard. */
+@media (max-width: 639px) {
+  .record-panel { --player-bottom: calc(82px + env(safe-area-inset-bottom) + var(--keyboard-inset)); left: max(12px, env(safe-area-inset-left)); right: auto; width: calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)); padding: 16px; max-height: calc(var(--visual-height, 100dvh) - 170px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+}
+@media (max-width: 519px) {
+  .record-panel { max-height: min(calc(var(--visual-height, 100dvh) * .34), calc(var(--visual-height, 100dvh) - 170px - env(safe-area-inset-top) - env(safe-area-inset-bottom))); }
+  .record-panel.is-expanded { max-height: calc(var(--visual-height, 100dvh) - 170px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  .transport { margin: 12px 0 8px; }
+  .player-secondary, .provider-player, audio { display: none; }
+  .is-expanded .player-secondary, .is-expanded .provider-player, .is-expanded audio { display: block; }
+  label { flex-wrap: wrap; }
+}
+@media (max-width: 480px) { .wordmark { letter-spacing: .08em; } }
+/* Short viewports preserve usable controls by removing decorative artwork. */
 @media (max-height: 620px) {
-  .record-panel {
-    bottom: 62px;
-    max-height: calc(var(--visual-height,100dvh) - 80px - env(safe-area-inset-bottom));
-  }
-  .turntable {
-    display: none;
-  }
+  .record-panel { --player-bottom: calc(62px + env(safe-area-inset-bottom) + var(--keyboard-inset)); max-height: calc(var(--visual-height, 100dvh) - 150px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  .turntable { display: none; }
 }
-
-.record-panel {overscroll-behavior:contain;--keyboard-inset:max(0px,calc(100dvh - var(--visual-height,100dvh) - var(--visual-top,0px)));}
-.record-panel input{font-size:16px;}
-.record-panel header {position:sticky;top:-20px;padding:10px 0;background:#232426;z-index:2;}
-@media(max-width:639px){
- .record-panel {left:max(12px,env(safe-area-inset-left));right:auto;bottom:calc(82px + env(safe-area-inset-bottom) + var(--keyboard-inset));width:calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right));padding:16px;}
- .record-panel header {top:-16px;}
- .record-panel header>button {width:44px;height:44px;flex-shrink:0;}
- .turntable {height:190px;}
- .platter {width:160px;height:160px;left:8%;top:19px;}
- .tonearm {left:auto;right:12%;}
- .record-label {transform:scale(.9);}
+@media (max-height: 620px) and (max-width: 639px) { .record-panel { --player-bottom: calc(82px + env(safe-area-inset-bottom) + var(--keyboard-inset)); max-height: calc(var(--visual-height, 100dvh) - 170px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); } }
+@media (max-height: 620px) and (max-width: 519px) { .record-panel:not(.is-expanded) { max-height: min(calc(var(--visual-height, 100dvh) * .34), calc(var(--visual-height, 100dvh) - 170px - env(safe-area-inset-top) - env(safe-area-inset-bottom))); } }
+@media (max-height: 500px) and (min-width: 640px) { .record-panel { --player-bottom: calc(64px + env(safe-area-inset-bottom) + var(--keyboard-inset)); max-height: calc(var(--visual-height, 100dvh) - 152px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); } }
+@media (prefers-reduced-motion: reduce) {
+  .vinyl, .level.active i { animation: none; }
+  .level.active i { transform: scaleY(.7); }
+  button, footer a { transition: none; }
+  button:active, footer a:active { transform: none; }
 }
-@media(max-height:500px) and (min-width:640px){.record-panel{bottom:calc(64px + env(safe-area-inset-bottom) + var(--keyboard-inset));max-height:calc(var(--visual-height,100dvh) - 82px - env(safe-area-inset-bottom));}.turntable{display:none;}}
 </style>

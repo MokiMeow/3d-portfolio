@@ -55,10 +55,13 @@ watch(() => route.path, closeMenu);
 			<p>PICK SOMETHING UP</p>
 			<template v-if="isContact">
 				<button @click="pickUp('phone')">
-					<span>Phone</span><small>03 apps ↗</small>
+					<span>iPhone</span><small>18 apps ↗</small>
 				</button>
 				<button @click="pickUp('glasses')">
-					<span>Smart glasses</span><small>▶ Play</small>
+					<span>Vision Pro</span><small>◎ Wear</small>
+				</button>
+				<button @click="pickUp('watch')">
+					<span>Apple Watch Ultra</span><small>◔ Wear</small>
 				</button>
 				<button @click="pickUp('terminal')">
 					<span>Pocket terminal</span><small>⌘ Local</small>

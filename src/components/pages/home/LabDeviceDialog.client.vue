@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { animate, type JSAnimation } from "animejs";
-import type { LabDevice } from "~/common/models/lab-device.model";
+import { labDeviceBack, type LabDevice } from "~/common/models/lab-device.model";
 // Keep the small device interfaces in the dialog's bundle. Loading another
 // deployment-specific chunk on click previously left only the close button.
 import LabPhone from "./LabPhone.client.vue";
 import LabGlasses from "./LabGlasses.client.vue";
 import LabTerminal from "./LabTerminal.client.vue";
+import LabWatch from "./LabWatch.client.vue";
 const active = useState<LabDevice>("activeLabDevice", () => null);
 const dialog = ref<HTMLDialogElement>();
 const body = ref<HTMLElement>();
@@ -16,6 +17,35 @@ let opening = 0;
 const reload = () => window.location.reload();
 const close = () => {
 	active.value = null;
+};
+// Escape steps back inside the device first, and only then puts it down.
+const cancel = () => {
+	if (labDeviceBack.handler?.()) return;
+	close();
+};
+// Escape is taken at the key itself. Left to the browser, a second Escape with no click in
+// between closes the dialog without asking, and the device would vanish with its state still open.
+const onKey = (event: KeyboardEvent) => {
+	if (event.key !== "Escape" || event.defaultPrevented) return;
+	event.preventDefault();
+	cancel();
+};
+// When the focused control disappears (a window closes, a sheet goes away), focus would fall back to the page and
+// Escape would bypass the device. Bring it back to the device instead.
+const keepFocus = (event: FocusEvent) => {
+	if (event.relatedTarget || !active.value) return;
+	requestAnimationFrame(() => {
+		if (active.value && !dialog.value?.contains(document.activeElement)) body.value?.focus({ preventScroll: true });
+	});
+};
+// If the browser closes the dialog on its own anyway, treat it as Escape and keep state and screen in step.
+const closedByBrowser = () => {
+	if (!active.value) return;
+	if (labDeviceBack.handler?.()) {
+		dialog.value?.showModal();
+		return;
+	}
+	close();
 };
 watch(active, async (value) => {
 	const request = ++opening;
@@ -52,12 +82,15 @@ onBeforeUnmount(() => {
 		><dialog
 			ref="dialog"
 			class="lab-device-dialog"
+			:class="active ? `is-${active}` : undefined"
 			:aria-label="
 				active === 'phone'
 					? 'Mohith’s phone'
 					: active === 'glasses'
-						? 'Smart glasses player'
-						: 'Pocket terminal'
+						? 'Apple Vision Pro'
+						: active === 'watch'
+							? 'Apple Watch Ultra'
+							: 'Pocket terminal'
 			"
 			@pointerdown.stop
 			@pointerup.stop
@@ -69,20 +102,24 @@ onBeforeUnmount(() => {
 			@touchstart.stop
 			@touchmove.stop
 			@touchend.stop
-			@cancel.prevent="close"
+			@keydown="onKey"
+			@focusout="keepFocus"
+			@cancel.prevent="cancel"
+			@close="closedByBrowser"
 			@click.stop="
 				(event) => {
 					if (event.target === dialog) close();
 				}
 			"
 		>
-			<div v-if="active" ref="body" class="device-stage">
+			<div v-if="active" ref="body" class="device-stage" tabindex="-1">
 				<button ref="closeButton" class="device-close" aria-label="Put it back" @click="close">
-					<span aria-hidden="true">×</span> Put it back <kbd>ESC</kbd></button
+					<span aria-hidden="true">×</span> {{ active === 'glasses' || active === 'watch' ? 'Take it off' : 'Put it back' }} <kbd>ESC</kbd></button
 				>
 				<NuxtErrorBoundary :key="active">
 					<LabPhone v-if="active === 'phone'" />
 					<LabGlasses v-else-if="active === 'glasses'" />
+					<LabWatch v-else-if="active === 'watch'" />
 					<LabTerminal v-else />
 					<template #error>
 						<div class="device-recovery" role="alert">
@@ -121,6 +158,7 @@ onBeforeUnmount(() => {
 }
 .device-stage {
 	position: relative;
+	outline: none;
 	display: flex;
 	align-items: center;
 	flex-direction: column;
@@ -186,4 +224,11 @@ onBeforeUnmount(() => {
  .device-close{font-size:12px;min-height:44px;}
  .device-close kbd{display:none;}
 }
+
+/* The headset fills the whole view and looks straight through to the room. */
+.lab-device-dialog.is-glasses{padding:0;overflow:hidden;}
+.lab-device-dialog.is-glasses::backdrop{background:transparent;}
+.is-glasses .device-stage{display:block;margin:0;max-width:none;max-height:none;width:100%;height:100%;}
+.is-glasses .device-close{position:absolute;top:max(8px,env(safe-area-inset-top));right:max(14px,env(safe-area-inset-right));z-index:1000;padding:0 14px;border-radius:24px;background:rgb(50 52 60 / .6);backdrop-filter:blur(24px);box-shadow:inset 0 0 0 1px rgb(255 255 255 / .18);}
+.is-phone::backdrop{background:#05080bd9;}
 </style>

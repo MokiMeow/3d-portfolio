@@ -1,0 +1,96 @@
+<script setup lang="ts">
+const props = defineProps<{ id: string; title: string; duration?: string; progress?: number }>();
+const loaded = ref(false);
+const failed = ref(false);
+watch(() => props.id, () => { loaded.value = false; failed.value = false; });
+</script>
+
+<template>
+  <div class="yt-thumbnail" :class="{ loaded, failed }">
+    <img v-if="!failed" :src="`https://i.ytimg.com/vi/${id}/hqdefault.jpg`" :alt="title"
+      loading="lazy" decoding="async" @load="loaded = true" @error="failed = true" />
+    <span v-if="failed" class="fallback">Preview unavailable</span>
+    <span v-if="duration" class="duration">{{ duration }}</span>
+    <span v-if="progress && progress < 0.98" class="progress" :style="{ width: `${Math.min(100, progress * 100)}%` }" />
+  </div>
+</template>
+
+<style scoped>
+.yt-thumbnail {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #242424;
+  color: #f1f1f1;
+  font-family: Roboto, -apple-system, "Segoe UI", Arial, sans-serif;
+}
+.yt-thumbnail :deep(*) {
+  font-family: inherit;
+}
+.yt-thumbnail::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(110deg, transparent 25%, #ffffff12 45%, transparent 65%);
+  animation: shimmer 1.5s infinite;
+}
+.loaded::before, .failed::before {
+  display: none;
+}
+img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 220ms;
+}
+.loaded img {
+  opacity: 1;
+}
+.fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #aaa;
+  font-size: 13px;
+}
+.duration {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  padding: 3px 5px;
+  border-radius: 4px;
+  background: #000d;
+  font-size: 12px;
+  line-height: 16px;
+}
+.progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: #f03;
+}
+@keyframes shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  img {
+    transition: none;
+  }
+  .yt-thumbnail::before {
+    animation: none;
+  }
+}
+
+</style>

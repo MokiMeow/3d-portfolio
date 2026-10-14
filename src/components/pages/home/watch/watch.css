@@ -1,0 +1,266 @@
+.watch-root {
+  color: #fff;
+  font-family: -apple-system, "SF Compact Rounded", "SF Pro Rounded", ui-rounded, "Inter", "Segoe UI", sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.watch-root :deep(*) {
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+:where(.watch-root) :deep(button) {
+  color: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.watch-root :deep(button:disabled) {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.watch-root :deep(:focus-visible) {
+  outline: 4px solid #7cc7ff;
+  outline-offset: 4px;
+}
+
+.watch-root :deep(.watch-app) {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  padding: 60px 22px 64px;
+  scroll-padding-block: 64px;
+  border-radius: inherit;
+  font-size: max(calc(12px / var(--watch-scale)), calc(25px * var(--text-size, 1)));
+  line-height: 1.3;
+}
+
+:where(.watch-root) :deep(.watch-app),
+:where(.watch-root) :deep(.watch-overlay) {
+  background: #000;
+}
+
+.watch-root :deep(::-webkit-scrollbar) {
+  display: none;
+}
+
+:where(.watch-root) :deep(.watch-app h1),
+:where(.watch-root) :deep(.watch-app h2) {
+  margin: 0 0 14px;
+  font-size: calc(30px * var(--text-size, 1));
+  line-height: 1.15;
+  font-weight: 650;
+}
+
+:where(.watch-root) :deep(.watch-app h3) {
+  margin: 20px 0 14px;
+  font-size: 25px;
+}
+
+:where(.watch-root) :deep(.watch-app p) {
+  margin: 10px 0;
+}
+
+:where(.watch-root) :deep(.platter) {
+  margin: 10px 0;
+  padding: 16px;
+  border-radius: 32px;
+  background: linear-gradient(145deg, #ffffff12, #ffffff04), #1c1c1e;
+  border: 1px solid #ffffff15;
+}
+
+:where(.watch-root) :deep(.watch-button) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: max(68px, calc(40px / var(--watch-scale)));
+  margin: 12px 0;
+  padding: 12px 16px;
+  border: 1px solid #ffffff35;
+  border-radius: 44px;
+  font-size: calc(25px * var(--text-size, 1));
+  font-weight: 600;
+  background: linear-gradient(145deg, #ffffff26, #ffffff07 55%, #ffffff16), #242427;
+  box-shadow: inset 0 1px 1px #ffffff40, 0 5px 16px #0005;
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+.watch-root :deep(.watch-button:active),
+.watch-root :deep(.row:active) {
+  transform: scale(0.97);
+}
+
+:where(.watch-root) :deep(.row) {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: max(76px, calc(40px / var(--watch-scale)));
+  margin: 10px 0;
+  padding: 14px 16px;
+  text-align: left;
+  border: 1px solid #ffffff16;
+  border-radius: 30px;
+  font-size: calc(25px * var(--text-size, 1));
+  background: #1c1c1e;
+}
+
+.watch-root :deep(.row > span:last-child) {
+  margin-left: auto;
+}
+
+:where(.watch-root) :deep(.metric) {
+  display: block;
+  font-size: 72px;
+  line-height: 1.05;
+  font-weight: 600;
+  letter-spacing: -3px;
+}
+
+:where(.watch-root) :deep(.caption) {
+  font-size: max(calc(12px / var(--watch-scale)), calc(21px * var(--text-size, 1)));
+  line-height: 1.3;
+}
+
+:where(.watch-root) :deep(.muted) {
+  color: #b6b6bc;
+}
+
+.watch-root :deep(.button-row) {
+  display: flex;
+  gap: 12px;
+}
+
+.watch-root :deep(.button-row > *) {
+  flex: 1;
+  min-width: 0;
+}
+
+:where(.watch-root) :deep(.danger) {
+  background-color: #6c2026;
+  color: #ffb1b7;
+}
+
+:where(.watch-root) :deep(.positive) {
+  background-color: #174e30;
+  color: #8affbc;
+}
+
+:where(.watch-root) :deep(input:not([type="range"])),
+:where(.watch-root) :deep(textarea),
+:where(.watch-root) :deep(select) {
+  width: 100%;
+  min-height: max(68px, calc(40px / var(--watch-scale)));
+  padding: 12px;
+  color: #fff;
+  background: #222225;
+  border: 2px solid #59595f;
+  border-radius: 22px;
+  font-size: calc(24px * var(--text-size, 1));
+}
+
+.watch-root :deep(input[type="checkbox"]) {
+  width: 48px;
+  min-height: 48px;
+  accent-color: #30d158;
+}
+
+.watch-root :deep(input[type="range"]) {
+  width: 100%;
+  height: 72px;
+  accent-color: #ff9f0a;
+  cursor: pointer;
+}
+
+.watch-root :deep(.display.is-dimmed *) {
+  animation-play-state: paused !important;
+}
+
+.watch-root :deep(.display.reduced *) {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .watch-root :deep(*) {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.watch-root :deep(.complication),
+.watch-root :deep(.dismiss),
+.watch-root :deep(.page-nav button),
+.watch-root :deep(.note-clear) {
+  min-width: calc(40px / var(--watch-scale));
+  min-height: calc(40px / var(--watch-scale));
+}
+
+.watch-root :deep(.has-overlay .watch-app *),
+.watch-root :deep(.has-overlay .face *) {
+  animation-play-state: paused !important;
+}
+
+/* Coordinates are scaled with the case; hit areas remain usable on a phone. */
+
+.watch-root :deep(.watch-app button),
+.watch-root :deep(.watch-overlay button) {
+  min-height: calc(40px / var(--watch-scale));
+  transition: transform 240ms ease, opacity 240ms ease;
+}
+
+.watch-root :deep(.watch-app button:not(:disabled):active),
+.watch-root :deep(.watch-overlay button:not(:disabled):active) {
+  transform: scale(0.96);
+}
+
+.watch-root :deep(.watch-app button:disabled) {
+  opacity: 0.45;
+}
+
+.watch-root :deep(.watch-app button svg),
+.watch-root :deep(.watch-overlay button svg) {
+  flex-shrink: 0;
+}
+
+.watch-root :deep(.watch-app button > span),
+.watch-root :deep(.watch-overlay button > span) {
+  min-width: 0;
+}
+
+:where(.watch-root) :deep(.watch-app h2) {
+  font-size: calc(27px * var(--text-size, 1));
+}
+
+.watch-root :deep(.watch-app .muted) {
+  color: #b6b6bc;
+}
+
+.watch-root :deep(.watch-app textarea) {
+  overscroll-behavior: contain;
+}
+
+.watch-root :deep(.watch-app .tabs button),
+.watch-root :deep(.watch-app .page-nav button) {
+  border: 0;
+  padding: 6px;
+}
+
+.watch-root :deep(.watch-app .tabs button.selected),
+.watch-root :deep(.watch-app .page-nav button.selected) {
+  box-shadow: inset 0 0 0 1px #ffffff30;
+}
+
+@media (hover: hover) {
+  .watch-root :deep(.watch-app button:not(:disabled):hover),
+  .watch-root :deep(.watch-overlay button:not(:disabled):hover) {
+    opacity: 0.85;
+  }
+}

@@ -1,1164 +1,300 @@
 <script setup lang="ts">
-type App = "home" | "camera" | "browser" | "messages";
-const app = ref<App>("home");
+import type { Component } from 'vue';
+import { labDeviceBack } from '~/common/models/lab-device.model';
+import { PHONE, PHONE_APPS, PHONE_SCREEN, type PhoneAppId } from './phone/phone';
+import PhoneIcon from './phone/PhoneIcon.vue';
+import AiChat from './phone/apps/AiChat.vue';
+import Calculator from './phone/apps/Calculator.vue';
+import Camera from './phone/apps/Camera.vue';
+import Clock from './phone/apps/Clock.vue';
+import Maps from './phone/apps/Maps.vue';
+import Messages from './phone/apps/Messages.vue';
+import Music from './phone/apps/Music.vue';
+import Notes from './phone/apps/Notes.vue';
+import Phone from './phone/apps/Phone.vue';
+import Photos from './phone/apps/Photos.vue';
+import Safari from './phone/apps/Safari.vue';
+import Settings from './phone/apps/Settings.vue';
+import Slack from './phone/apps/Slack.vue';
+import Weather from './phone/apps/Weather.vue';
+import WhatsApp from './phone/apps/WhatsApp.vue';
+import YouTube from './phone/apps/YouTube.vue';
+
+// The three assistants share one chat app with different manners.
+const VIEWS: Record<PhoneAppId, { is: Component; props?: Record<string, string> }> = {
+  messages: { is: Messages }, safari: { is: Safari }, whatsapp: { is: WhatsApp }, slack: { is: Slack },
+  claude: { is: AiChat, props: { bot: 'claude' } }, chatgpt: { is: AiChat, props: { bot: 'chatgpt' } }, grok: { is: AiChat, props: { bot: 'grok' } },
+  youtube: { is: YouTube }, phone: { is: Phone }, photos: { is: Photos }, camera: { is: Camera }, music: { is: Music }, notes: { is: Notes },
+  settings: { is: Settings }, maps: { is: Maps }, calculator: { is: Calculator }, weather: { is: Weather }, clock: { is: Clock },
+};
+const DOCK: PhoneAppId[] = ['phone', 'safari', 'messages', 'music'];
+const GRID = PHONE_APPS.filter(item => !DOCK.includes(item.id));
+const NAMES = Object.fromEntries(PHONE_APPS.map(item => [item.id, item.name])) as Record<PhoneAppId, string>;
+const BADGES: Partial<Record<PhoneAppId, number>> = { messages: 3, whatsapp: 12, slack: 1 };
+// Notifications waiting on the lock screen. Tapping one opens its app.
+const LOCK_NOTES: { app: PhoneAppId; title: string; text: string; when: string }[] = [
+  { app: 'messages', title: 'Build Bot', text: 'One new message. Probably not a production incident.', when: 'now' },
+  { app: 'slack', title: '#deploys', text: 'Friday, 4:58 PM: someone has pressed the button.', when: '2m ago' },
+  { app: 'whatsapp', title: 'Amma', text: 'Did you eat? Reply or I am calling.', when: '9m ago' },
+];
+
+useHead({ link: [{ rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap' }] });
+
 const locked = ref(true);
-let lockTouchY = 0;
-const unlock = () => {
-  locked.value = false;
-};
-const unlockSwipe = (event: TouchEvent) => {
-  if (lockTouchY - event.changedTouches[0].clientY > 45) unlock();
-};
-const lock = () => {
-  stopCamera();
-  app.value = "home";
-  locked.value = true;
-};
-const clock = ref("");
-const today = ref("");
-const video = ref<HTMLVideoElement>();
-const cameraStatus = ref("Camera stays off until you enable it.");
-const cameraActive = ref(false);
-const cameraBusy = ref(false);
-const photo = ref<string>();
-const address = ref("");
-const browserError = ref("");
-const message = ref("");
-const conversation = ref([
-  {
-    from: "bot",
-    text: "Hello. I'm the phone's unpaid intern. Mohith is probably fixing something he called a 'quick change'.",
-  },
-]);
-const chat = ref<HTMLElement>();
-let stream: MediaStream | undefined;
-let cameraRequest = 0;
-let clockTimer: ReturnType<typeof setInterval> | undefined;
-const setClock = () => {
-  clock.value = new Intl.DateTimeFormat(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date());
-  today.value = new Intl.DateTimeFormat(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  }).format(new Date());
-};
-const stopCamera = () => {
-  cameraRequest++;
-  stream?.getTracks().forEach((track) => track.stop());
-  stream = undefined;
-  if (video.value) video.value.srcObject = null;
-  cameraActive.value = false;
-  cameraBusy.value = false;
-  cameraStatus.value = "Camera is off. Enable it when you’re ready.";
-};
-const enableCamera = async () => {
-  if (cameraBusy.value) return;
-  const request = ++cameraRequest;
-  cameraBusy.value = true;
-  try {
-    if (!navigator.mediaDevices?.getUserMedia) throw new Error("unavailable");
-    const result = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: "user",
-        width: { ideal: 640 },
-        height: { ideal: 800 },
-      },
-      audio: false,
-    });
-    if (request !== cameraRequest || app.value !== "camera") {
-      result.getTracks().forEach((track) => track.stop());
-      return;
-    }
-    stream = result;
-    cameraActive.value = true;
-    await nextTick();
-    if (request !== cameraRequest || app.value !== "camera" || !video.value) {
-      result.getTracks().forEach((track) => track.stop());
-      return;
-    }
-    video.value.srcObject = stream;
-    await video.value.play();
-    if (request === cameraRequest)
-      cameraStatus.value = "Live · nothing is uploaded";
-  } catch (error) {
-    if (request !== cameraRequest) return;
-    stopCamera();
-    cameraStatus.value =
-      error instanceof DOMException && error.name === "NotAllowedError"
-        ? "Camera access was declined. You can allow it in your browser's site settings and try again."
-        : "No camera is available here. Try a phone or a browser with camera access.";
-  } finally {
-    if (request === cameraRequest) cameraBusy.value = false;
+const app = ref<PhoneAppId | null>(null);
+const origin = ref({ x: 220, y: 478 });
+const now = ref(new Date());
+const banner = ref<{ app: PhoneAppId; title: string; text: string } | null>(null);
+const island = ref(false);
+const scale = ref(1);
+// On a narrow screen the phone drops its frame and fills the view at real size, so every tap lands on a full-size control.
+const full = ref(false);
+const screenSize = reactive({ width: PHONE_SCREEN.width as number, height: PHONE_SCREEN.height as number });
+const seen = ref<PhoneAppId[]>([]);
+const bar = computed(() => (locked.value || !app.value ? 'light' : PHONE_APPS.find(item => item.id === app.value)?.bar ?? 'dark'));
+const time = computed(() => new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', hour12: false }).format(now.value));
+const today = computed(() => new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).format(now.value));
+const badge = (id: PhoneAppId) => (seen.value.includes(id) ? 0 : BADGES[id] ?? 0);
+
+let bannerTimer = 0, clockTimer = 0;
+function open(id: PhoneAppId, event?: Event) {
+  const target = event?.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+  const screen = target?.closest('.screen');
+  if (target && screen) {
+    // Grow the app out of the icon that was tapped.
+    const from = target.getBoundingClientRect(), box = screen.getBoundingClientRect();
+    origin.value = { x: (from.left + from.width / 2 - box.left) / scale.value, y: (from.top + from.height / 2 - box.top) / scale.value };
+  } else origin.value = { x: 220, y: 478 };
+  locked.value = false; banner.value = null; island.value = false;
+  if (!seen.value.includes(id)) seen.value.push(id);
+  app.value = id;
+}
+function home() { app.value = null; island.value = false; }
+// Escape leaves the open app; on the Home Screen it is not used, so the phone is put down.
+function back() { if (!app.value) return false; home(); return true; }
+function lock() { app.value = null; island.value = false; banner.value = null; locked.value = true; }
+function notify(note: { app: PhoneAppId; title: string; text: string }) {
+  banner.value = note;
+  clearTimeout(bannerTimer);
+  bannerTimer = window.setTimeout(() => { banner.value = null; }, 4200);
+}
+provide(PHONE, { now, open: id => open(id), home, notify });
+
+// Swipe up from the lock screen or the home bar, as on the real thing.
+let dragY: number | null = null;
+function dragStart(event: PointerEvent) { dragY = event.clientY; }
+function dragEnd(event: PointerEvent, action: () => void) {
+  if (dragY !== null && dragY - event.clientY > 36) action();
+  dragY = null;
+}
+function fit() {
+  const width = window.visualViewport?.width ?? window.innerWidth, height = window.visualViewport?.height ?? window.innerHeight;
+  full.value = width < 520;
+  if (full.value) {
+    scale.value = 1;
+    screenSize.width = Math.round(Math.max(320, width - 12));
+    // Room above for the dialog's own "Put it back" button.
+    screenSize.height = Math.round(Math.max(480, height - 92));
+    return;
   }
-};
-const takePhoto = () => {
-  if (!video.value?.videoWidth) return;
-  const request = cameraRequest;
-  const canvas = document.createElement("canvas");
-  canvas.width = video.value.videoWidth;
-  canvas.height = video.value.videoHeight;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  ctx.translate(canvas.width, 0);
-  ctx.scale(-1, 1);
-  ctx.drawImage(video.value, 0, 0);
-  canvas.toBlob(
-    (blob) => {
-      if (!blob || app.value !== "camera" || request !== cameraRequest) return;
-      if (photo.value) URL.revokeObjectURL(photo.value);
-      photo.value = URL.createObjectURL(blob);
-    },
-    "image/jpeg",
-    0.9,
-  );
-};
-const retake = () => {
-  if (photo.value) URL.revokeObjectURL(photo.value);
-  photo.value = undefined;
-};
-const openWeb = (value: string) => {
-  browserError.value = "";
-  const text = value.trim();
-  if (!text) return;
-  try {
-    if (/^[a-z][a-z\d+.-]*:/i.test(text) && !/^https?:\/\//i.test(text))
-      throw new Error("protocol");
-    const url = /^https?:\/\//i.test(text)
-      ? new URL(text)
-      : /^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(text)
-        ? new URL(`https://${text}`)
-        : new URL(
-            `https://www.google.com/search?q=${encodeURIComponent(text)}`,
-          );
-    window.open(url.href, "_blank", "noopener,noreferrer");
-  } catch {
-    browserError.value = "Use a web address beginning with https://.";
-  }
-};
-const replyFor = (value: string) => {
-  if (/machine|works|bug/i.test(value))
-    return "It works on your machine? Wonderful. Shall we ship your machine?";
-  if (/quick|small|minute/i.test(value))
-    return "A quick change. The five most expensive syllables in software.";
-  if (/sleep|awake|coffee/i.test(value))
-    return "Sleep is currently on the roadmap. No release date has been announced.";
-  if (/hire|work|contact|email/i.test(value))
-    return "Excellent taste. The actual human is at smohith.sm@gmail.com. I negotiate exclusively in charging cables.";
-  if (/hello|hi|hey/i.test(value))
-    return "Hello, fellow tab hoarder. You found the only phone here without a subscription plan.";
-  return "I've escalated this to the rubber duck. It has been staring at the same line of code for 40 minutes.";
-};
-const send = async (value = message.value) => {
-  const text = value.trim().slice(0, 280);
-  if (!text) return;
-  conversation.value.push(
-    { from: "you", text },
-    { from: "bot", text: replyFor(text) },
-  );
-  message.value = "";
-  if (conversation.value.length > 31) conversation.value.splice(1, 2);
-  await nextTick();
-  chat.value?.scrollTo({
-    top: chat.value.scrollHeight,
-    behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      ? "instant"
-      : "smooth",
-  });
-};
-watch(app, (_next, previous) => {
-  if (previous === "camera") {
-    stopCamera();
-    if (photo.value) URL.revokeObjectURL(photo.value);
-    photo.value = undefined;
-    cameraStatus.value = "Camera stays off until you enable it.";
-  }
-});
-const onVisibility = () => {
-  if (document.hidden) stopCamera();
-};
+  screenSize.width = PHONE_SCREEN.width; screenSize.height = PHONE_SCREEN.height;
+  scale.value = Math.max(0.3, Math.min(1, (height - 92) / (PHONE_SCREEN.height + 22), (width - 28) / (PHONE_SCREEN.width + 22)));
+}
 onMounted(() => {
-  setClock();
-  clockTimer = setInterval(setClock, 30000);
-  document.addEventListener("visibilitychange", onVisibility);
+  labDeviceBack.handler = back;
+  fit();
+  window.addEventListener('resize', fit); window.visualViewport?.addEventListener('resize', fit);
+  clockTimer = window.setInterval(() => { now.value = new Date(); }, 1000);
 });
 onBeforeUnmount(() => {
-  stopCamera();
-  clearInterval(clockTimer);
-  if (photo.value) URL.revokeObjectURL(photo.value);
-  document.removeEventListener("visibilitychange", onVisibility);
+  if (labDeviceBack.handler === back) labDeviceBack.handler = null;
+  window.removeEventListener('resize', fit); window.visualViewport?.removeEventListener('resize', fit);
+  clearInterval(clockTimer); clearTimeout(bannerTimer);
 });
 </script>
 
 <template>
-  <div class="phone-shell">
-    <button
-      class="phone-power"
-      aria-label="Lock phone"
-      title="Lock phone"
-      @click="lock"
-    />
-    <div class="phone-display" :class="`phone-display--${app}`">
-      <div class="phone-status">
-        <span class="status-clock">{{ clock }}</span>
-        <span class="phone-island" aria-hidden="true"><i /></span>
-        <span
-          class="status-icons"
-          aria-label="Full signal, Wi-Fi connected, simulated battery 100 percent"
-        >
-          <svg
-            class="status-signal"
-            viewBox="0 0 18 14"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <rect x="0" y="10" width="3" height="4" rx=".8" />
-            <rect x="5" y="7" width="3" height="7" rx=".8" />
-            <rect x="10" y="3.5" width="3" height="10.5" rx=".8" />
-            <rect x="15" width="3" height="14" rx=".8" />
-          </svg>
-          <svg
-            class="status-wifi"
-            viewBox="0 0 20 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            aria-hidden="true"
-          >
-            <path
-              d="M2 4a13 13 0 0 1 16 0M5 7.5a8 8 0 0 1 10 0M8 11a3 3 0 0 1 4 0"
-            />
-            <circle cx="10" cy="14" r="1" fill="currentColor" stroke="none" />
-          </svg>
-          <span class="status-battery"
-            ><span>100</span
-            ><svg viewBox="0 0 29 14" fill="none" aria-hidden="true">
-              <rect
-                x=".7"
-                y=".7"
-                width="24"
-                height="12.6"
-                rx="3"
-                stroke="currentColor"
-                stroke-width="1.4"
-              />
-              <rect
-                x="3"
-                y="3"
-                width="19.4"
-                height="8"
-                rx="1.2"
-                fill="currentColor"
-              />
-              <path
-                d="M27 4.5v5"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-              /></svg
-          ></span>
-        </span>
-      </div>
-      <div
-        v-if="locked"
-        class="phone-lock"
-        @touchstart.passive="lockTouchY = $event.touches[0].clientY"
-        @touchend="unlockSwipe"
-      >
-        <svg
-          class="lock-glyph"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          aria-hidden="true"
-        >
-          <rect x="6" y="10" width="12" height="10" rx="3" />
-          <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-        </svg>
-        <div class="phone-date">{{ today }}</div>
-        <div class="phone-clock">{{ clock }}</div>
-        <p class="lock-notice">
-          <span>BUILD BOT <small>now</small></span
-          >One new message.<br />Probably not a production incident.
-        </p>
-        <button class="phone-unlock" @click="unlock">
-          <span aria-hidden="true">⌃</span>Tap or swipe up to unlock
-        </button>
-      </div>
-      <div v-else-if="app === 'home'" class="phone-home phone-home-reveal">
-        <div class="phone-date">{{ today }}</div>
-        <div class="phone-clock">{{ clock }}</div>
-        <div class="phone-greeting">
-          <span>MOHITH'S POCKET LAB</span>
-          <p>A little off-duty.</p>
+  <div class="phone-fit" :style="full ? { width: `${screenSize.width}px`, height: `${screenSize.height}px` } : { width: `${(PHONE_SCREEN.width + 22) * scale}px`, height: `${(PHONE_SCREEN.height + 22) * scale}px` }">
+    <div class="phone" :class="{ full }" :style="{ transform: `scale(${scale})` }">
+      <i class="side action" /><i class="side volume-up" /><i class="side volume-down" /><i class="side camera-control" />
+      <button class="side power" aria-label="Lock phone" title="Lock phone" @click="lock" />
+      <div class="screen" :class="[`bar-${bar}`, { locked }]" :style="{ '--ox': `${origin.x}px`, '--oy': `${origin.y}px`, width: `${screenSize.width}px`, height: `${screenSize.height}px` }">
+        <div class="wallpaper" :class="{ dim: !locked }" />
+
+        <!-- Home screen -->
+        <div class="home" :class="{ away: !!app || locked }" :inert="!!app || locked">
+          <div class="pages">
+          <div class="widgets">
+            <button class="widget weather-widget" aria-label="Weather" @click="open('weather', $event)">
+              <span>Bengaluru</span><b>26°</b><em>Partly cloudy<br>H:29° L:21°</em>
+            </button>
+            <button class="widget clock-widget" aria-label="Clock" @click="open('clock', $event)">
+              <span>{{ today.split(',')[0] }}</span><b>{{ now.getDate() }}</b><em>No more meetings.<br>Suspicious.</em>
+            </button>
+          </div>
+          <div class="grid">
+            <button v-for="item in GRID" :key="item.id" :aria-label="item.name" @click="open(item.id, $event)">
+              <span class="icon"><PhoneIcon :name="item.id" /><i v-if="badge(item.id)" class="badge">{{ badge(item.id) }}</i></span>
+              <span class="label">{{ item.name }}</span>
+            </button>
+          </div>
+          </div>
+          <div class="search-pill" aria-hidden="true"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.7" /><path d="m10.5 10.5 3.5 3.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /></svg>Search</div>
+          <div class="dock">
+            <button v-for="id in DOCK" :key="id" :aria-label="NAMES[id]" @click="open(id, $event)">
+              <span class="icon"><PhoneIcon :name="id" /><i v-if="badge(id)" class="badge">{{ badge(id) }}</i></span>
+            </button>
+          </div>
         </div>
-        <div class="phone-apps">
-          <button @click="app = 'camera'">
-            <span class="app-icon icon-camera"
-              ><svg viewBox="0 0 32 32" aria-hidden="true">
-                <path d="M5 9h5l2-3h8l2 3h5v17H5Z" fill="currentColor" />
-                <circle cx="16" cy="17" r="6" fill="#bec5cd" />
-                <circle cx="16" cy="17" r="4" fill="#242931" /></svg></span
-            >Camera
-          </button>
-          <button @click="app = 'browser'">
-            <span class="app-icon icon-chrome"
-              ><svg viewBox="0 0 32 32" aria-hidden="true">
-                <circle cx="16" cy="16" r="14" fill="#f9ce47" />
-                <path d="M3.8 9A14 14 0 0 1 28.2 9H16l-6 10Z" fill="#ec5545" />
-                <path d="M3.8 9A14 14 0 0 0 16 30l6-11H10Z" fill="#3aa66a" />
-                <circle cx="16" cy="16" r="6.5" fill="#fff" />
-                <circle cx="16" cy="16" r="5" fill="#4c8fe7" /></svg></span
-            >Chrome
-          </button>
-          <button @click="app = 'messages'">
-            <span class="app-icon icon-messages"
-              ><svg viewBox="0 0 32 32" aria-hidden="true">
-                <path
-                  d="M27 15c0 7-8 12-17 8l-6 3 2-7C0 7 15 2 23 7c3 2 4 4 4 8Z"
-                  fill="white"
-                /></svg
-              ><i>1</i></span
-            >Messages
-          </button>
-        </div>
-        <p class="phone-owner">No notifications worth stressing about.</p>
-      </div>
-      <template v-else>
-        <header class="phone-app-header">
-          <button aria-label="Back to phone home" @click="app = 'home'">
-            ‹</button
-          ><strong>{{
-            app === "browser"
-              ? "Chrome"
-              : app === "camera"
-                ? "Camera"
-                : "Messages"
-          }}</strong
-          ><span class="app-kicker">{{
-            app === "messages" ? "LOCAL CHAT" : "POCKET LAB"
-          }}</span>
-        </header>
-        <div v-if="app === 'camera'" class="camera-app">
-          <div class="camera-view">
-            <video
-              v-show="cameraActive && !photo"
-              ref="video"
-              autoplay
-              muted
-              playsinline
-            /><img
-              v-if="photo"
-              :src="photo"
-              alt="Your photo, saved only in this browser session"
-            />
-            <div v-if="!cameraActive" class="camera-empty">
-              <svg viewBox="0 0 32 32" aria-hidden="true">
-                <path d="M5 9h5l2-3h8l2 3h5v17H5Z" />
-                <circle cx="16" cy="17" r="6" />
-              </svg>
-              <p>{{ cameraStatus }}</p>
-              <button :disabled="cameraBusy" @click="enableCamera">
-                {{ cameraBusy ? "Waiting for permission…" : "Enable camera" }}
+
+        <!-- The open app -->
+        <Transition name="app">
+          <div v-if="app" :key="app" class="app-window">
+            <component :is="VIEWS[app].is" v-bind="VIEWS[app].props" />
+          </div>
+        </Transition>
+
+        <!-- Lock screen -->
+        <Transition name="lock">
+          <div v-if="locked" class="lock" @pointerdown="dragStart" @pointerup="dragEnd($event, () => (locked = false))">
+            <svg class="padlock" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="10.5" width="12" height="9.5" rx="2.8" fill="currentColor" /><path d="M8.5 10.5V7.8a3.5 3.5 0 0 1 7 0v2.700" fill="none" stroke="currentColor" stroke-width="1.8" /></svg>
+            <div class="lock-date">{{ today }}</div>
+            <div class="lock-time">{{ time }}</div>
+            <div class="lock-notes">
+              <button v-for="note in LOCK_NOTES" :key="note.title" class="note" @click="open(note.app, $event)">
+                <span class="note-icon"><PhoneIcon :name="note.app" /></span>
+                <span class="note-text"><b>{{ note.title }}<small>{{ note.when }}</small></b>{{ note.text }}</span>
               </button>
             </div>
-            <span v-if="cameraActive && !photo" class="camera-live">● LIVE</span
-            ><span class="viewfinder-corner" aria-hidden="true" />
-          </div>
-          <p class="camera-caption">
-            {{
-              photo
-                ? "A souvenir from the lab."
-                : cameraActive
-                  ? cameraStatus
-                  : "Your camera. Your device. No upload."
-            }}
-          </p>
-          <div class="camera-actions">
-            <button v-if="photo" @click="retake">Retake</button
-            ><button
-              v-else
-              class="shutter"
-              aria-label="Take photo"
-              :disabled="!cameraActive"
-              @click="takePhoto"
-            /><a v-if="photo" :href="photo" download="pocket-lab.jpg"
-              >Save photo ↓</a
-            ><button
-              v-if="cameraActive && !photo"
-              class="camera-off"
-              @click="stopCamera"
-            >
-              Turn off
-            </button>
-          </div>
-        </div>
-        <div v-else-if="app === 'browser'" class="browser-app">
-          <div class="browser-symbol" aria-hidden="true">✳</div>
-          <h3>A small window.<br />A very big internet.</h3>
-          <form @submit.prevent="openWeb(address)">
-            <label class="sr-only" for="pocket-address"
-              >Search or enter web address</label
-            ><input
-              id="pocket-address"
-              v-model="address"
-              placeholder="Search or enter address"
-              autocomplete="off"
-              maxlength="2048"
-            /><button aria-label="Open address">↗</button>
-          </form>
-          <p v-if="browserError" role="alert">{{ browserError }}</p>
-          <p class="browser-note">Links open in your browser, in a new tab.</p>
-          <div class="browser-bookmarks">
-            <button @click="openWeb('https://github.com/MokiMeow')">
-              <span>⌘</span>GitHub</button
-            ><button @click="openWeb('https://smohith.vercel.app')">
-              <span>M</span>Portfolio</button
-            ><button @click="openWeb('https://zkauth.dev')">
-              <span>Z</span>ZKAuth
-            </button>
-          </div>
-        </div>
-        <div v-else class="messages-app">
-          <div class="chat-person">
-            <span>↯</span>
-            <div>
-              <strong>Build Bot</strong><small>Online · unfortunately</small>
+            <div class="lock-tools">
+              <button aria-label="Torch: decorative"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8v3.5l-2 3V20a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V9.5l-2-3Z" fill="currentColor" /></svg></button>
+              <button aria-label="Open camera" @click="open('camera', $event)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A1.500 1.500 0 0 1 5.5 7H8l1.300-2h5.400L16 7h2.500A1.500 1.500 0 0 1 20 8.5v9a1.500 1.500 0 0 1-1.500 1.500h-13A1.500 1.500 0 0 1 4 17.5Z" fill="currentColor" /><circle cx="12" cy="13" r="3.3" fill="#0008" /></svg></button>
             </div>
+            <button class="unlock" @click="locked = false">Swipe up or tap to open</button>
           </div>
-          <div ref="chat" class="chat-transcript" role="log" aria-live="polite">
-            <p class="chat-date">TODAY · ON THIS PHONE ONLY</p>
-            <div
-              v-for="(entry, index) in conversation"
-              :key="index"
-              class="chat-bubble"
-              :class="entry.from"
-            >
-              {{ entry.text }}
-            </div>
-          </div>
-          <div class="chat-prompts">
-            <button @click="send('It works on my machine')">
-              Works on my machine</button
-            ><button @click="send('Just a quick change')">
-              A quick change
-            </button>
-          </div>
-          <form class="chat-compose" @submit.prevent="send()">
-            <label class="sr-only" for="pocket-message">Message Build Bot</label
-            ><input
-              id="pocket-message"
-              v-model="message"
-              maxlength="280"
-              placeholder="Say something…"
-              autocomplete="off"
-            /><button
-              aria-label="Send local message"
-              :disabled="!message.trim()"
-            >
-              ↑
-            </button>
-          </form>
+        </Transition>
+
+        <!-- Status bar, Dynamic Island, banner and home bar sit above everything -->
+        <div class="status" aria-hidden="true">
+          <span class="status-time">{{ time }}</span>
+          <span class="status-icons">
+            <svg viewBox="0 0 18 12" width="18"><rect y="8" width="3" height="4" rx=".8" /><rect x="5" y="5.5" width="3" height="6.5" rx=".8" /><rect x="10" y="3" width="3" height="9" rx=".8" /><rect x="15" width="3" height="12" rx=".8" /></svg>
+            <svg viewBox="0 0 17 12" width="17"><path d="M8.5 2.600c2.400 0 4.600.900 6.200 2.500l1.100-1.200A10.400 10.400 0 0 0 8.500 1 10.400 10.400 0 0 0 1.200 3.900l1.100 1.200a8.700 8.700 0 0 1 6.200-2.500Zm0 3.600c1.400 0 2.700.500 3.700 1.500l1.100-1.200a7 7 0 0 0-9.600 0l1.100 1.200c1-1 2.300-1.500 3.700-1.500Zm0 3.500c-.700 0-1.300.300-1.800.700l1.800 1.900 1.800-1.900c-.5-.400-1.100-.700-1.800-.700Z" /></svg>
+            <svg viewBox="0 0 28 13" width="27"><rect x=".5" y=".5" width="23.5" height="12" rx="3.8" fill="none" stroke="currentColor" opacity=".4" /><rect x="2" y="2" width="16.5" height="9" rx="2.4" /><path d="M25.5 4.300v4.400c.900-.300 1.500-1.200 1.500-2.200s-.600-1.900-1.500-2.200Z" opacity=".45" /></svg>
+          </span>
         </div>
-      </template>
-      <button
-        class="phone-home-bar"
-        aria-label="Phone home"
-        @click="locked ? unlock() : (app = 'home')"
-      >
-        <span />
-      </button>
+        <button class="island" :class="{ open: island }" :aria-label="island ? 'Collapse Dynamic Island' : 'Dynamic Island'" :aria-expanded="island" @click="island = !island">
+          <i class="lens" />
+          <span v-if="island" class="island-live"><b>Now compiling</b><em>Estimated time: one chai</em><span class="bars"><i /><i /><i /><i /></span></span>
+        </button>
+        <Transition name="banner">
+          <button v-if="banner" class="banner" @click="open(banner.app)">
+            <span class="note-icon"><PhoneIcon :name="banner.app" /></span>
+            <span class="note-text"><b>{{ banner.title }}<small>now</small></b>{{ banner.text }}</span>
+          </button>
+        </Transition>
+        <button v-if="!locked" class="home-bar" :aria-label="app ? 'Go to the Home Screen' : 'Home Screen'" @click="home" @pointerdown="dragStart" @pointerup="dragEnd($event, home)"><i /></button>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.phone-power {
-  position: absolute;
-  right: -5px;
-  top: 128px;
-  width: 6px;
-  height: 55px;
-  border-radius: 3px;
-  background: #656a71;
-}
-.phone-power:before {
-  content: "";
-  position: absolute;
-  inset: -8px;
-}
-.phone-lock {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 20px 20px 0;
-  touch-action: none;
-}
-.lock-glyph {
-  width: 25px;
-  height: 25px;
-  margin-bottom: 15px;
-  color: #1a3747;
-}
-.lock-notice {
-  width: 100%;
-  margin-top: 42px;
-  padding: 16px 0;
-  border-top: 1px solid #fff5;
-  border-bottom: 1px solid #fff5;
-  font-size: 13px;
-  line-height: 1.5;
-  text-shadow: 0 1px 7px #244a66;
-}
-.lock-notice > span {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font: 8px/1.5 monospace;
-  letter-spacing: 0.14em;
-  margin-bottom: 9px;
-}
-.lock-notice small {
-  font: 9px sans-serif;
-  opacity: 0.7;
-}
-.phone-unlock {
-  margin-top: auto;
-  font-size: 11px;
-  padding: 24px 0 10px;
-  min-height: 65px;
-  width: 100%;
-}
-.phone-unlock > span {
-  display: block;
-  font-size: 23px;
-  line-height: 1;
-  margin-bottom: 8px;
-}
-.phone-home-reveal {
-  animation: phone-unlock 0.3s ease-out both;
-}
-@keyframes phone-unlock {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .phone-home-reveal {
-    animation: none;
-  }
-}
-.phone-shell {
-  width: min(342px, calc(100vw - 34px));
-  height: min(682px, calc(var(--visual-height,100dvh) - 92px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
-  min-height: 0;
-  flex-shrink:1;
-  container-type:size;
-  border: 2px solid #696c70;
-  border-radius: 46px;
-  padding: 9px;
-  background: linear-gradient(
-    130deg,
-    #5a5d62,
-    #1b1b1d 30%,
-    #44474c 70%,
-    #101113
-  );
-  box-shadow:
-    0 30px 100px #0009,
-    inset 0 0 0 2px #111;
-  position: relative;
-  color: white;
-  font-family: Arial, sans-serif;
-}
-.phone-shell:before {
-  content: "";
-  position: absolute;
-  left: -5px;
-  top: 130px;
-  width: 3px;
-  height: 52px;
-  background: #64676c;
-  border-radius: 3px;
-}
-.phone-display {
-  height: 100%;
-  border-radius: 35px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  background: #f1f3f5;
-  color: #151b24;
-}
-.phone-display--home {
-  background:
-    radial-gradient(ellipse at 100% 50%, #8bc4cd 0%, transparent 50%),
-    radial-gradient(ellipse at 0 100%, #17395c 0%, transparent 65%),
-    linear-gradient(150deg, #d1dada, #68a0af 38%, #152a48);
-  color: #fff;
-}
-.phone-status {
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 19px;
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 700;
-  position: relative;
-}
-.phone-display--home .phone-status {
-  color: #17333d;
-}
-.phone-island {
-  position: absolute;
-  width: 76px;
-  height: 23px;
-  background: #080a0c;
-  border-radius: 20px;
-  left: 50%;
-  top: 10px;
-  transform: translateX(-50%);
-}
-.phone-island i {
-  position: absolute;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #11212d;
-  box-shadow: inset 0 0 0 2px #15222f;
-  right: 9px;
-  top: 8px;
-}
-.status-clock {
-  font-variant-numeric: tabular-nums;
-  min-width: 38px;
-  letter-spacing: -0.3px;
-}
-.status-icons {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  height: 16px;
-}
-.status-signal {
-  width: 15px;
-  height: 12px;
-}
-.status-wifi {
-  width: 15px;
-  height: 12px;
-}
-.status-battery {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-}
-.status-battery > span {
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: -0.2px;
-}
-.status-battery svg {
-  width: 25px;
-  height: 13px;
-}
-.phone-home {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  padding: 28px 20px 0;
-}
-.phone-date {
-  font-size: 13px;
-  text-shadow: 0 1px 8px #29455688;
-}
-.phone-clock {
-  font-size: 68px;
-  font-weight: 300;
-  letter-spacing: -4px;
-  line-height: 1.18;
-}
-.phone-greeting {
-  margin-top: auto;
-  align-self: flex-start;
-  margin-bottom: 30px;
-  text-shadow: 0 1px 20px #17395c;
-}
-.phone-greeting span {
-  font-size: 8px;
-  letter-spacing: 2px;
-}
-.phone-greeting p {
-  font-size: 27px;
-  letter-spacing: -1px;
-  margin-top: 8px;
-}
-.phone-apps {
-  display: flex;
-  gap: 25px;
-}
-.phone-apps button {
-  display: flex;
-  align-items: center;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 10px;
-}
-.app-icon {
-  display: grid;
-  place-items: center;
-  width: 57px;
-  height: 57px;
-  border-radius: 16px;
-  box-shadow: 0 5px 16px #0003;
-  position: relative;
-}
-.app-icon svg {
-  width: 36px;
-  height: 36px;
-}
-.icon-camera {
-  background: linear-gradient(#eef0f2, #aeb7bf);
-  color: #252a31;
-}
-.icon-chrome {
-  background: #fff;
-}
-.icon-messages {
-  background: linear-gradient(#6eed83, #16aa48);
-}
-.icon-messages i {
-  font-style: normal;
-  position: absolute;
-  right: -5px;
-  top: -6px;
-  background: #e85246;
-  border-radius: 50%;
-  height: 19px;
-  min-width: 19px;
-  display: grid;
-  place-items: center;
-  color: white;
-  font-size: 10px;
-}
-.phone-owner {
-  margin-top: 24px;
-  font-size: 9px;
-  opacity: 0.62;
-}
-.phone-home-bar {
-  height: 28px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  width: 100%;
-  margin-top: auto;
-}
-.phone-home-bar span {
-  width: 100px;
-  height: 4px;
-  background: currentColor;
-  border-radius: 4px;
-  opacity: 0.7;
-}
-.phone-app-header {
-  display: flex;
-  align-items: center;
-  height: 42px;
-  padding: 0 15px;
-  border-bottom: 1px solid #0001;
-  gap: 9px;
-  flex-shrink: 0;
-}
-.phone-app-header button {
-  font-size: 31px;
-  line-height: 1;
-  min-width: 25px;
-}
-.phone-app-header strong {
-  font-size: 14px;
-}
-.app-kicker {
-  font-size: 7px;
-  letter-spacing: 1.1px;
-  opacity: 0.5;
-  margin-left: auto;
-}
-.camera-app {
-  background: #15171b;
-  color: #fff;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-.camera-view {
-  position: relative;
-  flex: 1;
-  min-height: 160px;
-  background: #20242b;
-  overflow: hidden;
-  margin: 8px;
-}
-.camera-view video,
-.camera-view img {
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  object-fit: cover;
-}
-.camera-view video {
-  transform: scaleX(-1);
-}
-.camera-empty {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  padding: 22px;
-  text-align: center;
-  gap: 20px;
-  font-size: 12px;
-  line-height: 1.6;
-}
-.camera-empty svg {
-  width: 45px;
-  height: 45px;
-  stroke: #a7b3c6;
-  fill: none;
-  stroke-width: 1.2;
-}
-.camera-empty button {
-  border: 1px solid #ffffff3d;
-  padding: 10px 14px;
-  border-radius: 20px;
-}
-.camera-live {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  letter-spacing: 1.5px;
-  font-size: 8px;
-  color: #ffb5a0;
-}
-.camera-caption {
-  text-align: center;
-  font-size: 9px;
-  opacity: 0.55;
-  margin: 8px;
-}
-.camera-actions {
-  height: 65px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 25px;
-  font-size: 11px;
-}
-.shutter {
-  width: 48px;
-  height: 48px;
-  border: 3px solid white;
-  border-radius: 50%;
-  padding: 3px;
-  background: white;
-  background-clip: content-box;
-}
-.shutter:disabled {
-  opacity: 0.25;
-}
-.camera-off {
-  opacity: 0.7;
-}
-.browser-app {
-  padding: 25px 20px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-.browser-symbol {
-  font-size: 48px;
-  color: #447bb9;
-}
-.browser-app h3 {
-  font-size: 26px;
-  line-height: 1.18;
-  letter-spacing: -1.2px;
-  margin: 15px 0 28px;
-}
-.browser-app form {
-  display: flex;
-  background: #fff;
-  border: 1px solid #e0e3e8;
-  border-radius: 22px;
-  padding: 3px 5px 3px 14px;
-}
-.browser-app input {
-  background: transparent;
-  width: 100%;
-  font-size: 11px;
-  padding: 9px 0;
-  min-width: 0;
-  outline: none;
-}
-.browser-app form button {
-  padding: 0 10px;
-}
-.browser-note {
-  font-size: 9px;
-  line-height: 1.5;
-  color: #68707d;
-  margin-top: 10px;
-}
-.browser-bookmarks {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 30px;
-  gap: 8px;
-}
-.browser-bookmarks button {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  font-size: 10px;
-  gap: 8px;
-}
-.browser-bookmarks span {
-  width: 46px;
-  height: 46px;
-  background: #e2e6eb;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  font-size: 19px;
-}
-.messages-app {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  background: #f8f9fb;
-}
-.chat-person {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 18px;
-}
-.chat-person > span {
-  background: #203c4d;
-  color: #a2e2c8;
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  font-size: 20px;
-}
-.chat-person strong {
-  font-size: 12px;
-  display: block;
-}
-.chat-person small {
-  font-size: 9px;
-  color: #708070;
-}
-.chat-transcript {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 4px 16px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  overscroll-behavior: contain;
-}
-.chat-date {
-  text-align: center;
-  font-size: 7px;
-  letter-spacing: 0.7px;
-  opacity: 0.4;
-  margin: 6px 0;
-}
-.chat-bubble {
-  padding: 11px 13px;
-  font-size: 12px;
-  line-height: 1.55;
-  max-width: 91%;
-  border-radius: 15px;
-  background: #e9ecf0;
-  align-self: flex-start;
-  border-bottom-left-radius: 4px;
-}
-.chat-bubble.you {
-  align-self: flex-end;
-  background: #215f7f;
-  color: #fff;
-  border-radius: 15px 15px 4px 15px;
-}
-.chat-prompts {
-  display: flex;
-  gap: 6px;
-  overflow: auto;
-  padding: 8px 13px;
-  flex-shrink: 0;
-}
-.chat-prompts button {
-  white-space: nowrap;
-  border: 1px solid #ccd3da;
-  font-size: 8px;
-  padding: 7px 9px;
-  border-radius: 20px;
-}
-.chat-compose {
-  display: flex;
-  gap: 8px;
-  padding: 5px 14px 8px;
-}
-.chat-compose input {
-  width: 100%;
-  min-width: 0;
-  border: 1px solid #d9dee5;
-  border-radius: 20px;
-  padding: 9px 12px;
-  font-size: 11px;
-  background: white;
-  outline: none;
-}
-.chat-compose button {
-  width: 33px;
-  height: 33px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: #215f7f;
-  color: white;
-}
-.chat-compose button:disabled {
-  opacity: 0.35;
-}
-button,
-a {
-  transition: transform 150ms ease;
-}
-button:active,
-a:active {
-  transform: scale(0.96);
-}
-button:focus-visible,
-a:focus-visible {
-  outline: 2px solid #69abbc;
-  outline-offset: 4px;
-}
-input:focus-visible {
-  outline: 2px solid #69abbc;
-  outline-offset: 2px;
-}
-@media (max-height: 600px) {
-  .phone-shell {
-    height: calc(var(--visual-height,100dvh) - 72px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-    min-height: 0;
-    border-radius: 30px;
-  }
-  .phone-display {
-    border-radius: 22px;
-  }
-  .phone-home {
-    padding-top: 10px;
-  }
-  .phone-clock {
-    font-size: 46px;
-  }
-  .phone-greeting {
-    margin-bottom: 13px;
-  }
-  .phone-owner {
-    margin-top: 12px;
-  }
-  .phone-greeting p {
-    font-size: 22px;
-  }
-  .app-icon {
-    width: 46px;
-    height: 46px;
-  }
-  .camera-actions {
-    height: 50px;
-  }
-  .camera-view {
-    min-height: 80px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  button,
-  a {
-    transition: none;
-  }
-  .chat-transcript {
-    scroll-behavior: auto;
-  }
-}
-.chat-bubble {
-  overflow-wrap: anywhere;
-}
-@media (max-width: 600px) {
-  .phone-shell input {
-    font-size: 16px;
-  }
-}
+.phone-fit{position:relative;flex-shrink:0}
+/* Titanium band around a 440 x 956 display. */
+.phone{position:absolute;left:0;top:0;width:462px;height:978px;transform-origin:0 0;padding:11px;border-radius:76px;
+  background:linear-gradient(135deg,#8d8a84,#3d3b38 22%,#77746e 48%,#2e2c2a 76%,#86837d);
+  box-shadow:inset 0 0 0 1.5px rgb(255 255 255 / .22),inset 0 0 0 5px #0a0a0b,0 30px 70px rgb(0 0 0 / .55),0 4px 14px rgb(0 0 0 / .4)}
+.phone::after{content:'';position:absolute;inset:5px;border-radius:71px;box-shadow:inset 0 0 0 6px #050506;pointer-events:none}
+/* Full-screen on phones: no titanium band, no side buttons, just the display with softly rounded corners. */
+.phone.full{width:auto;height:auto;padding:0;border-radius:28px;background:none;box-shadow:0 18px 50px rgb(0 0 0 / .45)}
+.phone.full::after,.phone.full .side{display:none}
+.phone.full .screen{border-radius:28px}
+.side{position:absolute;width:5px;border-radius:2px;background:linear-gradient(90deg,#5d5a55,#a29f98 45%,#4a4844);border:0;padding:0}
+.side.action{left:-3px;top:150px;height:34px}.side.volume-up{left:-3px;top:212px;height:62px}.side.volume-down{left:-3px;top:288px;height:62px}
+.side.power{right:-3px;top:250px;height:104px;cursor:pointer}.side.power::before{content:'';position:absolute;inset:-8px -14px}
+.side.camera-control{right:-2px;top:540px;height:70px;width:4px;background:linear-gradient(90deg,#2b2a28,#55524d)}
+.side.power:focus-visible{outline:2px solid #9cc7ff;outline-offset:3px}
+.screen{--safe-top:62px;--safe-bottom:34px;position:relative;width:440px;height:956px;border-radius:65px;overflow:hidden;isolation:isolate;background:#000;color:#fff;
+  font:400 17px/1.3 -apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Inter','Segoe UI',system-ui,sans-serif;letter-spacing:-.02em;-webkit-font-smoothing:antialiased;user-select:none}
+/* The site sets its own typeface on every element; the phone keeps San Francisco. */
+.screen :deep(*){font-family:inherit}
+.screen :deep(button){-webkit-tap-highlight-color:transparent}
+.wallpaper{position:absolute;inset:0;transition:filter .45s,transform .45s;
+  background:radial-gradient(120% 60% at 18% 6%,#3ee0b0 0,transparent 55%),radial-gradient(90% 55% at 92% 22%,#2d7dff 0,transparent 60%),radial-gradient(110% 60% at 30% 78%,#7a3cff 0,transparent 62%),radial-gradient(90% 50% at 88% 96%,#ff5c8a 0,transparent 60%),linear-gradient(180deg,#07122b,#150a2e)}
+.wallpaper::after{content:'';position:absolute;inset:0;background:radial-gradient(60% 34% at 50% 44%,rgb(255 255 255 / .16),transparent 70%),linear-gradient(180deg,rgb(0 0 0 / .18),transparent 30%,rgb(0 0 0 / .32))}
+.wallpaper.dim{filter:saturate(1.1) brightness(.86)}
 
-.phone-home,.phone-lock {min-height:0;overflow:auto;overscroll-behavior:contain;}
-.phone-home {flex-shrink:1;}
-.phone-shell {max-width:100%;}
-.phone-shell :is(input,textarea){user-select:text;}
-.phone-app-header>button,.browser-app form button,.chat-compose button{min-width:44px;min-height:44px;}
-.phone-status{padding-inline:14px;}
-.status-icons{gap:4px;}
-@container (max-height:430px){
- .phone-status{height:34px;}
- .phone-island{top:4px;width:64px;}
- .phone-home{padding:8px 16px 0;}
- .phone-clock{font-size:36px;letter-spacing:-2px;}
- .phone-greeting{margin:10px 0;}
- .phone-greeting p{font-size:18px;margin-top:4px;}
- .phone-owner{margin-top:10px;padding-bottom:8px;}
- .phone-apps{gap:22px;}
- .app-icon{width:46px;height:46px;}
- .phone-lock{top:34px;padding-top:12px;}
- .phone-lock .lock-glyph{display:none;}
- .lock-notice{margin-top:16px;padding:10px 0;}
- .phone-unlock{min-height:48px;}
- .chat-person{display:none;}
- .chat-prompts{display:none;}
- .camera-view{min-height:60px;}
- .camera-actions{height:44px;flex-shrink:0;}
- .camera-caption{padding:3px 12px;}
-}
-@container(max-height:280px){.phone-greeting,.phone-owner,.lock-notice{display:none;}.phone-apps{margin-top:8px;}.phone-clock{font-size:30px;}.phone-home-bar{height:26px;}}
-@media(max-width:350px){.status-battery>span{display:none;}.phone-island{width:60px;}.phone-apps{gap:20px;}.phone-greeting p{font-size:24px;}}
+.home{position:absolute;inset:0;padding:0;transition:transform .42s cubic-bezier(.2,.8,.2,1),opacity .3s}
+.home.away{transform:scale(.9);opacity:0}
+.screen.locked .home.away{transform:scale(1.12)}
+/* Widgets and icons scroll when the screen is short; the bottom padding keeps the last row clear of the dock. */
+.pages{position:absolute;inset:0;padding:78px 27px 150px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;touch-action:pan-y}
+.pages::-webkit-scrollbar{display:none}
+.phone.full .search-pill{display:none}
+/* Short screens: a smaller clock and tighter spacing keep the lock screen controls in view. */
+.phone.full .lock{padding-top:58px}.phone.full .lock-time{font-size:clamp(64px,13vh,112px)}.phone.full .lock-notes{gap:6px}.phone.full .lock-tools{padding-top:16px;padding-bottom:6px}
+.widgets{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-bottom:26px}
+.widget{height:168px;border-radius:26px;padding:16px 17px;text-align:left;color:#fff;display:flex;flex-direction:column;border:0;cursor:pointer;box-shadow:inset 0 0 0 1px rgb(255 255 255 / .16),0 8px 22px rgb(0 0 0 / .22)}
+.widget span{font-size:15px;font-weight:600}.widget b{font-size:52px;line-height:1.05;font-weight:300;letter-spacing:-.04em}.widget em{margin-top:auto;font-style:normal;font-size:13px;line-height:1.3;font-weight:500;opacity:.92}
+.weather-widget{background:linear-gradient(180deg,#2a6fd6,#5fb4f4)}
+.clock-widget{background:rgb(255 255 255 / .92);color:#111}.clock-widget span{color:#ff3b30;text-transform:uppercase;font-size:13px;letter-spacing:.02em}.clock-widget b{font-weight:400}.clock-widget em{color:#6b6b70}
+.grid{display:grid;grid-template-columns:repeat(4,64px);justify-content:space-between;row-gap:24px}
+.grid button,.dock button{display:flex;flex-direction:column;align-items:center;gap:6px;padding:0;border:0;background:none;color:#fff;cursor:pointer}
+.icon{position:relative;display:block;width:64px;transition:transform .18s,filter .18s}
+.grid button:active .icon,.dock button:active .icon{transform:scale(.9);filter:brightness(.8)}
+.label{font-size:12px;line-height:1.2;font-weight:500;letter-spacing:-.01em;text-shadow:0 1px 3px rgb(0 0 0 / .45);white-space:nowrap}
+.badge{position:absolute;top:-7px;right:-8px;min-width:24px;height:24px;padding:0 7px;border-radius:12px;background:#ff3b30;font-style:normal;font-size:14px;line-height:24px;font-weight:600;text-align:center;letter-spacing:0;box-shadow:0 1px 3px rgb(0 0 0 / .3)}
+.grid button:focus-visible,.dock button:focus-visible,.widget:focus-visible,.note:focus-visible,.unlock:focus-visible,.lock-tools button:focus-visible,.banner:focus-visible,.home-bar:focus-visible,.island:focus-visible{outline:2px solid #fff;outline-offset:4px}
+.search-pill{position:absolute;left:50%;bottom:144px;transform:translateX(-50%);display:flex;align-items:center;gap:5px;height:30px;padding:0 13px;border-radius:15px;font-size:13px;font-weight:500;
+  background:rgb(255 255 255 / .18);backdrop-filter:blur(24px) saturate(180%);box-shadow:inset 0 0 0 1px rgb(255 255 255 / .22)}
+.search-pill svg{width:13px;height:13px}
+/* Liquid Glass dock. */
+.dock{position:absolute;left:14px;right:14px;bottom:26px;height:98px;display:flex;align-items:center;justify-content:space-between;padding:0 21px;border-radius:38px;
+  background:linear-gradient(180deg,rgb(255 255 255 / .26),rgb(255 255 255 / .12));backdrop-filter:blur(28px) saturate(190%);box-shadow:inset 0 1px 0 rgb(255 255 255 / .5),inset 0 0 0 1px rgb(255 255 255 / .18),0 10px 30px rgb(0 0 0 / .22)}
 
-@container(max-height:430px){
- .camera-empty{padding:4px 8px;gap:4px;overflow:auto;justify-content:flex-start;}
- .camera-empty svg{display:none;}
- .camera-empty p{font-size:11px;line-height:1.3;}
- .camera-empty button{min-height:44px;flex-shrink:0;padding:6px 12px;}
- .camera-caption{margin:2px 8px;}
- .shutter{width:42px;height:42px;}
-}
+.app-window{position:absolute;inset:0;background:#000;overflow:hidden;transform-origin:var(--ox) var(--oy)}
+.app-enter-active{transition:transform .42s cubic-bezier(.2,.85,.2,1),opacity .2s,border-radius .42s}
+.app-leave-active{transition:transform .34s cubic-bezier(.4,0,.2,1),opacity .26s .08s,border-radius .34s}
+.app-enter-from,.app-leave-to{transform:scale(.14);opacity:0;border-radius:120px}
+
+.lock{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;padding-top:70px;touch-action:none}
+.padlock{width:22px;height:22px;opacity:.9}
+.lock-date{margin-top:12px;font-size:21px;font-weight:600;opacity:.9}
+.lock-time{font-size:112px;line-height:1;font-weight:700;letter-spacing:-.045em;font-variant-numeric:tabular-nums;color:rgb(255 255 255 / .9);text-shadow:0 2px 20px rgb(0 0 0 / .18)}
+.lock-notes{margin-top:auto;width:100%;padding:0 14px;display:flex;flex-direction:column;gap:9px}
+.note,.banner{display:flex;align-items:center;gap:12px;width:100%;padding:13px 15px;border:0;border-radius:26px;text-align:left;color:#fff;cursor:pointer;
+  background:linear-gradient(180deg,rgb(255 255 255 / .24),rgb(255 255 255 / .13));backdrop-filter:blur(26px) saturate(180%);box-shadow:inset 0 1px 0 rgb(255 255 255 / .4),inset 0 0 0 1px rgb(255 255 255 / .14)}
+.note-icon{width:40px;flex-shrink:0}
+.note-text{font-size:15px;line-height:1.28;min-width:0;flex:1}.note-text b{display:flex;justify-content:space-between;gap:10px;font-weight:600}.note-text small{font-size:13px;font-weight:400;opacity:.7}
+.lock-tools{width:100%;display:flex;justify-content:space-between;padding:26px 46px 0}
+.lock-tools button{width:54px;height:54px;border:0;border-radius:50%;color:#fff;cursor:pointer;background:rgb(255 255 255 / .2);backdrop-filter:blur(24px) saturate(180%);box-shadow:inset 0 1px 0 rgb(255 255 255 / .4)}
+.lock-tools svg{width:24px;height:24px;margin:auto;display:block}
+.unlock{margin:10px 0 22px;min-height:44px;padding:0 20px;border:0;background:none;color:#fff;font-size:14px;font-weight:500;opacity:.8;cursor:pointer;animation:hint 2.6s ease-in-out infinite}
+.lock-leave-active{transition:transform .42s cubic-bezier(.4,0,.2,1),opacity .34s}.lock-leave-to{transform:translateY(-34%);opacity:0}
+.lock-enter-active{transition:opacity .3s}.lock-enter-from{opacity:0}
+
+.status{position:absolute;top:0;left:0;right:0;height:62px;display:flex;justify-content:space-between;align-items:center;padding:8px 38px 0 52px;pointer-events:none;z-index:6;transition:color .3s}
+.status-time{font-size:17px;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.status-icons{display:flex;align-items:center;gap:6px}.status-icons svg{fill:currentColor;height:13px}
+.bar-light .status{color:#fff}.bar-dark .status{color:#000}
+.island{position:absolute;top:13px;left:50%;width:124px;height:36px;margin-left:-62px;padding:0;border:0;border-radius:20px;background:#000;color:#fff;cursor:pointer;z-index:7;overflow:hidden;
+  transition:width .45s cubic-bezier(.2,1.15,.3,1),height .45s cubic-bezier(.2,1.15,.3,1),margin .45s cubic-bezier(.2,1.15,.3,1),border-radius .45s}
+.island.open{width:404px;height:84px;margin-left:-202px;border-radius:42px}
+.lens{position:absolute;right:14px;top:12px;width:12px;height:12px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#2b3a5c,#05070c 70%);box-shadow:inset 0 0 0 1px #10151f}
+.island-live{position:absolute;left:24px;right:54px;top:19px;display:grid;grid-template-columns:1fr auto;text-align:left;animation:fade .3s .15s both}
+.island-live b{font-size:16px;font-weight:600}.island-live em{grid-row:2;font-style:normal;font-size:13px;color:#98989f}
+.bars{grid-row:1/3;grid-column:2;display:flex;align-items:center;gap:3px;height:42px}
+.bars i{width:3.5px;border-radius:2px;background:#30d158;animation:bars 1s ease-in-out infinite}.bars i:nth-child(1){height:12px}.bars i:nth-child(2){height:26px;animation-delay:.15s}.bars i:nth-child(3){height:18px;animation-delay:.3s}.bars i:nth-child(4){height:30px;animation-delay:.45s}
+.banner{position:absolute;left:10px;right:10px;width:auto;top:56px;z-index:8;background:linear-gradient(180deg,rgb(60 60 66 / .78),rgb(40 40 46 / .72));box-shadow:inset 0 1px 0 rgb(255 255 255 / .22),0 14px 34px rgb(0 0 0 / .35)}
+.banner-enter-active,.banner-leave-active{transition:transform .4s cubic-bezier(.2,.9,.2,1),opacity .3s}.banner-enter-from,.banner-leave-to{transform:translateY(-130%);opacity:0}
+.home-bar{position:absolute;left:0;right:0;bottom:0;height:34px;padding:0;border:0;background:none;cursor:pointer;z-index:6;touch-action:none}
+.home-bar i{position:absolute;left:50%;bottom:9px;width:144px;height:5px;margin-left:-72px;border-radius:3px;background:currentColor;transition:transform .2s}
+.home-bar:hover i{transform:scaleX(1.06) translateY(-1px)}
+.bar-light .home-bar{color:#fff}.bar-dark .home-bar{color:#000}
+@keyframes hint{50%{transform:translateY(-5px);opacity:1}}
+@keyframes fade{from{opacity:0}}
+@keyframes bars{50%{transform:scaleY(.45)}}
+@media(prefers-reduced-motion:reduce){.home,.wallpaper,.icon,.island,.home-bar i{transition:none}.unlock,.bars i,.island-live{animation:none}
+  .app-enter-active,.app-leave-active,.lock-leave-active,.lock-enter-active,.banner-enter-active,.banner-leave-active{transition:opacity .15s}.app-enter-from,.app-leave-to,.lock-leave-to,.banner-enter-from,.banner-leave-to{transform:none}}
 </style>

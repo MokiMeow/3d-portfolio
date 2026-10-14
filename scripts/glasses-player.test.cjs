@@ -8,7 +8,7 @@ const ts = require("typescript");
 function harness(t, delayedSDK = false) {
   const file = path.resolve(
     __dirname,
-    "../src/components/pages/home/LabGlasses.client.vue",
+    "../src/components/pages/home/vision/apps/TV.vue",
   );
   const source = fs
     .readFileSync(file, "utf8")
@@ -59,11 +59,16 @@ function harness(t, delayedSDK = false) {
             },
           },
     ref: (value) => ({ value }),
+    computed: (getter) => ({ get value() { return getter(); } }),
+    defineProps: () => ({}),
+    inject: () => undefined,
+    nextTick: (fn) => Promise.resolve().then(fn),
     onMounted() {},
     onBeforeUnmount: (fn) => (unmount = fn),
     document: {
       hidden: false,
       createElement: () => ({}),
+      addEventListener() {},
       removeEventListener() {},
     },
     window: { location: { origin: "https://example.test" } },
@@ -74,7 +79,7 @@ function harness(t, delayedSDK = false) {
   };
   const output = ts.transpileModule(
     source +
-      "\nexport const testing = {start,pause,playing,ready,failed,leftLens,rightLens,sync};",
+      "\nexport const testing = {start,pause,playing,ready,failed,screen};",
     {
       compilerOptions: {
         module: ts.ModuleKind.CommonJS,
@@ -84,32 +89,25 @@ function harness(t, delayedSDK = false) {
   ).outputText;
   vm.runInNewContext(output, context);
   const state = context.exports.testing;
-  state.leftLens.value = state.rightLens.value = { replaceChildren() {} };
+  state.screen.value = { replaceChildren() {} };
   t.after(() => unmount());
   return { state, clients, unmount, resolve: () => resolveSDK(api) };
 }
 
-test("both lenses wait for readiness, share transport, and only the left supplies audio", async (t) => {
+test("the cinema waits for the player to be ready before it plays, and pauses on request", async (t) => {
   const { state, clients } = harness(t);
   await state.start();
-  assert.equal(clients.length, 2);
+  assert.equal(clients.length, 1);
+  assert.equal(state.ready.value, false);
   clients[0].becomeReady();
-  assert.equal(clients[0].plays, 0);
-  clients[1].becomeReady();
+  assert.equal(state.ready.value, true);
   assert.equal(clients[0].plays, 1);
-  assert.equal(clients[1].plays, 1);
   assert.equal(clients[0].muted, false);
-  assert.equal(clients[1].muted, true);
-  clients[0].time = 8;
-  clients[1].time = 5;
-  state.sync();
-  assert.equal(clients[1].time, 8);
   state.pause();
   assert.equal(clients[0].pauses, 1);
-  assert.equal(clients[1].pauses, 1);
 });
 
-test("an embed error before readiness safely releases both players and ignores late callbacks", async (t) => {
+test("an embed error before readiness safely releases the player and ignores late callbacks", async (t) => {
   const { state, clients } = harness(t);
   await state.start();
   assert.doesNotThrow(() => state.pause());
