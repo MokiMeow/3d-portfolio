@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { PHONE } from '../phone';
 import { APP_ICONS as icons } from './icons';
+import { createChatSession, type ReadState, type ReplyBubble } from '../chat/engine';
+import { whatsappPersonas } from '../chat/personas';
 const phone = inject(PHONE);
 type Kind = 'family' | 'flat' | 'rent' | 'delivery' | 'amma' | 'dev';
 type Message = {
@@ -8,6 +10,15 @@ type Message = {
     text: string;
     mine: boolean;
     time: string;
+    state?: ReadState;
+    reaction?: string;
+    kind?: ReplyBubble['kind'];
+    sender?: string;
+    color?: string;
+    duration?: string;
+    src?: string;
+    playing?: boolean;
+    progress?: number;
 };
 type Chat = {
     id: number;
@@ -102,6 +113,17 @@ const seeds: Array<[
         false
     ]
 ];
+// What you had already said in each chat, before the visitor picked the phone up.
+const firstReplies = [
+    '👍',
+    'Yes Amma. Two vegetables, technically.',
+    'Is the hypothetical space south-facing?',
+    'Transferred. Also, the tap is dripping again.',
+    'The gate with the bougainvillea. No, the other one.',
+    'Have you tried turning the meeting off and on again?',
+    'I will bring the good biscuits. The committee will be informed.',
+    'Okay. So. It started when I changed one tiny thing…'
+];
 const chats = ref<Chat[]>(seeds.map((s, i) => ({
     id: i,
     name: s[0],
@@ -118,9 +140,10 @@ const chats = ref<Chat[]>(seeds.map((s, i) => ({
             time: '10:42'
         }, {
             id: i * 10 + 1,
-            text: 'Noted. With a reasonable amount of concern.',
+            text: firstReplies[i] ?? 'Noted. With a reasonable amount of concern.',
             mine: true,
-            time: '10:43'
+            time: '10:43',
+            state: 'read'
         }]
 })));
 const tab = ref<string>('Chats');
@@ -138,60 +161,30 @@ const filtered = computed(() => chats.value.filter(chat =>
     (filter.value !== 'Unread' || chat.unread > 0) 
         &&
     (filter.value !== 'Groups' || chat.group)));
-const replyRules: Record<Kind, Array<[
-    RegExp,
-    string
-]>> = {
-    family: [
-        [/lunch|food|eat/i, 'Food is ready. Your deployment can wait.'],
-        [/chai|tea/i, 'Chai has quorum. You are the only pending member.'],
-        [/bug|code/i, 'Have you tried switching the laptop off and coming downstairs?'],
-        [/hello|hi\b/i, 'Hello! Now please acknowledge the 43 photos above.'],
-        [/late|traffic/i, 'Leave early. Preferably yesterday.'],
-        [/ok|yes|noted/i, 'Excellent. We have archived your acknowledgement.']
-    ],
-    flat: [
-        [/rent|price|cost/i, 'Rent is negotiable if you negotiate with your expectations.'],
-        [/visit|see/i, 'Viewing at 6. The traffic will view you until 8.'],
-        [/wifi|internet/i, 'High-speed Wi-Fi. Speed measured emotionally.'],
-        [/deposit/i, 'Only a small deposit. Small compared with a moon mission.'],
-        [/room|space|bhk/i, 'Open-plan bedroom. The plan is still open.'],
-        [/pet|cat/i, 'Pets allowed. Landlord approval loads indefinitely.']
-    ],
-    rent: [
-        [/rent|paid|payment/i, 'Received in spirit. Please also send in currency.'],
-        [/fix|leak|repair/i, 'The plumber is on his way. This is a timeless statement.'],
-        [/deposit/i, 'Your deposit is safe. Very safe. Possibly unreachable.'],
-        [/late|tomorrow/i, 'Tomorrow is my favourite recurring payment date.'],
-        [/wifi|power/i, 'Try the switch labelled Do Not Touch.'],
-        [/hello|hi\b/i, 'Hello Mohith. A greeting and a rent reminder, efficiently combined.']
-    ],
-    delivery: [
-        [/gate|where|location/i, 'Standing beside the gate beside the other gate.'],
-        [/otp|code/i, 'Please share the delivery code, not your entire repository.'],
-        [/late|time/i, 'Two minutes away. Bengaluru minutes.'],
-        [/food|pizza|chai/i, 'Your food is warm. My route is a suspense thriller.'],
-        [/call|phone/i, 'Calling. The intercom has requested a coffee break.'],
-        [/thanks|thank/i, 'Enjoy! Please rate the stairs separately.']
-    ],
-    amma: [
-        [/lunch|food|eat/i, 'Good. Did you have vegetables or just green syntax highlighting?'],
-        [/chai|tea/i, 'One cup is fine. A dependency on chai is still a dependency.'],
-        [/bug|work|code/i, 'Take a break. Bugs also need time to think.'],
-        [/sleep|late/i, 'Close the laptop. The moon is not your project manager.'],
-        [/hello|hi\b/i, 'Hello. Had lunch? We keep the important APIs stable.'],
-        [/yes|ok|noted/i, 'Good. Sending one more reminder just in case.']
-    ],
-    dev: [
-        [/bug|error/i, 'Reproduced. Sadly, on all machines except the one that matters.'],
-        [/deploy|ship/i, 'Deployment approved by the duck. Rollback also approved.'],
-        [/test/i, 'All tests pass. The users keep inventing new tests.'],
-        [/quick|change/i, 'A quick change. Famous first words.'],
-        [/meeting|call/i, 'Could this meeting be a well-named variable?'],
-        [/works|machine/i, 'Excellent. We will ship your machine.']
-    ]
-};
+const sessions = new Map(chats.value.map(chat => [chat.id, createChatSession(whatsappPersonas[chat.name]!)]));
 const timers = new Set<ReturnType<typeof setTimeout>>();
+let nextMessageId = 1000;
+function later(action: () => void, delay: number) {
+    const timer = setTimeout(() => { timers.delete(timer); action(); }, delay);
+    timers.add(timer);
+}
+const waveform = [8, 15, 22, 12, 28, 18, 10, 24, 32, 16, 25, 12, 20, 30, 14, 23, 9, 18];
+const playbackVersions = new Map<number, number>();
+function playVoice(message: Message) {
+    const version = (playbackVersions.get(message.id) ?? 0) + 1;
+    playbackVersions.set(message.id, version);
+    message.playing = !message.playing;
+    if (!message.playing) return;
+    if ((message.progress ?? 0) >= 1) message.progress = 0;
+    const seconds = Number(message.duration?.split(':')[1] ?? 14);
+    function advance() {
+        if (!message.playing || playbackVersions.get(message.id) !== version) return;
+        message.progress = Math.min(1, (message.progress ?? 0) + 0.1 / seconds);
+        if (message.progress >= 1) message.playing = false;
+        else later(advance, 100);
+    }
+    later(advance, 100);
+}
 function openChat(chat: Chat) {
     selected.value = chat.id;
     chat.unread = 0;
@@ -207,39 +200,32 @@ async function bottom() {
 function send() {
     const chat = current.value;
     const text = draft.value.trim();
-    if (!chat || !text || typing.value.includes(chat.id))
-        return;
-    const time = new Intl.DateTimeFormat('en-GB', {
-        hour: '2-digit',
-        minute: '2-digit'
-    }).format(phone?.now.value ?? new Date());
-    chat.messages.push({
-        id: Date.now(),
-        text,
-        mine: true,
-        time
-    });
+    if (!chat || !text) return;
+    const now = phone?.now.value ?? new Date();
+    const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    const message: Message = { id: nextMessageId++, text, mine: true, time, state: 'sent' };
+    chat.messages.push(message);
+    // Use the reactive array entry for timer updates, rather than the raw inserted object.
+    const own = chat.messages.at(-1)!;
     chat.preview = text;
     draft.value = '';
-    typing.value.push(chat.id);
-    void bottom();
-    const timer = setTimeout(() => {
-        const reply = replyRules[chat.kind].find(([rule]) => rule.test(text))?.[1] 
-        ?? (chat.group ? 'This has been forwarded to the committee. The committee is having chai.' : 'Message received. A thoughtful reply is compiling.');
-        chat.messages.push({
-            id: Date.now() + 1,
-            text: reply,
-            mine: false,
-            time
-        });
-        chat.preview = reply;
+    const plan = sessions.get(chat.id)!.respond(text, new Date());
+    later(() => { own.state = 'delivered'; }, plan.receipt.deliveredAt);
+    later(() => { own.state = 'read'; }, plan.receipt.readAt);
+    if (plan.reaction) later(() => { own.reaction = plan.reaction!.emoji; }, plan.reaction.atMs);
+    for (const event of plan.typing) later(() => {
         typing.value = typing.value.filter(id => id !== chat.id);
-        if (selected.value !== chat.id)
-            chat.unread++;
-        void bottom();
-        timers.delete(timer);
-    }, 1400);
-    timers.add(timer);
+        if (event.active) typing.value.push(chat.id);
+        if (selected.value === chat.id) void bottom();
+    }, event.atMs);
+    for (const bubble of plan.bubbles) later(() => {
+        chat.messages.push({ ...bubble, id: nextMessageId++, mine: false,
+            time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) });
+        chat.preview = bubble.kind === 'voice' ? 'Voice note · ' + bubble.duration : bubble.text;
+        if (selected.value !== chat.id) chat.unread++;
+        else void bottom();
+    }, bubble.atMs);
+    void bottom();
 }
 watch(selected, () => {
     void bottom();
@@ -276,12 +262,24 @@ onBeforeUnmount(() => timers.forEach(clearTimeout));
           v-for="message in current.messages"
           :key="message.id"
           class="bubble"
-          :class="{mine:message.mine}"
+          :class="{mine:message.mine, sticker:message.kind === 'sticker'}"
         >
-          {{ message.text }}
+          <strong v-if="!message.mine && current.group && message.sender" class="sender-name" :style="{color: message.color}">{{ message.sender }}</strong>
+          <div v-if="message.kind === 'voice'" class="voice-note">
+            <button type="button" :aria-label="message.playing ? 'Pause pretend voice note' : 'Play pretend voice note, no audio'" :aria-pressed="!!message.playing" @click="playVoice(message)">{{ message.playing ? 'Ⅱ' : '▶' }}</button>
+            <span class="waveform" role="progressbar" aria-label="Pretend voice note playback" :aria-valuenow="Math.round((message.progress ?? 0) * 100)" :aria-valuemin="0" :aria-valuemax="100">
+              <i v-for="(height, index) in waveform" :key="index" :style="{height: height + 'px'}" :class="{played: index / waveform.length < (message.progress ?? 0)}" />
+            </span>
+            <small>{{ message.duration }}</small>
+          </div>
+          <template v-else>
+            <img v-if="message.kind === 'photo' && message.src" class="chat-photo" :src="message.src" :alt="message.text" />
+            <span>{{ message.text }}</span>
+          </template>
+          <span v-if="message.reaction" class="reaction-chip" :aria-label="message.reaction + ' reaction'">{{ message.reaction }}</span>
           <span class="stamp">
             {{ message.time }}
-            <b v-if="message.mine">✓✓</b>
+            <b v-if="message.mine" :class="{read:message.state === 'read'}" :aria-label="message.state ?? 'read'">{{ message.state === 'sent' ? '✓' : '✓✓' }}</b>
           </span>
         </div>
         <div v-if="typing.includes(current.id)" class="bubble typing" aria-label="Contact is typing">
@@ -301,7 +299,7 @@ onBeforeUnmount(() => timers.forEach(clearTimeout));
           type="submit"
           class="send icon"
           aria-label="Send message"
-          :disabled="!draft.trim() || typing.includes(current.id)"
+          :disabled="!draft.trim()"
         >
           <svg viewBox="0 0 24 24">
             <path :d="icons.send" />
@@ -1238,4 +1236,22 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
     animation: none;
   }
 }
+
+.sender-name { display: block; font-size: 12px; margin-bottom: 4px; }
+.bubble { position: relative; }
+.bubble:has(.reaction-chip) { margin-bottom: 12px; }
+.reaction-chip { position: absolute; bottom: -14px; right: 8px; padding: 1px 6px; border-radius: 12px; background: #fff; border: 1px solid #e2e6e2; font-size: 15px; box-shadow: 0 1px 2px #0001; }
+.stamp b { color: #748277; }
+.stamp b.read { color: #43a5d0; }
+.bubble.sticker { font-size: 52px; background: transparent; box-shadow: none; padding: 5px 8px; }
+.bubble.sticker .stamp { font-size: 12px; }
+.bubble.sticker .sender-name { font-size: 12px; }
+.voice-note { display: flex; align-items: center; gap: 8px; }
+.voice-note button { color: #008069; border-radius: 50%; padding: 4px; flex-shrink: 0; }
+.voice-note small { font-size: 12px; }
+.waveform { display: flex; align-items: center; gap: 3px; min-width: 0; height: 34px; }
+.waveform i { display: block; width: 3px; border-radius: 3px; background: #b8c8be; transition: background-color 100ms linear; }
+.waveform i.played { background: #008069; }
+.chat-photo { display: block; width: 100%; max-height: 150px; object-fit: cover; border-radius: 8px; margin-bottom: 5px; }
+@media (prefers-reduced-motion: reduce) { .waveform i { transition: none; } }
 </style>

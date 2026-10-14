@@ -1,52 +1,9 @@
 <script setup lang="ts">
 import AppGlyph from './AppGlyph.vue';
 import { APP_ICONS as icons } from './icons';
-type Photo = {
-    id: number;
-    kind: string;
-    bg: string;
-    caption: string;
-    month: string;
-    year: number;
-};
-const kinds = [
-    'sunset',
-    'chai',
-    'desk',
-    'thumb',
-    'cat',
-    'error'
-];
-const backgrounds = [
-    'linear-gradient(155deg,#6483ab,#eaa5a0 54%,#f6c795)',
-    'linear-gradient(130deg,#d5c3a1,#b3a28e)',
-    'linear-gradient(140deg,#667b88,#b5c0c4)',
-    'linear-gradient(135deg,#c5d6d4,#90aea6)',
-    'linear-gradient(150deg,#e8d8bb,#bcb2a7)',
-    'linear-gradient(130deg,#2c3049,#666c8c)'
-];
-const captions = [
-    'The sky shipped a gradient. No review required.',
-    'Chai. The most stable part of the stack.',
-    'A clean desk, if you crop with confidence.',
-    'An ambitious portrait of a thumb.',
-    'Local cat. Senior nap consultant.',
-    'A screenshot worth at least one thousand sighs.'
-];
-const photos: Photo[] = Array.from({
-    length: 36
-}, (_, i) => ({
-    id: i,
-    kind: kinds[i % 6]!,
-    bg: backgrounds[i % 6]!,
-    caption: captions[i % 6]! + (i >= 6 ? ' Take ' + (Math.floor(i / 6) + 1) + '.' : ''),
-    month: [
-        'October',
-        'September',
-        'August'
-    ][Math.floor(i / 12)]!,
-    year: i < 24 ? 2026 : 2025
-}));
+import { PHOTOS, type PhotoKind } from '../photos';
+const photos = PHOTOS;
+const firstOf = (kind: PhotoKind) => photos.find(photo => photo.kind === kind);
 const tab = ref<string>('Library');
 const period = ref<string>('All');
 const album = ref<string | null>(null);
@@ -56,10 +13,7 @@ const info = ref<boolean>(true);
 const current = computed(() => index.value === null ? null : photos[index.value] ?? null);
 const library = computed(() => {
     if (album.value === 'Favourites') return photos.filter(photo => favourites.value.includes(photo.id));
-    const kind = album.value === 'Screenshots of bugs' ? 'error'
-        : album.value === 'Blurry' ? 'thumb'
-        : album.value === 'Food before eating' ? 'chai'
-        : null;
+    const kind = albums.find(item => item.name === album.value)?.filter ?? null;
     return kind ? photos.filter(photo => photo.kind === kind) : photos;
 });
 const groups = computed(() => period.value === 'Years' ? [{
@@ -71,37 +25,22 @@ const groups = computed(() => period.value === 'Years' ? [{
     }] : [
     'October',
     'September',
-    'August'
+    'August',
+    'July'
 ].map(month => ({
     name: month,
     items: library.value.filter(p => p.month === month)
 })));
-const albums = [
-    {
-        name: 'Screenshots of bugs',
-        count: String(photos.filter(photo => photo.kind === 'error').length),
-        kind: 'error',
-        bg: backgrounds[5]!
-    },
-    {
-        name: 'Blurry',
-        count: 'Emotionally sharp',
-        kind: 'thumb',
-        bg: backgrounds[3]!
-    },
-    {
-        name: 'Food before eating',
-        count: 'A brief window',
-        kind: 'chai',
-        bg: backgrounds[1]!
-    },
-    {
-        name: 'Favourites',
-        count: 'The good ones',
-        kind: 'sunset',
-        bg: backgrounds[0]!
-    }
+const albumSeeds: { name: string; count: string; kind: PhotoKind; filter: PhotoKind | null }[] = [
+    { name: 'Food before eating', count: String(photos.filter(photo => photo.kind === 'chai').length), kind: 'chai', filter: 'chai' },
+    { name: 'Senior nap consultants', count: String(photos.filter(photo => photo.kind === 'cat').length), kind: 'cat', filter: 'cat' },
+    { name: 'Places, briefly', count: String(photos.filter(photo => photo.kind === 'travel').length), kind: 'travel', filter: 'travel' },
+    { name: 'Skies that showed off', count: String(photos.filter(photo => photo.kind === 'sunset').length), kind: 'sunset', filter: 'sunset' },
+    { name: 'Desk setups', count: String(photos.filter(photo => photo.kind === 'desk').length), kind: 'desk', filter: 'desk' },
+    { name: 'Screenshots of bugs', count: String(photos.filter(photo => photo.kind === 'error').length), kind: 'error', filter: 'error' },
+    { name: 'Favourites', count: 'The good ones', kind: 'green', filter: null },
 ];
+const albums = albumSeeds.map(item => ({ ...item, bg: firstOf(item.kind)?.bg ?? '#1c1c1e', thumb: firstOf(item.kind)?.thumb }));
 function favourite() {
     if (!current.value)
         return;
@@ -149,7 +88,7 @@ function swipeEnd(event: PointerEvent) {
             {{ current.month }}
             {{ current.year }}
           </h3>
-          <p class="muted">An entirely generated memory</p>
+          <p class="muted">{{ current.place }}</p>
         </div>
         <button class="icon" aria-label="Toggle caption" :aria-pressed="info" @click="info=!info">
           <AppGlyph name="info" />
@@ -165,7 +104,8 @@ function swipeEnd(event: PointerEvent) {
           @pointerup="swipeEnd"
           @pointercancel="swipeX=null"
         >
-          <svg class="photo-art" viewBox="0 0 200 200" aria-hidden="true">
+          <img v-if="photo.src" class="photo-img" :src="photo.src" alt="" loading="lazy" decoding="async" draggable="false">
+          <svg v-else class="photo-art" viewBox="0 0 200 200" aria-hidden="true">
             <g v-if="photo.kind==='sunset'">
               <circle cx="143" cy="67" r="31" fill="#ffdd9b" />
               <path d="M0 125 45 92l44 32 46-30 65 35v71H0Z" fill="#514967" />
@@ -189,7 +129,7 @@ function swipeEnd(event: PointerEvent) {
               <rect x="148" y="149" width="29" height="28" rx="4" fill="#e6dac1" />
               <path d="m13 172 22 3-4 12-22-3Z" fill="#f3da83" />
             </g>
-            <g v-else-if="photo.kind==='thumb'">
+            <g v-else-if="photo.kind==='green'">
               <path d="M0 138 42 86l49 52 29-35 80 47v50H0Z" fill="#698271" />
               <path d="M0 200V66C-5 10 75-16 104 30c30 53 32 120 45 170Z" fill="#dfac91" />
               <ellipse cx="65" cy="60" rx="31" ry="45" fill="#e7baa7" />
@@ -264,7 +204,7 @@ function swipeEnd(event: PointerEvent) {
           <div>
             <h1>{{ album || tab }}</h1>
             <p>
-              {{ album?'A carefully curated situation':'36 Photos · entirely imagined' }}
+              {{ album?'A carefully curated situation':photos.length+' Photos · '+photos.filter(photo=>photo.kind==='error').length+' of them regrettable' }}
             </p>
           </div>
           <button v-if="album" class="icon glass" aria-label="Back to collections" @click="album=null">
@@ -297,7 +237,8 @@ function swipeEnd(event: PointerEvent) {
                 :aria-label="photo.caption"
                 @click="index=photo.id"
               >
-                <svg class="photo-art" viewBox="0 0 200 200" aria-hidden="true">
+                <img v-if="photo.thumb" class="photo-img" :src="photo.thumb" alt="" loading="lazy" decoding="async" draggable="false">
+                <svg v-else class="photo-art" viewBox="0 0 200 200" aria-hidden="true">
                   <g v-if="photo.kind==='sunset'">
                     <circle cx="143" cy="67" r="31" fill="#ffdd9b" />
                     <path d="M0 125 45 92l44 32 46-30 65 35v71H0Z" fill="#514967" />
@@ -321,7 +262,7 @@ function swipeEnd(event: PointerEvent) {
                     <rect x="148" y="149" width="29" height="28" rx="4" fill="#e6dac1" />
                     <path d="m13 172 22 3-4 12-22-3Z" fill="#f3da83" />
                   </g>
-                  <g v-else-if="photo.kind==='thumb'">
+                  <g v-else-if="photo.kind==='green'">
                     <path d="M0 138 42 86l49 52 29-35 80 47v50H0Z" fill="#698271" />
                     <path d="M0 200V66C-5 10 75-16 104 30c30 53 32 120 45 170Z" fill="#dfac91" />
                     <ellipse cx="65" cy="60" rx="31" ry="45" fill="#e7baa7" />
@@ -365,7 +306,8 @@ function swipeEnd(event: PointerEvent) {
                   :aria-label="'Explore '+group.name"
                   @click="index=photo.id"
                 >
-                  <svg class="photo-art" viewBox="0 0 200 200" aria-hidden="true">
+                  <img v-if="photo.thumb" class="photo-img" :src="photo.thumb" alt="" loading="lazy" decoding="async" draggable="false">
+                  <svg v-else class="photo-art" viewBox="0 0 200 200" aria-hidden="true">
                     <g v-if="photo.kind==='sunset'">
                       <circle cx="143" cy="67" r="31" fill="#ffdd9b" />
                       <path d="M0 125 45 92l44 32 46-30 65 35v71H0Z" fill="#514967" />
@@ -389,7 +331,7 @@ function swipeEnd(event: PointerEvent) {
                       <rect x="148" y="149" width="29" height="28" rx="4" fill="#e6dac1" />
                       <path d="m13 172 22 3-4 12-22-3Z" fill="#f3da83" />
                     </g>
-                    <g v-else-if="photo.kind==='thumb'">
+                    <g v-else-if="photo.kind==='green'">
                       <path d="M0 138 42 86l49 52 29-35 80 47v50H0Z" fill="#698271" />
                       <path d="M0 200V66C-5 10 75-16 104 30c30 53 32 120 45 170Z" fill="#dfac91" />
                       <ellipse cx="65" cy="60" rx="31" ry="45" fill="#e7baa7" />
@@ -431,7 +373,8 @@ function swipeEnd(event: PointerEvent) {
           <div class="albums">
             <button v-for="photo in albums" :key="photo.name" class="album" @click="album=photo.name">
               <div class="album-cover" :style="{background:photo.bg}">
-                <svg class="photo-art" viewBox="0 0 200 200" aria-hidden="true">
+                <img v-if="photo.thumb" class="photo-img" :src="photo.thumb" alt="" loading="lazy" decoding="async" draggable="false">
+                <svg v-else class="photo-art" viewBox="0 0 200 200" aria-hidden="true">
                   <g v-if="photo.kind==='sunset'">
                     <circle cx="143" cy="67" r="31" fill="#ffdd9b" />
                     <path d="M0 125 45 92l44 32 46-30 65 35v71H0Z" fill="#514967" />
@@ -455,7 +398,7 @@ function swipeEnd(event: PointerEvent) {
                     <rect x="148" y="149" width="29" height="28" rx="4" fill="#e6dac1" />
                     <path d="m13 172 22 3-4 12-22-3Z" fill="#f3da83" />
                   </g>
-                  <g v-else-if="photo.kind==='thumb'">
+                  <g v-else-if="photo.kind==='green'">
                     <path d="M0 138 42 86l49 52 29-35 80 47v50H0Z" fill="#698271" />
                     <path d="M0 200V66C-5 10 75-16 104 30c30 53 32 120 45 170Z" fill="#dfac91" />
                     <ellipse cx="65" cy="60" rx="31" ry="45" fill="#e7baa7" />
@@ -777,6 +720,18 @@ svg {
   border-radius: 0;
   position: relative;
   overflow: hidden;
+}
+
+.photo-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.full-photo .photo-img {
+  object-fit: contain;
+  filter: drop-shadow(0 12px 30px #0003);
 }
 
 .photo-art {

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import AppGlyph from './AppGlyph.vue';
 import { APP_ICONS as icons } from './icons';
+import { createChatSession } from '../chat/engine';
+import { slackPersonas } from '../chat/personas';
 type Reaction = {
     label: string;
     count: number;
@@ -28,7 +30,8 @@ const query = ref<string>('');
 const draft = ref<string>('');
 const huddle = ref<boolean>(false);
 const thread = ref<Post | null>(null);
-const busy = ref<boolean>(false);
+const typingRooms = ref<string[]>([]);
+const busy = computed(() => !!channel.value && typingRooms.value.includes(channel.value));
 const feed = ref<HTMLElement | null>(null);
 const toast = ref<string>('');
 const channels = [
@@ -137,7 +140,11 @@ const timelines = ref<Record<string, Post[]>>(Object.fromEntries(Object.entries(
 const messages = computed(() => channel.value ? timelines.value[channel.value] ?? [] : []);
 const visibleChannels = computed(() => channels.filter(c => c.name.includes(query.value.toLowerCase())));
 const timeouts = new Set<ReturnType<typeof setTimeout>>();
-const pendingRooms = new Set<string>();
+const sessions = new Map(Object.entries(slackPersonas).map(([room, persona]) => [room, createChatSession({ ...persona, voiceNotes: [], photos: [], stickers: [] })]));
+function later(action: () => void, delay: number) {
+    const timer = setTimeout(() => { timeouts.delete(timer); action(); }, delay);
+    timeouts.add(timer);
+}
 let nextPostId = 700;
 async function scrollBottom() {
     await nextTick();
@@ -149,7 +156,6 @@ function open(name: string) {
     channel.value = name;
     thread.value = null;
     draft.value = '';
-    busy.value = pendingRooms.has(name);
     void scrollBottom();
 }
 function react(reaction: Reaction) {
@@ -167,85 +173,49 @@ function addHeart(post: Post) {
             selected: true
         });
 }
-function botReply(text: string) {
-    if (/deploy|ship/i.test(text))
-        return 'Queued for deployment. Please remain emotionally near the rollback button.';
-    if (/bug|error|broken/i.test(text))
-        return 'Ticket created: “It was fine a moment ago”. Priority: relatable.';
-    if (/test/i.test(text))
-        return 'Tests are running. The ones you remembered to write, anyway.';
-    if (/chai|tea|coffee/i.test(text))
-        return 'Chai break scheduled. This is our fastest approval workflow.';
-    if (/quick|small|change/i.test(text))
-        return 'I have reserved the afternoon for your quick change.';
-    if (/hello|hi|thanks/i.test(text))
-        return 'Acknowledged with a friendly reaction and zero additional meetings.';
-    return channel.value === 'Rubber Duck' 
-        ? 'Interesting. What happens if you say that one more time, slowly?' 
-        : 'Message received. Turning this into an action item would be a very human decision.';
-}
 function send() {
     const text = draft.value.trim();
     const room = channel.value;
-    if (!room || !text || busy.value)
-        return;
-    if (thread.value) {
-        thread.value.replies.push({
-            author: 'You',
-            initials: 'Y',
-            color: '#657daf',
-            text,
-            time: 'Now'
-        });
-        draft.value = '';
-        void scrollBottom();
-        return;
-    }
+    if (!room || !text) return;
     const list = timelines.value[room];
-    if (!list)
-        return;
-    list.push({
-        id: nextPostId++,
-        author: 'Mohith',
-        initials: 'M',
-        color: '#657daf',
-        text,
-        time: 'Now',
-        reactions: [{
-                label: '✓',
-                count: 0,
-                selected: false
-            }],
-        replies: []
-    });
+    if (!list) return;
+    const target = thread.value;
+    let post: Post;
+    if (target) {
+        target.replies.push({ author: 'You', initials: 'Y', color: '#657daf', text, time: 'Now' });
+        post = target;
+    } else {
+        list.push({ id: nextPostId++, author: 'You', initials: 'Y', color: '#657daf', text, time: 'Now', reactions: [], replies: [] });
+        post = list.at(-1)!;
+    }
     draft.value = '';
-    busy.value = true;
-    pendingRooms.add(room);
-    void scrollBottom();
-    const reply = botReply(text);
-    const timer = setTimeout(() => {
-        list.push({
-            id: nextPostId++,
-            author: room === 'Rubber Duck' ? 'Rubber Duck' : 'Build Bot',
-            initials: room === 'Rubber Duck' ? 'RD' : 'BB',
-            color: '#749e8c',
-            text: reply,
-            time: 'Now',
-            reactions: [{
-                    label: '☕',
-                    count: 1,
-                    selected: false
-                }],
-            replies: []
-        });
-        pendingRooms.delete(room);
-        if (channel.value === room) {
-            busy.value = false;
-            void scrollBottom();
+    const plan = sessions.get(room)!.respond(text, new Date());
+    for (const event of plan.typing) later(() => {
+        typingRooms.value = typingRooms.value.filter(name => name !== room);
+        if (event.active) typingRooms.value.push(room);
+    }, event.atMs);
+    const isChannel = channels.some(c => c.name === room);
+    const replies = isChannel || target ? plan.bubbles.slice(-2) : plan.bubbles;
+    if (plan.reaction && !target) later(() => {
+        post.reactions.push({ label: plan.reaction!.emoji, count: 1, selected: false });
+    }, plan.reaction.atMs);
+    let botPost: Post | undefined;
+    for (const bubble of replies) later(() => {
+        const author = bubble.sender ?? slackPersonas[room]!.name;
+        const reply = {
+            author, initials: author.split(' · ')[0]!.split(' ').map(word => word[0]).join('').slice(0, 2),
+            color: bubble.color ?? (room === 'Rubber Duck' ? '#bd9755' : '#749e8c'),
+            text: bubble.text, time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+        };
+        if (target || isChannel) post.replies.push(reply);
+        else if (botPost) botPost.replies.push(reply);
+        else {
+            list.push({ ...reply, id: nextPostId++, reactions: [], replies: [] });
+            botPost = list.at(-1)!;
         }
-        timeouts.delete(timer);
-    }, 1200);
-    timeouts.add(timer);
+        if (channel.value === room) void scrollBottom();
+    }, bubble.atMs);
+    void scrollBottom();
 }
 onBeforeUnmount(() => timeouts.forEach(clearTimeout));
 </script>
@@ -304,7 +274,7 @@ onBeforeUnmount(() => timeouts.forEach(clearTimeout));
                 {{ thread.author }}
                 <time>{{ thread.time }}</time>
               </h3>
-              <p>{{ thread.text }}</p>
+              <p :class="{'bot-status':thread.author === 'Build Bot' || thread.text.startsWith('SIM ')}">{{ thread.text }}</p>
             </div>
           </article>
           <div class="thread-divider">
@@ -318,7 +288,7 @@ onBeforeUnmount(() => timeouts.forEach(clearTimeout));
                 {{ reply.author }}
                 <time>{{ reply.time }}</time>
               </h3>
-              <p>{{ reply.text }}</p>
+              <p :class="{'bot-status':reply.author === 'Build Bot' || reply.text.startsWith('SIM ')}">{{ reply.text }}</p>
             </div>
           </article>
           <button class="pill back-thread" @click="thread=null">Back to channel</button>
@@ -332,7 +302,7 @@ onBeforeUnmount(() => timeouts.forEach(clearTimeout));
                 <span v-if="post.author==='Build Bot'" class="bot-tag">APP</span>
                 <time>{{ post.time }}</time>
               </h3>
-              <p>{{ post.text }}</p>
+              <p :class="{'bot-status':post.author === 'Build Bot' || post.text.startsWith('SIM ')}">{{ post.text }}</p>
               <div class="reactions">
                 <button
                   v-for="reaction in post.reactions"
@@ -342,7 +312,8 @@ onBeforeUnmount(() => timeouts.forEach(clearTimeout));
                   :aria-pressed="reaction.selected"
                   @click="react(reaction)"
                 >
-                  <AppGlyph :name="reaction.label === '♡' ? 'heart' : reaction.label === '☕' ? 'cup' : 'check'" />
+                  <AppGlyph v-if="['♡', '☕', '✓'].includes(reaction.label)" :name="reaction.label === '♡' ? 'heart' : reaction.label === '☕' ? 'cup' : 'check'" />
+                  <span v-else aria-hidden="true">{{ reaction.label }}</span>
                   <b>{{ reaction.count }}</b>
                 </button>
                 <button aria-label="Add a heart reaction" @click="addHeart(post)">
@@ -355,8 +326,8 @@ onBeforeUnmount(() => timeouts.forEach(clearTimeout));
               </button>
             </div>
           </article>
-          <p v-if="busy" class="typing">Build Bot is considering your life choices…</p>
         </template>
+        <p v-if="busy" class="typing">{{ slackPersonas[channel ?? '']?.name ?? 'A member' }} is typing…</p>
       </main>
       <form class="compose-wrap" @submit.prevent="send">
         <div class="compose">
@@ -382,7 +353,7 @@ onBeforeUnmount(() => timeouts.forEach(clearTimeout));
             <span class="muted">
               {{ thread?'Also visible in this thread':'Shift + Enter for a new line' }}
             </span>
-            <button type="submit" class="icon send" aria-label="Send message" :disabled="!draft.trim() || busy">
+            <button type="submit" class="icon send" aria-label="Send message" :disabled="!draft.trim()">
               <svg viewBox="0 0 24 24">
                 <path :d="icons.send" />
               </svg>
@@ -1309,4 +1280,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
     animation: none;
   }
 }
+
+.bot-status { white-space: pre-line; font-variant-numeric: tabular-nums; }
 </style>

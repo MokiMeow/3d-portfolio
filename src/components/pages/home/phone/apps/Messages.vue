@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { PHONE } from '../phone';
+import { createChatSession, type ReadState } from '../chat/engine';
+import { messagesPersonas } from '../chat/personas';
 const phone = inject(PHONE);
 type Bubble = {
     from: 'me' | 'them';
     text: string;
     who?: string;
+    color?: string;
+    reaction?: string;
+    state?: ReadState;
+    readTime?: string;
 };
-type Rule = [
-    RegExp,
-    string
-];
 type Thread = {
     id: string;
     name: string;
@@ -20,8 +22,6 @@ type Thread = {
     group?: boolean;
     sms?: boolean;
     bubbles: Bubble[];
-    rules: Rule[];
-    fallback: string[];
 };
 // Every thread answers back. The jokes are about software, chai and traffic, never about real people.
 const threads = ref<Thread[]>([
@@ -39,21 +39,8 @@ const threads = ref<Thread[]>([
             },
             {
                 from: 'them',
-                text: 'Mohith is probably fixing something he called a “quick change”.'
+                text: 'In this pretend office, a “quick change” has packed an overnight bag.'
             },
-        ],
-        rules: [
-            [/machine|works|bug/i, 'It works on your machine? Wonderful. Shall we ship your machine?'],
-            [/quick|small|minute/i, 'A quick change. The five most expensive syllables in software.'],
-            [/sleep|awake|coffee|chai/i, 'Sleep is currently on the roadmap. No release date has been announced.'],
-            [/hire|work|contact|email/i, 'Excellent taste. The actual human is at smohith.sm@gmail.com. I negotiate exclusively in charging cables.'],
-            [/hello|hi\b|hey/i, 'Hello, fellow tab hoarder. You found the only phone here without a subscription plan.'],
-            [/deploy|ship|prod/i, 'Deploying on a Friday is a personality trait, not a strategy.'],
-        ],
-        fallback: [
-            'I have escalated this to the rubber duck. It has been staring at the same line for 40 minutes.',
-            'Noted. Filed under “will fix after chai”.',
-            'I ran the tests. They passed. I am as surprised as you are.'
         ],
     },
     {
@@ -84,19 +71,6 @@ const threads = ref<Thread[]>([
                 from: 'them',
                 text: 'Biscuits are not food. Call me.'
             },
-        ],
-        rules: [
-            [/eat|ate|food|lunch|dinner|biscuit/i, 'Proper food. With vegetables. I can tell when you are lying over text.'],
-            [/busy|work|meeting|deadline/i, 'Your laptop will be there tomorrow also. Sleep.'],
-            [/call|later|tomorrow/i, 'You said later last week also. I am calling in 5 minutes.'],
-            [/sleep|tired|late/i, 'Why are you awake at this time? Switch off that screen.'],
-            [/love|miss|thank/i, 'Okay okay. Wear a sweater.'],
-            [/hello|hi\b|hey/i, 'Finally. He remembers he has a mother.'],
-        ],
-        fallback: [
-            'Hmm. Did you drink water today?',
-            'I am sending this to your father also.',
-            'Okay. But did you eat?'
         ],
     },
     {
@@ -133,19 +107,6 @@ const threads = ref<Thread[]>([
                 text: '“On the way” means you are choosing a shirt.'
             },
         ],
-        rules: [
-            [/way|coming|there|late/i, 'Auto Anna: Five minutes in Bengaluru time is a philosophical concept.'],
-            [/chai|tea|coffee/i, 'Rubber Duck: One cutting chai. Two if the build is red.'],
-            [/meeting|standup|stand-up|sync/i, 'Stand-up Timer: This could have been a message. This message could have been nothing.'],
-            [/bug|error|crash|broken/i, 'Rubber Duck: Quack. Have you tried explaining it to me slowly?'],
-            [/traffic|signal|silk board/i, 'Auto Anna: Silk Board is not traffic. It is a lifestyle.'],
-            [/plan|trip|weekend/i, 'Stand-up Timer: The group trip is confirmed. Dates, place and people to be decided.'],
-        ],
-        fallback: [
-            'Rubber Duck: Quack.',
-            'Auto Anna: Double meter after 10 PM. I do not make the rules. I do, actually.',
-            'Stand-up Timer: Let us take this offline. Forever.'
-        ],
     },
     {
         id: 'landlord',
@@ -166,19 +127,6 @@ const threads = ref<Thread[]>([
                 from: 'them',
                 text: 'Next month rent.'
             },
-        ],
-        rules: [
-            [/rent|paid|sent|transfer/i, 'Received. Also from next month it is slightly more. Small increase only. 18%.'],
-            [/tap|leak|water|fix|repair|broken/i, 'That is not a leak. That is a water feature. Very premium.'],
-            [/deposit|advance/i, 'Deposit is safe. Very safe. Do not ask where.'],
-            [/friend|party|guest|music/i, 'No parties. No guests after 9. No happiness after 10.'],
-            [/hello|hi\b|hey/i, 'Rent.'],
-            [/thanks|thank/i, 'Welcome. Rent.'],
-        ],
-        fallback: [
-            'I will send the plumber. Sometime this year.',
-            'Please do not put nails in the wall. The wall is sensitive.',
-            'Rent.'
         ],
     },
     {
@@ -202,15 +150,6 @@ const threads = ref<Thread[]>([
                 text: 'Congratulations! You are pre-approved for a loan you did not ask for.'
             },
         ],
-        rules: [
-            [/stop|unsubscribe|no/i, 'You have been subscribed to STOP alerts. Reply STOP to receive more.'],
-            [/otp|code/i, '112233 is your OTP for requesting another OTP.'],
-            [/loan|credit|money/i, 'Your loan of ₹0.00 has been approved at 0.00% interest. Terms and conditions are also imaginary.'],
-            [/help|human|agent/i, 'All our agents are busy. Your message is important to our auto-reply.'],
-            [/hello|hi\b|hey/i, 'This is an automated number. It is lonely here.'],
-            [/who|what/i, 'We are your bank. Probably.'],
-        ],
-        fallback: ['Message not delivered to a human. There are no humans.', 'Thank you. Your feedback has been safely ignored.'],
     },
     {
         id: 'delivery',
@@ -236,25 +175,15 @@ const threads = ref<Thread[]>([
                 text: 'Sir which gate? There are 4 gates and a philosophical one.'
             },
         ],
-        rules: [
-            [/gate|where|location|pin|map/i, 'Sir map is showing your house inside a lake.'],
-            [/coming|wait|minute|down/i, 'Okay sir. Two minutes. Actual minutes, not your minutes.'],
-            [/otp|code/i, 'Sir OTP please. No not that one. Other one.'],
-            [/thanks|thank|rating|star/i, 'Five stars please sir. I have seen things at Silk Board.'],
-            [/cold|late|food/i, 'Sir food was hot when journey started. Journey was long.'],
-            [/hello|hi\b|hey/i, 'Sir I am still outside.'],
-        ],
-        fallback: [
-            'Sir please come down. Lift is also not coming.',
-            'Okay sir.',
-            'Sir security uncle is asking who I am. I am also asking.'
-        ],
     },
 ]);
 const openId = ref<string | null>(null);
 const active = computed(() => threads.value.find(item => item.id === openId.value) ?? null);
 const draft = ref('');
-const typing = ref(false);
+const typingRooms = ref<string[]>([]);
+const typing = computed(() => !!openId.value && typingRooms.value.includes(openId.value));
+const lastSent = computed(() => [...(active.value?.bubbles ?? [])].reverse().find(bubble => bubble.from === 'me'));
+const sessions = new Map(threads.value.map(thread => [thread.id, createChatSession({ ...messagesPersonas[thread.id]!, voiceNotes: [], photos: [], stickers: [] })]));
 const query = ref('');
 const editingList = ref(false);
 const choosingRecipient = ref(false);
@@ -273,7 +202,11 @@ const shown = computed(() => {
     return threads.value.filter(item => !needle ||
         (item.name + ' ' + (item.bubbles.at(-1)?.text ?? '')).toLowerCase().includes(needle));
 });
-let replyTimer = 0, fallbackTurn = 0;
+const timers = new Set<ReturnType<typeof setTimeout>>();
+function later(action: () => void, delay: number) {
+    const timer = setTimeout(() => { timers.delete(timer); action(); }, delay);
+    timers.add(timer);
+}
 function scrollDown() {
     void nextTick(() => feed.value?.scrollTo({
         top: feed.value.scrollHeight,
@@ -291,43 +224,34 @@ function enter(thread: Thread) {
     scrollDown();
 }
 function back() {
-    clearTimeout(replyTimer);
-    typing.value = false;
     openId.value = null;
     callOpen.value = false;
     attachmentsOpen.value = false;
 }
 function send(text = draft.value) {
     const thread = active.value, value = text.trim().slice(0, 240);
-    if (!thread || !value)
-        return;
-    thread.bubbles.push({
-        from: 'me',
-        text: value
-    });
+    if (!thread || !value) return;
+    thread.bubbles.push({ from: 'me', text: value, state: 'sent' });
+    const own = thread.bubbles.at(-1)!;
     thread.when = 'now';
     draft.value = '';
+    const plan = sessions.get(thread.id)!.respond(value, new Date());
+    later(() => { own.state = 'delivered'; }, plan.receipt.deliveredAt);
+    later(() => { own.state = 'read'; own.readTime = plan.receipt.time; }, plan.receipt.readAt);
+    if (plan.reaction) later(() => { own.reaction = plan.reaction!.emoji; }, plan.reaction.atMs);
+    for (const event of plan.typing) later(() => {
+        typingRooms.value = typingRooms.value.filter(id => id !== thread.id);
+        if (event.active) typingRooms.value.push(thread.id);
+        if (openId.value === thread.id) scrollDown();
+    }, event.atMs);
+    for (const bubble of plan.bubbles) later(() => {
+        thread.bubbles.push({ from: 'them', text: bubble.text, who: thread.group ? bubble.sender : undefined, color: bubble.color });
+        if (openId.value !== thread.id) thread.unread = true;
+        else scrollDown();
+    }, bubble.atMs);
     scrollDown();
-    clearTimeout(replyTimer);
-    typing.value = true;
-    replyTimer = window.setTimeout(() => {
-        const answer = thread.rules.find(([pattern]) => pattern.test(value))?.[1] ?? thread.fallback[fallbackTurn++ % thread.fallback.length] ?? 'Noted. Chai first, reply next.';
-        const [who, ...rest] = thread.group ? answer.split(': ') : ['', answer];
-        thread.bubbles.push(thread.group ? {
-            from: 'them',
-            who,
-            text: rest.join(': ')
-        } : {
-            from: 'them',
-            text: answer
-        });
-        if (thread.bubbles.length > 40)
-            thread.bubbles.splice(0, 2);
-        typing.value = false;
-        scrollDown();
-    }, 900 + Math.min(1400, value.length * 30));
 }
-onBeforeUnmount(() => clearTimeout(replyTimer));
+onBeforeUnmount(() => timers.forEach(clearTimeout));
 </script>
 
 <template>
@@ -465,20 +389,21 @@ onBeforeUnmount(() => clearTimeout(replyTimer));
             {{ new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) }}
           </p>
           <template v-for="(bubble, index) in active.bubbles" :key="index">
-            <small v-if="bubble.who && active.bubbles[index - 1]?.who !== bubble.who" class="sender">{{ bubble.who }}</small>
+            <small v-if="bubble.who && active.bubbles[index - 1]?.who !== bubble.who" class="sender" :style="{color:bubble.color}">{{ bubble.who }}</small>
             <p
               class="bubble"
               :class="[bubble.from, { sms: active.sms, tail: active.bubbles[index + 1]?.from !== bubble.from || active.bubbles[index + 1]?.who !== bubble.who }]"
             >
               {{ bubble.text }}
+              <span v-if="bubble.reaction" class="tapback" :aria-label="bubble.reaction + ' reaction'">{{ bubble.reaction }}</span>
             </p>
+            <small v-if="bubble === lastSent && bubble.state && bubble.state !== 'sent'" class="receipt">{{ bubble.state === 'read' ? 'Read ' + bubble.readTime : 'Delivered' }}</small>
           </template>
           <p v-if="typing" class="bubble them tail typing" aria-label="Typing">
             <i />
             <i />
             <i />
           </p>
-          <small v-else-if="active.bubbles.at(-1)?.from === 'me'" class="receipt">Delivered</small>
         </div>
         <div v-if="attachmentsOpen" class="attachment-tray" aria-label="Local message attachments">
           <button @click="chooseAttachment('☕ Chai break?')">Send a chai invitation</button>
@@ -1134,4 +1059,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
     animation: none;
   }
 }
+
+.bubble { position: relative; white-space: pre-line; }
+.bubble:has(.tapback) { margin-top: 12px; }
+.tapback { position: absolute; right: -4px; top: -16px; padding: 2px 7px; border-radius: 14px; background: #eeeef2; border: 2px solid #fff; font-size: 15px; line-height: 1.2; color: #222; }
 </style>
