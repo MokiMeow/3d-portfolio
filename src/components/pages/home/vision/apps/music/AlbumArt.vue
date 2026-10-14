@@ -1,77 +1,97 @@
 <script setup lang="ts">
-import type { Track } from './catalog';
-defineProps<{ track: Track; small?: boolean }>();
+import { computed } from 'vue';
+import type { Artwork } from './catalog';
+const props = defineProps<{ track: Artwork; small?: boolean }>();
+const lines = computed(() => {
+ const words = props.track.album.split(' '); const rows: string[] = []; let line = '';
+ for (const word of words) { if ((line + ' ' + word).trim().length > 16 && line) { rows.push(line); line = word; } else line = (line + ' ' + word).trim(); }
+ if (line) rows.push(line); return rows;
+});
 </script>
-
 <template>
-  <div class="album-art" :class="[track.art, { small }]" :style="{ '--art-a': track.colors[0], '--art-b': track.colors[1], '--art-c': track.colors[2] }">
-    <svg viewBox="0 0 300 300" fill="none" aria-hidden="true">
-      <g v-if="track.art === 'vinyl'">
-        <circle cx="218" cy="127" r="110" fill="#242330" />
-        <circle v-for="ring in 12" :key="ring" cx="218" cy="127" :r="25 + ring * 6" stroke="white" stroke-opacity=".1" />
-        <circle cx="218" cy="127" r="28" fill="var(--art-a)" />
-        <circle cx="218" cy="127" r="5" fill="var(--art-c)" />
-        <path d="M20 245 90 20" stroke="white" stroke-opacity=".5" stroke-width="2" />
-      </g>
-      <g v-else-if="track.art === 'landscape'">
-        <circle cx="212" cy="85" r="38" fill="var(--art-a)" />
-        <path d="M0 182Q75 85 155 170T300 170V300H0Z" fill="var(--art-c)" opacity=".55" />
-        <path d="M0 218Q80 152 161 207T300 193V300H0Z" fill="var(--art-c)" opacity=".65" />
-        <path d="M0 233Q90 212 153 228T300 221" stroke="var(--art-a)" stroke-opacity=".55" />
-        <path d="M0 246Q90 225 153 242T300 235" stroke="var(--art-a)" stroke-opacity=".35" />
-      </g>
-      <g v-else-if="track.art === 'grid'">
-        <circle cx="150" cy="107" r="68" fill="var(--art-a)" />
-        <path v-for="line in 8" :key="line" :d="'M82 ' + (90 + line * 12) + 'H218'" stroke="var(--art-c)" stroke-width="5" />
-        <path d="M0 196 64 152 101 180 181 137 240 185 300 154V300H0Z" fill="var(--art-c)" />
-        <path v-for="line in 7" :key="'h' + line" :d="'M0 ' + (210 + line * 15) + 'H300'" stroke="var(--art-a)" stroke-opacity=".35" />
-        <path v-for="line in 9" :key="'v' + line" :d="'M150 194 ' + ((line - 5) * 76 + 150) + ' 300'"
-          stroke="var(--art-a)" stroke-opacity=".35" />
-      </g>
-      <g v-else-if="track.art === 'keys'" transform="rotate(-28 150 150)">
-        <rect x="29" y="43" width="242" height="224" rx="12" fill="var(--art-c)" opacity=".8" />
-        <rect v-for="key in 8" :key="key" :x="33 + (key - 1) * 30" y="48" width="26" height="202" rx="4" fill="var(--art-a)" opacity=".85" />
-        <rect v-for="key in [1, 2, 4, 5, 6]" :key="'black' + key" :x="21 + key * 30" y="48" width="20" height="124"
-          rx="3" fill="var(--art-c)" />
-      </g>
-      <g v-else-if="track.art === 'rings'">
-        <circle v-for="ring in 9" :key="ring" cx="162" cy="130" :r="15 + ring * 14" stroke="var(--art-a)"
-          :stroke-width="ring % 3 === 0 ? 9 : 3" :stroke-opacity=".9 - ring * .065" />
-        <path d="M58 198 115 165 154 202 195 158 245 185" stroke="white" stroke-width="5" stroke-linecap="round" />
-      </g>
-      <g v-else>
-        <circle cx="155" cy="111" r="78" fill="var(--art-a)" opacity=".85" />
-        <circle cx="126" cy="91" r="16" fill="var(--art-b)" opacity=".35" />
-        <circle cx="184" cy="135" r="27" fill="var(--art-b)" opacity=".25" />
-        <circle cx="164" cy="61" r="10" fill="var(--art-b)" opacity=".4" />
-        <path d="M0 226Q113 171 300 222V300H0Z" fill="var(--art-c)" opacity=".7" />
-        <circle v-for="star in 12" :key="star" :cx="(star * 71) % 290" :cy="(star * 43) % 240" r="1.5" fill="white" opacity=".6" />
-      </g>
-    </svg>
-    <div class="art-type"><span>{{ track.album }}</span><small>{{ track.artist }} · SIDE A</small></div>
-  </div>
+ <div class="album-art" :class="[track.art, { small }]" :style="{ '--a': track.colors[0], '--b': track.colors[1], '--c': track.colors[2] }">
+  <img v-if="track.photo" :src="track.photo" alt="" loading="lazy" draggable="false" class="photograph" />
+  <svg viewBox="0 0 400 400" fill="none" aria-hidden="true">
+   <g v-if="track.art === 'paper'">
+    <path d="M0 0h400v400H0Z" fill="var(--a)" />
+    <circle cx="288" cy="172" r="143" fill="var(--b)" />
+    <circle v-for="ring in 13" :key="ring" cx="288" cy="172" :r="22+ring*8" stroke="var(--c)" stroke-opacity=".25" />
+    <path d="M31 226C82 212 56 150 110 164S115 255 171 223s40-126 104-94" stroke="var(--c)" stroke-width="3" />
+    <circle cx="288" cy="172" r="22" fill="var(--a)" /><circle cx="288" cy="172" r="4" fill="var(--c)" />
+    <text x="26" y="36" class="micro" fill="var(--c)">AN EXERCISE IN TAKING IT EASY</text>
+    <path d="M27 56h110M27 60h75" stroke="var(--c)" stroke-opacity=".45" />
+   </g>
+   <g v-else-if="track.art === 'monsoon'">
+    <path d="M0 0h400v400H0Z" fill="var(--c)" opacity=".3" />
+    <path v-for="i in 22" :key="i" :d="'M'+(i*22-50)+' 0l-96 400'" stroke="white" stroke-opacity=".17" />
+    <rect x="18" y="18" width="364" height="364" stroke="white" stroke-opacity=".5" />
+    <text x="30" y="48" class="micro" fill="white">FIELD NOTES / VOL. 02</text>
+    <circle cx="323" cy="76" r="25" stroke="white" stroke-opacity=".65" /><path d="M310 76h26m-13-13v26" stroke="white" stroke-opacity=".65" />
+   </g>
+   <g v-else-if="track.art === 'signal'">
+    <path d="M0 0h400v400H0Z" fill="var(--c)" />
+    <circle cx="200" cy="148" r="110" fill="var(--a)" />
+    <path v-for="i in 12" :key="i" :d="'M80 '+(145+i*10)+'h240'" stroke="var(--c)" :stroke-width="i*1.1" />
+    <path d="M0 255 85 195 134 236 232 168 310 229 400 183v217H0Z" fill="var(--c)" />
+    <path v-for="i in 6" :key="'h'+i" :d="'M0 '+(267+i*24)+'h400'" stroke="var(--b)" stroke-opacity=".6" />
+    <path v-for="i in 9" :key="'v'+i" :d="'M200 255 '+((i-5)*120+200)+' 400'" stroke="var(--b)" stroke-opacity=".6" />
+    <text x="25" y="37" class="micro" fill="var(--a)">STEREO / TRANSMISSION 003</text>
+   </g>
+   <g v-else-if="track.art === 'chai'">
+    <path d="M0 0h400v400H0Z" fill="var(--a)" :opacity="track.photo ? .35 : 1" />
+    <circle cx="250" cy="155" r="112" fill="var(--b)" opacity=".88" />
+    <circle cx="250" cy="155" r="86" stroke="var(--a)" stroke-width="2" /><circle cx="250" cy="155" r="67" fill="var(--c)" />
+    <path d="M324 126c67-8 68 80 1 65" stroke="var(--a)" stroke-width="12" />
+    <path d="M222 119c-30-35 40-37 10-76m33 77c-28-38 39-39 9-78" stroke="var(--a)" stroke-width="4" stroke-linecap="round" />
+    <text x="25" y="37" class="micro" fill="var(--c)">SLOWLY BREWED / SIDE A</text>
+   </g>
+   <g v-else-if="track.art === 'orbit'">
+    <path d="M0 0h400v400H0Z" fill="var(--c)" />
+    <circle cx="240" cy="177" r="103" fill="var(--b)" />
+    <circle cx="240" cy="177" r="81" fill="var(--a)" opacity=".7" />
+    <ellipse v-for="i in 7" :key="i" cx="210" cy="174" :rx="125+i*10" :ry="32+i*8" transform="rotate(-33 210 174)" stroke="var(--a)" stroke-opacity=".38" />
+    <circle v-for="i in 24" :key="'s'+i" :cx="(i*73)%388" :cy="(i*41)%256" :r="i%4===0 ? 2 : 1" fill="white" opacity=".7" />
+    <text x="25" y="37" class="micro" fill="var(--a)">A STUDY OF DISTANCE & TIME</text>
+   </g>
+   <g v-else-if="track.art === 'bloom'">
+    <path d="M0 0h400v400H0Z" fill="var(--a)" />
+    <path d="M-25 30h450M-25 95h450M-25 160h450M-25 225h450" stroke="var(--b)" stroke-opacity=".17" />
+    <path d="M223 254c-20-96-42-139-2-215m-6 163c-95 2-126-57-108-93 69-1 118 24 108 93m-1-39c85-5 115-61 93-94-64 0-100 35-93 94m8-75c-44-19-51-64-29-83 39 10 52 36 29 83" fill="var(--b)" />
+    <path d="M224 254c-16-91-24-155-2-208" stroke="var(--c)" stroke-width="3" />
+    <text x="25" y="37" class="micro" fill="var(--c)">PIANO SKETCHES FOR A FREE DAY</text>
+   </g>
+   <g v-else-if="track.art === 'afterhours'">
+    <path d="M0 0h400v400H0Z" fill="var(--c)" :opacity="track.photo ? .28 : 1" />
+    <path d="m28 0 160 400M102 0l160 400M230 0 70 400M368 0l-40 400" stroke="var(--a)" stroke-opacity=".33" stroke-width="4" />
+    <circle cx="301" cy="102" r="53" fill="var(--a)" opacity=".74" />
+    <text x="25" y="37" class="micro" fill="white">BENGALURU / BLUE HOUR SESSIONS</text>
+    <path d="M28 72h42m-21-21v42" stroke="white" stroke-width="2" />
+   </g>
+   <g v-else>
+    <path d="M0 0h400v400H0Z" fill="var(--a)" />
+    <g transform="rotate(-25 200 170)"><rect x="91" y="-70" width="265" height="333" fill="var(--c)" />
+     <rect v-for="i in 9" :key="i" :x="96+(i-1)*28" y="-65" width="25" height="317" fill="var(--a)" />
+     <rect v-for="i in [1,2,4,5,6,8]" :key="'k'+i" :x="85+i*28" y="-65" width="17" height="192" fill="var(--c)" />
+    </g>
+    <text x="25" y="37" class="micro" fill="var(--c)">WINDOW SEAT / NO. 08</text>
+   </g>
+   <g class="lettering" :fill="['paper','chai','bloom','keys'].includes(track.art) ? 'var(--c)' : 'white'">
+    <text v-for="(line,i) in lines" :key="line" x="25" :y="302+(i-(lines.length-2))*31" class="cover-title" :class="{ serif: ['monsoon','bloom','keys'].includes(track.art) }">{{ line }}</text>
+    <text x="27" y="374" class="artist-type">{{ track.artist }}</text>
+   </g>
+  </svg>
+ </div>
 </template>
-
 <style scoped>
-.album-art {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
-  position: relative; isolation: isolate; width: 100%; container-type: inline-size; aspect-ratio: 1; overflow: hidden; border-radius: 22px;
-  background: linear-gradient(145deg, var(--art-a), var(--art-b) 45%, var(--art-c));
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / .2), 0 14px 30px rgb(0 0 0 / .2);
-}
-.album-art :deep(*) { font-family: inherit; }
-svg { display: block; width: 100%; height: 100%; }
-.art-type {
-  position: absolute; inset: auto 0 0; padding: 24% 8% 8%;
-  background: linear-gradient(transparent, rgb(0 0 0 / .55)); display: flex; flex-direction: column; gap: 5px;
-}
-.art-type span { font-size: clamp(14px, 10cqw, 28px); font-weight: 700; line-height: 1.08; letter-spacing: -.035em; }
-.art-type small { font-size: 12px; text-transform: uppercase; letter-spacing: .11em; line-height: 1.3; }
-@container (max-width: 180px) {
-  .art-type { gap: 3px; padding: 32% 9% 9%; }
-  .art-type span { font-size: 16px; line-height: 1.15; }
-  .art-type small { display: none; }
-}
-.small { border-radius: 12px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .15); }
-.small .art-type { display: none; }
+.album-art { width:100%; aspect-ratio:1; position:relative; overflow:hidden; isolation:isolate; border-radius:12px; background:var(--c); box-shadow:0 8px 22px #0003, inset 0 0 0 1px #ffffff24; container-type:inline-size; }
+svg { width:100%;height:100%;position:relative;display:block; }
+.photograph { position:absolute;width:100%;height:100%;object-fit:cover;filter:saturate(.65); }
+.monsoon .photograph { filter:saturate(.45) brightness(.68); }
+.afterhours .photograph { filter:saturate(.7) brightness(.65); }
+.micro { font:500 9px -apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;letter-spacing:1.6px; }
+.cover-title { font:750 32px -apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;letter-spacing:-1.5px; }
+.serif { font-family:Georgia,serif;font-weight:500;font-size:34px;letter-spacing:-1px; }
+.artist-type { font:600 10px -apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;letter-spacing:1.3px;text-transform:uppercase; }
+.small { border-radius:8px;box-shadow:inset 0 0 0 1px #ffffff20; }
+@container (max-width:65px) { .lettering,.micro { display:none; } }
 </style>

@@ -232,11 +232,11 @@ export class MusicEngine {
     const beat = Math.floor(step / 4);
     const bar = Math.floor(beat / (song.genre === 'Piano' ? 3 : 4));
     const roots = [48, 45, 53, 43];
-    const root = roots[bar % roots.length] ?? 48;
+    const root = (roots[(bar + song.variation) % roots.length] ?? 48) + song.key;
     const beatLength = unit * 4;
     if (song.genre === 'Lo-fi') {
       if (step % 16 === 0)
-        [0, 3, 7, 10].forEach(interval => this.note(root + 12 + interval, start, beatLength * 3.8, 0.032, 'triangle', 1100));
+        [0, 3, 7, 10].forEach(interval => this.note(root + 12 + interval, start, beatLength * 3.8, 0.032, song.instrument, 1100));
       if (step % 8 === 0) this.note(root, start, beatLength * 1.8, 0.11, 'sine');
       if ([0, 10].includes(step % 16)) this.kick(start, 0.18);
       if (step % 8 === 4) this.drum(start + 0.025, true, 0.07);
@@ -244,11 +244,11 @@ export class MusicEngine {
     } else if (song.genre === 'Ambient') {
       if (step % 8 === 0)
         [0, 7, 14, 19].forEach((interval, index) =>
-          this.note(root + interval + 12, start + index * 0.025, beatLength * 4, 0.025, 'sawtooth', 600 + bar % 4 * 170));
+          this.note(root + interval + 12, start + index * 0.025, beatLength * 4, 0.025, song.instrument, 600 + bar % 4 * 170));
       if (step % 16 === 8) this.note(root + 31, start, beatLength * 3, 0.028, 'sine');
     } else if (song.genre === 'Synthwave') {
       const arp = [0, 7, 12, 15, 12, 7, 19, 7];
-      if (step % 2 === 0) this.note(root + 12 + (arp[Math.floor(step / 2) % 8] ?? 0), start, unit * 1.8, 0.075, 'sawtooth', 2400);
+      if (step % 2 === 0) this.note(root + 12 + (arp[Math.floor(step / 2) % 8] ?? 0), start, unit * 1.8, 0.075, song.instrument, 2400);
       if (step % 4 === 0) {
         this.kick(start);
         this.note(root - 12, start, beatLength * 0.8, 0.12, 'sawtooth', 350);
@@ -259,7 +259,7 @@ export class MusicEngine {
       if (step % 12 === 0) this.note(root - 12, start, beatLength * 2.8, 0.16, 'triangle', 2600);
       if (step % 4 === 0) {
         const interval = [0, 7, 12][beat % 3] ?? 0;
-        [0, 12].forEach((octave, index) => this.note(root + interval + octave, start, beatLength * 2, 0.075 / (index + 1), 'sine'));
+        [0, 12].forEach((octave, index) => this.note(root + interval + octave, start, beatLength * 2, 0.075 / (index + 1), song.instrument));
       }
       if (step % 6 === 2) this.note(root + 24 + ([0, 3, 7, 10][bar % 4] ?? 0), start, beatLength, 0.055, 'triangle', 2200);
     } else if (song.genre === 'Drum & bass') {
@@ -267,12 +267,12 @@ export class MusicEngine {
       if ([4, 12].includes(step % 16)) this.drum(start, true, 0.16);
       if (step % 2 === 0 || step % 16 === 11) this.drum(start, false, step % 4 === 0 ? 0.05 : 0.027);
       if (step % 4 === 0) this.note(root - 12 + (step % 16 === 8 ? 7 : 0), start, beatLength * 0.85, 0.16, 'sawtooth', 260);
-      if (step % 8 === 2) this.note(root + 24, start, unit * 3, 0.05, 'square', 1800);
+      if (step % 8 === 2) this.note(root + 24, start, unit * 3, 0.05, song.instrument, 1800);
     } else {
       if (step % 8 === 0)
         [0, 7, 12, 19].forEach((interval, index) =>
-          this.note(33 + interval + (Math.floor(bar / 4) % 2) * 2, start, beatLength * 5, 0.026 / (1 + index * 0.2),
-            index % 2 === 0 ? 'sine' : 'sawtooth', 280 + (bar % 8) * 45));
+          this.note(33 + song.key + interval + (Math.floor(bar / 4) % 2) * 2, start, beatLength * 5, 0.026 / (1 + index * 0.2),
+            index % 2 === 0 ? song.instrument : 'sawtooth', 280 + (bar % 8) * 45));
     }
   }
 

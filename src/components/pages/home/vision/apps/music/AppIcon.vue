@@ -1,6 +1,10 @@
 <script setup lang="ts">
 defineProps<{ name: string; filled?: boolean }>();
 const paths: Record<string, string> = {
+  home: 'm3 11 9-8 9 8v10h-6v-7H9v7H3Z',
+  star: 'm12 3 2.8 5.8 6.4.9-4.6 4.5 1.1 6.3-5.7-3-5.7 3 1.1-6.3-4.6-4.5 6.4-.9Z',
+  expand: 'M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6',
+  clock: 'M12 7v5l4 2M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z',
   play: 'm9 5 11 7-11 7Z',
   pause: 'M8 5v14M16 5v14',
   previous: 'M5 5v14m14-14L8 12l11 7Z',

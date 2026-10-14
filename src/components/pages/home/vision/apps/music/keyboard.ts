@@ -1,6 +1,6 @@
 const groups = [
-  '.tabs', '.album-grid', '.playlist-grid', '.filters', '.now-modes', '.song-list',
-  '.queue-panel', '.queue-actions', '.play-controls', '.bottom-tools', '.radio', '.lyrics',
+  '.tabs', '.album-grid', '.shelf', '.picks', '.search-genres', '.filters', '.now-modes', '.song-list',
+  '.queue-tracks', '.queue-actions', '.transport', '.utilities', '.radio-stations', '.lyrics',
 ].join(', ');
 
 /** Arrow keys follow the rendered layout; Enter and Space retain native button activation. */
