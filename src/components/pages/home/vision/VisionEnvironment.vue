@@ -303,7 +303,9 @@ function turn(dx: number, dy: number) {
 }
 function fling(vx: number, vy: number) { if (!still()) { look.spinX = vx * 0.0042; look.spinY = vy * 0.0042; } }
 function recentre() { look.yaw = look.pitch = look.spinX = look.spinY = 0; }
-defineExpose({ lean, turn, fling, recentre });
+/** Where the wearer is looking, so things placed in the space can stay put in the world. */
+function view() { return props.id === 'room' ? { yaw: 0, pitch: 0, fov: camera?.fov ?? 72 } : { yaw: look.nowYaw, pitch: look.nowPitch, fov: camera?.fov ?? 72 }; }
+defineExpose({ lean, turn, fling, recentre, view });
 
 watch(() => props.id, (id) => { if (id !== 'room') void enter(id, ++request).catch(() => { loaded.value = false; }); else { ++request; clear(); loaded.value = false; } });
 watch(() => props.immersion, wake);

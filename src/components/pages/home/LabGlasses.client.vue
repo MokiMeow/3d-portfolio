@@ -7,6 +7,7 @@ import VisionEnvironment from './vision/VisionEnvironment.vue';
 import VisionIcon from './vision/VisionIcon.vue';
 import SpatialWidgets from './vision/SpatialWidgets.vue';
 import JarvisOrb from './vision/jarvis/JarvisOrb.vue';
+import SpatialSpace from './vision/space/SpatialSpace.vue';
 import { useJarvis } from './vision/jarvis/useJarvis';
 import type { JarvisAction } from './vision/jarvis/brain';
 import Spotlight, { type SpotlightResult } from './vision/Spotlight.vue';
@@ -420,6 +421,16 @@ function crownUp() { clearTimeout(crownHold); if (crownY !== null && !crownMoved
 /* Widgets in the room and Siri. */
 const widgets = ref<InstanceType<typeof SpatialWidgets>>();
 const jarvisOrb = ref<InstanceType<typeof JarvisOrb>>();
+/* Making things in the space around you. */
+const spatial = ref<InstanceType<typeof SpatialSpace>>();
+const creating = ref(false);
+const envView = () => place.value?.view() ?? { yaw: 0, pitch: 0, fov: 72 };
+const envUrl = computed(() => !inside.value ? null : here.value.kind === 'photo' ? `/vision/env/${here.value.id}-4k.webp` : 'space');
+function toggleCreate() {
+  control.value = false; help.value = false;
+  if (!creating.value) { homeOpen.value = false; setViewOnly(false); }
+  spatial.value?.toggle();
+}
 const APP_IDS = new Set<string>(VISION_APPS.map(item => item.id));
 /** 'open' while the full JARVIS display covers the view, 'docked' when it has stepped aside. */
 const jarvisCore = ref<'closed' | 'open' | 'docked'>('closed');
@@ -432,7 +443,7 @@ const jarvis = useJarvis({
     open: windows.value.map(win => ({ id: win.id, name: NAMES[win.id] })),
     front: front.value ? { id: front.value.id, name: NAMES[front.value.id] } : null,
     dark: dark.value, viewOnly: viewOnly.value, focusMode: focusMode.value,
-    apps: VISION_APPS, environments: VISION_ENVIRONMENTS, objects: 0,
+    apps: VISION_APPS, environments: VISION_ENVIRONMENTS, objects: spatial.value?.count ?? 0,
   }),
   act: jarvisAct,
 });
@@ -472,8 +483,9 @@ async function jarvisAct(action: JarvisAction): Promise<string | void> {
       await new Promise(resolve => window.setTimeout(resolve, 900));
       break;
     }
-    case 'spawn': case 'clearSpace': case 'gravity':
-      return 'The fabrication bay is still being assembled, {a}.';
+    case 'spawn': homeOpen.value = false; setViewOnly(false); aside(); await new Promise(resolve => window.setTimeout(resolve, 450)); spatial.value?.spawn(action.shape, action.count, action.material); break;
+    case 'clearSpace': spatial.value?.clear(); break;
+    case 'gravity': spatial.value?.setGravity(action.mode); break;
   }
 }
 function siriKey(event: KeyboardEvent) {
@@ -482,6 +494,7 @@ function siriKey(event: KeyboardEvent) {
   const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || (event.target as HTMLElement | null)?.isContentEditable;
   if (!typing && !event.ctrlKey && !event.metaKey && !event.altKey && (event.key === 'j' || event.key === 'J') && !booting.value) { event.preventDefault(); if (viewOnly.value) setViewOnly(false); void jarvisOrb.value?.talk(); return; }
   if (!typing && !event.ctrlKey && !event.metaKey && !event.altKey && (event.key === 'v' || event.key === 'V') && !booting.value) { event.preventDefault(); setViewOnly(!viewOnly.value); return; }
+  if (!typing && !event.ctrlKey && !event.metaKey && !event.altKey && (event.key === 'c' || event.key === 'C') && !booting.value) { event.preventDefault(); toggleCreate(); return; }
   if (((event.ctrlKey || event.metaKey) && event.code === 'Space') || (event.key === '/' && !typing)) { event.preventDefault(); openSpotlight(); }
 }
 const spotlight = ref<InstanceType<typeof Spotlight>>();
@@ -556,13 +569,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="visor" class="visor" :class="{ booting, solid: reduceTransparency, compact, inside, looking, 'cc-open': control, 'home-open': homeOpen, 'view-only': viewOnly, 'jarvis-open': jarvisCore === 'open', 'jarvis-docked': jarvisCore === 'docked' }" :style="{ '--tx': tilt.x, '--ty': tilt.y }" @pointermove="look">
+  <div ref="visor" class="visor" :class="{ booting, solid: reduceTransparency, compact, inside, looking, 'cc-open': control, 'home-open': homeOpen, 'view-only': viewOnly, 'jarvis-open': jarvisCore === 'open', 'jarvis-docked': jarvisCore === 'docked', creating }" :style="{ '--tx': tilt.x, '--ty': tilt.y }" @pointermove="look">
     <VisionEnvironment :id="environment" ref="place" :immersion="immersion" :dark="dark" class="place" />
     <i class="dimmer" :style="{ opacity: dim }" />
     <i class="gaze" />
 
     <div ref="space" class="space" :class="{ dimmed: !viewOnly && ((homeOpen && windows.length) || help) }" @pointerdown="lookDown" @pointermove="lookMove" @pointerup="lookUp" @pointercancel="lookUp">
       <!-- Widgets live in the room, behind any open windows. -->
+      <SpatialSpace v-if="!booting" ref="spatial" :view="envView" :environment="envUrl" :compact="compact" :hidden="viewOnly || jarvisCore === 'open'" @creating="creating = $event" @toast="toast" />
       <SpatialWidgets v-if="!booting" ref="widgets" :now="now" :compact="compact" :dark="dark" :immersed="inside && immersion > 0.95" @open="openFromWidget" />
       <!-- Windows -->
       <TransitionGroup name="window">
@@ -657,6 +671,9 @@ onBeforeUnmount(() => {
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 19 6-10 4 6 2.500-3.500L21 19Z" fill="currentColor" /><circle cx="17" cy="6.500" r="2.200" fill="currentColor" /></svg>
         <span>{{ inside ? here.name : 'Environments' }}</span><em v-if="inside">{{ Math.round(immersion * 100) }}%</em>
       </button>
+      <button class="dock-round" aria-label="Create in your space (C)" title="Create in your space · C" @click="toggleCreate">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9Zm0 0v9m0 0 8-4.5M12 12l-8-4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" /></svg>
+      </button>
       <button class="dock-round" aria-label="Just the view (V)" title="Just the view · V" @click="setViewOnly(true)">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" /><circle cx="12" cy="12" r="3.2" fill="currentColor" /></svg>
       </button>
@@ -701,6 +718,7 @@ onBeforeUnmount(() => {
             <button aria-label="Search" @click="openSpotlight"><svg viewBox="0 0 24 24"><path d="M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm4.8 11.3L20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg><span>Search</span></button>
             <button aria-label="Widgets" @click="control = false; widgets?.openGallery()"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2.5" fill="none" stroke="currentColor" stroke-width="2" /><rect x="13" y="3" width="8" height="8" rx="2.5" fill="none" stroke="currentColor" stroke-width="2" /><rect x="3" y="13" width="18" height="8" rx="2.5" fill="none" stroke="currentColor" stroke-width="2" /></svg><span>Widgets</span></button>
             <button aria-label="JARVIS" @click="control = false; jarvisOrb?.activate()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="#ffc15a" stroke-width="1.6" /><circle cx="12" cy="12" r="3.6" fill="none" stroke="#ffe2a8" stroke-width="2" /><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3" stroke="#ffc15a" stroke-width="1.4" stroke-linecap="round" /></svg><span>JARVIS</span></button>
+            <button aria-label="Create in your space" @click="toggleCreate"><svg viewBox="0 0 24 24"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9Zm0 0v9m0 0 8-4.5M12 12l-8-4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" /></svg><span>Create</span></button>
             <button aria-label="Recentre" @click="recenter"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="currentColor" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg><span>Recentre</span></button>
           </section>
           <section class="cc-side">
@@ -1063,6 +1081,8 @@ button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3
 .jarvis-open :is(.dock,.status,.crown,.top-button,.notices){opacity:0;pointer-events:none}
 .jarvis-open .dock,.jarvis-docked .dock{translate:0 calc(100% + 40px)}
 .jarvis-docked .dock{opacity:0;pointer-events:none}
+/* While creating, the creation ornament takes the dock's place. */
+.creating .dock{translate:0 calc(100% + 40px);opacity:0;pointer-events:none}
 .jarvis-open :is(.status,.crown,.top-button){translate:0 -90px}
 .window.gliding{transition:left .72s cubic-bezier(.2,.8,.2,1),top .72s cubic-bezier(.2,.8,.2,1),width .72s cubic-bezier(.2,.8,.2,1),height .72s cubic-bezier(.2,.8,.2,1),transform .25s ease-out,filter .3s,opacity .3s,scale .6s cubic-bezier(.2,.8,.2,1)}
 .window.scanning::after{content:'';position:absolute;inset:0;border-radius:34px;pointer-events:none;z-index:9;box-shadow:0 0 0 1.5px #ffc15a,0 0 40px rgb(255 160 50 / .45);background:linear-gradient(180deg,transparent 0,transparent calc(var(--scan) - 2px),rgb(255 210 140 / .95) var(--scan),rgb(255 170 60 / .25) calc(var(--scan) + 2px),transparent calc(var(--scan) + 60px));animation:jarvis-scan 1.6s cubic-bezier(.4,0,.2,1) both}
