@@ -1,4 +1,4 @@
-import type { SynthSettings } from './model';
+import { kits, trackPads, type SynthSettings, type Channel } from './model';
 type Source = OscillatorNode | AudioBufferSourceNode;
 type Voice = { nodes: AudioNode[]; sources: Source[]; envelope: GainNode; end: number; done: boolean };
 export class BeatAudio {
@@ -8,14 +8,17 @@ export class BeatAudio {
   private readonly input: GainNode;
   private readonly compressor: DynamicsCompressorNode;
   private readonly output: GainNode;
-  private readonly limiter: WaveShaperNode;
+  private readonly limiter: DynamicsCompressorNode;
+  private readonly softClip: WaveShaperNode;
   private readonly noiseBuffer: AudioBuffer;
   private readonly synthBus: BiquadFilterNode;
   private readonly dry: GainNode;
-  private delay!: DelayNode;
-  private wet!: GainNode;
-  private feedback!: GainNode;
-  private settings: SynthSettings = { cutoff: 1600, resonance: 1.2, delay: .2, scale: true };
+  readonly channels: { gain: GainNode; pan: StereoPannerNode; send: GainNode; analyser: AnalyserNode }[];
+  private readonly filter: BiquadFilterNode;
+  private readonly reverb: ConvolverNode;
+  private readonly wet: GainNode;
+  private kit = 0;
+  private settings: SynthSettings = { cutoff: 2400, resonance: 1.2, space: .24, tone: .4, attack: .04, scale: true };
   private voices = new Set<Voice>();
   private closed = false;
 
@@ -27,27 +30,47 @@ export class BeatAudio {
     this.compressor = ctx.createDynamicsCompressor();
     this.compressor.threshold.value = -18;
     this.compressor.knee.value = 16;
-    this.compressor.ratio.value = 8;
+    this.compressor.ratio.value = 3.5;
     this.compressor.attack.value = .003;
     this.compressor.release.value = .18;
-    this.limiter = ctx.createWaveShaper();
+    this.limiter = ctx.createDynamicsCompressor();
+    this.limiter.threshold.value = -4; this.limiter.knee.value = 0; this.limiter.ratio.value = 20;
+    this.limiter.attack.value = .001; this.limiter.release.value = .08;
+    this.softClip = ctx.createWaveShaper();
     const curve = new Float32Array(2048);
     for (let i = 0; i < curve.length; i++) curve[i] = .9 * Math.tanh((i / (curve.length - 1) * 2 - 1) * 1.2);
-    this.limiter.curve = curve;
+    this.softClip.curve = curve;
     this.output = ctx.createGain();
     this.output.gain.value = .7;
     this.analyser = ctx.createAnalyser();
     this.analyser.fftSize = 256;
     this.analyser.smoothingTimeConstant = .84;
     this.destination = ctx.createMediaStreamDestination();
-    this.input.connect(this.compressor).connect(this.limiter).connect(this.output).connect(this.analyser);
+    this.filter = ctx.createBiquadFilter();
+    this.filter.type = 'lowpass';
+    this.input.connect(this.filter).connect(this.compressor).connect(this.limiter).connect(this.softClip).connect(this.output).connect(this.analyser);
+    this.reverb = ctx.createConvolver();
+    const impulse = ctx.createBuffer(2, Math.floor(ctx.sampleRate * 1.7), ctx.sampleRate);
+    for (let channel = 0; channel < 2; channel++) {
+      const samples = impulse.getChannelData(channel);
+      for (let i = 0; i < samples.length; i++) samples[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / samples.length, 3.5) * .5;
+    }
+    this.reverb.buffer = impulse;
+    this.wet = ctx.createGain();
+    this.reverb.connect(this.wet).connect(this.input);
+    this.channels = Array.from({ length: 9 }, () => {
+      const gain = ctx.createGain(), pan = ctx.createStereoPanner(), send = ctx.createGain(), analyser = ctx.createAnalyser();
+      analyser.fftSize = 256; analyser.smoothingTimeConstant = .65;
+      gain.connect(pan).connect(analyser).connect(this.input);
+      pan.connect(send).connect(this.reverb);
+      return { gain, pan, send, analyser };
+    });
     this.analyser.connect(ctx.destination);
     this.output.connect(this.destination);
     this.synthBus = ctx.createBiquadFilter();
     this.synthBus.type = 'lowpass';
     this.dry = ctx.createGain();
-    this.synthBus.connect(this.dry).connect(this.input);
-    this.setupDelay();
+    this.synthBus.connect(this.dry).connect(this.channels[8]!.gain);
     this.noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
     const data = this.noiseBuffer.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
@@ -58,26 +81,33 @@ export class BeatAudio {
     await this.context.resume();
     return !this.closed && this.context.state === 'running';
   }
-  private setupDelay(): void {
-    this.delay = this.context.createDelay(1);
-    this.delay.delayTime.value = .28;
-    this.wet = this.context.createGain();
-    this.wet.gain.value = this.settings.delay;
-    this.feedback = this.context.createGain();
-    this.feedback.gain.value = .3;
-    this.synthBus.connect(this.delay);
-    this.delay.connect(this.feedback).connect(this.delay);
-    this.delay.connect(this.wet).connect(this.input);
+  setKit(index: number): void { this.kit = Math.max(0, Math.min(kits.length - 1, index)); }
+  setChannels(channels: Channel[]): void {
+    const solo = channels.some(channel => channel.solo);
+    channels.forEach((value, index) => {
+      const channel = this.channels[index];
+      if (!channel) return;
+      const now = this.context.currentTime;
+      channel.gain.gain.setTargetAtTime(value.muted || (solo && !value.solo) ? 0 : value.volume, now, .015);
+      channel.pan.pan.setTargetAtTime(value.pan, now, .02);
+      channel.send.gain.setTargetAtTime(value.send, now, .02);
+    });
+  }
+  get reduction(): number { return -this.limiter.reduction; }
+  click(time: number, accent: boolean): void {
+    const voice = this.createVoice(time, .035, .07, this.input);
+    this.tone(voice, time, accent ? 1500 : 1000, 'sine');
   }
   configure(settings: SynthSettings): void {
     this.settings = { ...settings };
     const now = this.context.currentTime;
     this.synthBus.frequency.setTargetAtTime(settings.cutoff, now, .025);
     this.synthBus.Q.setTargetAtTime(settings.resonance, now, .025);
-    this.wet.gain.setTargetAtTime(settings.delay, now, .025);
-    this.dry.gain.setTargetAtTime(1 - settings.delay * .4, now, .025);
+    this.wet.gain.setTargetAtTime(settings.space, now, .025);
+    this.filter.frequency.setTargetAtTime(Math.min(18000, settings.cutoff * 3), now, .025);
+    this.dry.gain.setTargetAtTime(1 - settings.space * .3, now, .025);
   }
-  private createVoice(time: number, duration: number, velocity: number, target = this.input, attack = .002): Voice {
+  private createVoice(time: number, duration: number, velocity: number, target: AudioNode = this.input, attack = .002): Voice {
     if (this.voices.size >= 48) {
       const oldest = this.voices.values().next().value as Voice | undefined;
       if (oldest) this.disposeVoice(oldest);
@@ -129,11 +159,26 @@ export class BeatAudio {
   }
   hit(pad: number, time = this.context.currentTime, velocity = .75): void {
     if (this.closed) return;
+    const kit = kits[this.kit]!;
+    const track = trackPads.indexOf(pad as typeof trackPads[number]);
+    const target = this.channels[track >= 0 ? track : 8]!.gain;
     const durations = [.48, .2, .22, .065, .52, .075, .35, .24, .14, .24, 1, .38, .48, .6, 1.4, 1.1];
-    const voice = this.createVoice(time, durations[pad] ?? .2, velocity * (pad === 3 || pad === 4 || pad === 8 ? .19 : .38), pad === 11 || pad === 12 ? this.synthBus : this.input);
+    const voice = this.createVoice(time, (durations[pad] ?? .2) * kit.decay, velocity * (pad === 3 || pad === 4 || pad === 8 ? .19 : .38), target);
+    if (this.kit === 4 && (pad === 5 || pad === 6 || pad === 7)) {
+      // Modal partials suggest tabla membranes; this is synthesis, not a sampled instrument.
+      const base = pad === 6 ? 115 : pad === 5 ? 310 : 390;
+      [1, 2.02, 2.96, 4.08].forEach((ratio, i) => this.tone(voice, time, base * ratio * (pad === 6 ? 1.3 : 1), 'sine', base * ratio, 0, .65 / (i + 1)));
+      this.noise(voice, time, 2200, 'bandpass', 3);
+      return;
+    }
+    if (this.kit === 3 && pad !== 0 && pad !== 10) {
+      this.tone(voice, time, (220 + pad * 95) * kit.pitch, 'sine', undefined, 0, .7);
+      this.tone(voice, time, (220 + pad * 95) * 2.76, 'sine', undefined, 0, .22);
+      return;
+    }
     switch (pad) {
-      case 0: this.tone(voice, time, 150, 'sine', 38); break;
-      case 1: this.noise(voice, time, 1250, 'highpass'); this.tone(voice, time, 185, 'triangle', 90, 0, .35); break;
+      case 0: this.tone(voice, time, 150 * kit.pitch, 'sine', 38 * kit.pitch); break;
+      case 1: this.noise(voice, time, 1250, 'highpass'); this.tone(voice, time, 185 * kit.pitch, kit.tone, 90 * kit.pitch, 0, .35); break;
       case 2:
         // Three overlapping band-limited bursts give a clap its little crowd.
         this.noise(voice, time, 1500, 'bandpass', .8);
@@ -143,12 +188,12 @@ export class BeatAudio {
         }
         voice.envelope.gain.exponentialRampToValueAtTime(.0001, voice.end);
         break;
-      case 3: case 4: this.noise(voice, time, 7500); break;
+      case 3: case 4: this.noise(voice, time, this.kit === 0 ? 4800 : 7500); break;
       case 5: this.tone(voice, time, 820, 'triangle', 550); this.tone(voice, time, 1650, 'sine', undefined, 0, .3); break;
       case 6: case 7: this.tone(voice, time, pad === 6 ? 160 : 280, 'sine', pad === 6 ? 70 : 140); break;
       case 8: this.noise(voice, time, 5600, 'bandpass', 1.2); break;
       case 9: this.tone(voice, time, 540, 'square', undefined, 0, .35); this.tone(voice, time, 800, 'square', undefined, 0, .28); break;
-      case 10: this.tone(voice, time, 90, 'sine', 32.7); this.tone(voice, time, 65.4, 'triangle', 32.7, 0, .2); break;
+      case 10: this.tone(voice, time, 90 * kit.pitch, 'sine', 32.7 * kit.pitch); this.tone(voice, time, 65.4, 'triangle', 32.7, 0, .2); break;
       case 11: for (const f of [261.63, 311.13, 392]) this.tone(voice, time, f, 'sawtooth', undefined, -4, .2); break;
       case 12: this.tone(voice, time, 523.25, 'triangle'); this.tone(voice, time, 1046.5, 'sine', undefined, 0, .2); break;
       case 13: {
@@ -176,20 +221,25 @@ export class BeatAudio {
       default: this.noise(voice, time, 800, 'lowpass'); this.tone(voice, time, 110, 'sine', 28);
     }
   }
-  note(semitone: number): () => void {
+  note(semitone: number, time = this.context.currentTime, duration = 20): () => void {
     if (this.closed) return () => {};
-    const now = this.context.currentTime;
-    const voice = this.createVoice(now, 20, .13, this.synthBus, .13);
+    const voiceFilter = this.context.createBiquadFilter();
+    voiceFilter.type = 'lowpass'; voiceFilter.Q.value = this.settings.resonance;
+    voiceFilter.frequency.setValueAtTime(180, time);
+    voiceFilter.frequency.exponentialRampToValueAtTime(Math.max(200, this.settings.cutoff), time + this.settings.attack + .015);
+    voiceFilter.frequency.exponentialRampToValueAtTime(Math.max(160, this.settings.cutoff * .4), time + this.settings.attack + .3);
+    voiceFilter.connect(this.synthBus);
+    const voice = this.createVoice(time, duration, .14, voiceFilter, Math.min(this.settings.attack + .005, duration / 3));
+    voice.nodes.push(voiceFilter);
     const frequency = 261.6256 * Math.pow(2, semitone / 12);
-    this.tone(voice, now, frequency, 'sawtooth', undefined, -8, .48);
-    this.tone(voice, now, frequency, 'sawtooth', undefined, 8, .48);
+    this.tone(voice, time, frequency, this.settings.tone > .5 ? 'sawtooth' : 'triangle', undefined, -8, .48);
+    this.tone(voice, time, frequency, 'sawtooth', undefined, 8, this.settings.tone * .45);
     return () => {
       if (voice.done || this.closed) return;
-      const time = this.context.currentTime;
-      const gain = voice.envelope.gain;
-      gain.cancelAndHoldAtTime(time);
-      gain.exponentialRampToValueAtTime(.0001, time + .28);
-      for (const source of voice.sources) { try { source.stop(time + .3); } catch { /* Already ended. */ } }
+      const now = this.context.currentTime;
+      voice.envelope.gain.cancelAndHoldAtTime(now);
+      voice.envelope.gain.exponentialRampToValueAtTime(.0001, now + .2);
+      for (const source of voice.sources) { try { source.stop(now + .23); } catch { /* Already ended. */ } }
     };
   }
   private disposeVoice(voice: Voice): void {
@@ -204,12 +254,8 @@ export class BeatAudio {
   }
   stopAll(): void {
     for (const voice of this.voices) this.disposeVoice(voice);
-    if (!this.closed) {
-      this.synthBus.disconnect(this.delay);
-      this.delay.disconnect(); this.feedback.disconnect(); this.wet.disconnect();
-      this.setupDelay();
-    }
   }
+
   suspend(): void {
     this.stopAll();
     if (!this.closed) void this.context.suspend().catch(() => {});
@@ -218,7 +264,7 @@ export class BeatAudio {
     if (this.closed) return;
     this.closed = true;
     this.stopAll();
-    for (const node of [this.input, this.compressor, this.limiter, this.output, this.analyser, this.destination, this.synthBus, this.dry, this.delay, this.wet, this.feedback]) node.disconnect();
+    for (const node of [this.input, this.compressor, this.limiter, this.softClip, this.output, this.analyser, this.destination, this.synthBus, this.dry, this.filter, this.reverb, this.wet, ...this.channels.flatMap(channel => [channel.gain, channel.pan, channel.send, channel.analyser])]) node.disconnect();
     for (const track of this.destination.stream.getTracks()) track.stop();
     void this.context.close().catch(() => {});
   }
