@@ -557,41 +557,9 @@
   opacity: 1;
 }
 
-.app-back {
-  position: absolute;
-  left: 36px;
-  top: 20px;
-  display: grid;
-  place-items: center;
-  width: max(52px, calc(36px / var(--watch-scale)));
-  height: max(52px, calc(36px / var(--watch-scale)));
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  color: var(--tint, #fff);
-  background: color-mix(in srgb, var(--tint, #fff) 16%, #1c1c1e);
-  box-shadow: inset 0 1px 0 #ffffff26, 0 4px 14px #0008;
-  pointer-events: auto;
-  transition: transform 160ms ease, background 200ms ease;
-}
-
-.app-back:hover {
-  background: color-mix(in srgb, var(--tint, #fff) 26%, #1c1c1e);
-}
-
-.app-back:active {
-  transform: scale(0.9);
-}
-
-.app-back :deep(svg) {
-  width: 24px;
-  height: 24px;
-  margin-left: -3px;
-}
-
 .nav-title {
   position: absolute;
-  left: 100px;
+  left: 44px;
   right: 130px;
   top: 33px;
   overflow: hidden;
@@ -626,11 +594,6 @@
   color: #171717;
 }
 
-.light-display .app-back {
-  color: #171717;
-  background: #0000001a;
-  box-shadow: none;
-}
 
 /* Banner: drops in from the top while an app is open. Solid, readable, flick up to dismiss. */
 .notification-banner {
@@ -828,4 +791,118 @@
     transform: translateY(40px);
     opacity: 0;
   }
+}
+
+/* ---------- Swipe back ---------- */
+
+/* The open app (or the app grid) is the layer that slides; while it does, it casts a shadow on what it uncovers. */
+.display :deep(.app-layer) {
+  will-change: transform;
+}
+
+.display :deep(.app-layer.settling) {
+  transition: transform 230ms cubic-bezier(0.25, 0.9, 0.3, 1);
+}
+
+.display :deep(.app-layer[style*="translateX"]) {
+  box-shadow: -18px 0 36px #000c;
+  border-radius: 84px;
+  overflow: hidden;
+}
+
+.swipe-under {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: calc(28px + var(--p) * 18px);
+  background: radial-gradient(120% 90% at 0% 50%, #1f2024, #000 70%);
+  color: #fff;
+  font-size: 30px;
+  font-weight: 700;
+  opacity: calc(0.35 + var(--p) * 0.65);
+  pointer-events: none;
+}
+
+.swipe-under :deep(svg) {
+  width: 30px;
+  height: 30px;
+  transform: translateX(calc((1 - var(--p)) * -14px));
+}
+
+.swipe-under span {
+  transform: scale(calc(0.86 + var(--p) * 0.14));
+  transform-origin: left center;
+}
+
+/* The edge grip: a slim pill on the left edge that turns into a "back" tab under the pointer. */
+.edge-back {
+  position: absolute;
+  z-index: 7;
+  left: 0;
+  top: 50%;
+  width: 34px;
+  height: 132px;
+  margin-top: -66px;
+  padding: 0;
+  border: 0;
+  background: none;
+  display: grid;
+  place-items: center;
+  cursor: grab;
+  touch-action: none;
+}
+
+.edge-back i {
+  width: 6px;
+  height: 64px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--tint, #fff) 55%, #fff);
+  opacity: 0.18;
+  transition: opacity 400ms ease, width 200ms ease, height 200ms ease, transform 200ms ease;
+}
+
+.edge-back.awake i {
+  opacity: 0.55;
+}
+
+.edge-back :deep(svg) {
+  position: absolute;
+  left: 8px;
+  width: 26px;
+  height: 26px;
+  color: #000;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.edge-back:hover i,
+.edge-back:focus-visible i {
+  width: 40px;
+  height: 92px;
+  border-radius: 0 46px 46px 0;
+  opacity: 0.92;
+  transform: translateX(-3px);
+}
+
+.edge-back:hover :deep(svg),
+.edge-back:focus-visible :deep(svg) {
+  opacity: 1;
+}
+
+.light-display .edge-back i {
+  background: #171717;
+}
+
+.edge-back.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Dragging on the watch should never select text. */
+.display {
+  user-select: none;
+  -webkit-user-select: none;
 }

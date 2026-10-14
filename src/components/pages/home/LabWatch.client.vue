@@ -40,6 +40,17 @@ const appColor = computed(() => WATCH_APPS.find(app => app.id === activeApp.valu
 const longLook = computed(() => !activeApp.value && view.value === 'face');
 const bannerApp = computed(() => WATCH_APPS.find(app => app.id === banner.value?.app)?.name ?? '');
 const bannerShift = ref(0);
+// Swipe back: the open app follows the finger from the left edge, uncovering where it will return to.
+const swipe = ref(0);
+const swiping = ref(false);
+const settling = ref(false);
+const edgeAwake = ref(true);
+const backTarget = computed(() => {
+  if (!activeApp.value) return 'Watch face';
+  return 'Apps';
+});
+let edgeTimer = 0;
+let swipeTrack: { x: number; t: number }[] = [];
 let bannerPull: { id: number; y: number; moved: boolean } | null = null;
 const origin = ref({
   x: 211,
@@ -266,6 +277,16 @@ function screenDown(event: PointerEvent): void {
     moved: false
   };
   suppressScreenClick = false;
+  nudgeEdge();
+  // A swipe that starts at the left edge of an open app becomes the back gesture.
+  if ((activeApp.value || view.value === 'apps') && !overlay.value && gesture.screenX < 64) {
+    swiping.value = true;
+    settling.value = false;
+    swipeTrack = [{ x: event.clientX, t: performance.now() }];
+    // The screen keeps the pointer for the whole gesture, whatever slides away underneath it.
+    try { screen.value?.setPointerCapture(event.pointerId); } catch { /* Synthetic pointers cannot be captured. */ }
+    event.preventDefault();
+  }
   if (!activeApp.value && view.value === 'face' && !overlay.value) {
     faceHold = window.setTimeout(() => {
       if (!gesture || gesture.moved) return;
@@ -278,6 +299,19 @@ function screenDown(event: PointerEvent): void {
 }
 function screenMove(event: PointerEvent): void {
   if (!gesture || gesture.id !== event.pointerId) return;
+  if (swiping.value) {
+    const dx = (event.clientX - gesture.x) / scale.value;
+    const dy = (event.clientY - gesture.y) / scale.value;
+    // A mostly vertical drag is a scroll, not a swipe back.
+    if (swipe.value === 0 && Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx)) {
+      swiping.value = false;
+    } else {
+      swipe.value = clamp(dx, 0, 422);
+      swipeTrack.push({ x: event.clientX, t: performance.now() });
+      if (swipeTrack.length > 6) swipeTrack.shift();
+      if (dx > 6) event.preventDefault();
+    }
+  }
   if (Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 9) {
     gesture.moved = true;
     clearTimeout(faceHold);
@@ -290,13 +324,15 @@ function screenUp(event: PointerEvent): void {
   gesture = null;
   const dx = (event.clientX - drag.x) / scale.value;
   const dy = (event.clientY - drag.y) / scale.value;
+  if (swiping.value) {
+    finishSwipe();
+    if (drag.moved) suppressScreenClick = true;
+    return;
+  }
   if (!drag.moved) return;
   suppressScreenClick = true;
   if (overlay.value || !powered.value) return;
-  if (activeApp.value) {
-    if (drag.screenX < 52 && dx > 70 && Math.abs(dy) < 100) system.back();
-    return;
-  }
+  if (activeApp.value) return;
   if (view.value !== 'face') return;
   if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy)) {
     const current = faces.indexOf(settings.face);
@@ -308,6 +344,44 @@ function screenUp(event: PointerEvent): void {
 function cancelGesture(): void {
   clearTimeout(faceHold);
   gesture = null;
+  if (swiping.value) finishSwipe(true);
+}
+// Past a third of the screen, or a quick flick, and the app slides away; otherwise it springs home.
+function finishSwipe(cancel = false): void {
+  swiping.value = false;
+  const first = swipeTrack[0], last = swipeTrack[swipeTrack.length - 1];
+  const velocity = first && last && last.t > first.t ? (last.x - first.x) / scale.value / (last.t - first.t) : 0;
+  const commit = !cancel && (swipe.value > 140 || (velocity > 0.9 && swipe.value > 40));
+  settling.value = true;
+  if (commit) {
+    swipe.value = 422;
+    system.haptic();
+    window.setTimeout(() => {
+      system.back();
+      settling.value = false;
+      swipe.value = 0;
+    }, reducedMotion.value ? 0 : 220);
+  } else {
+    swipe.value = 0;
+    window.setTimeout(() => { settling.value = false; }, 260);
+  }
+}
+// The edge grip shows itself while you are using the watch and gets out of the way when you are reading.
+function nudgeEdge(): void {
+  edgeAwake.value = true;
+  clearTimeout(edgeTimer);
+  edgeTimer = window.setTimeout(() => { edgeAwake.value = false; }, 2600);
+}
+function edgeBack(): void {
+  if (swipe.value) return;
+  settling.value = true;
+  swipe.value = 422;
+  system.haptic();
+  window.setTimeout(() => {
+    system.back();
+    settling.value = false;
+    swipe.value = 0;
+  }, reducedMotion.value ? 0 : 230);
 }
 function captureClick(event: MouseEvent): void {
   if (!suppressScreenClick) return;
@@ -332,6 +406,9 @@ function key(event: KeyboardEvent): void {
   } else if ((event.key === 'Enter' || event.key === ' ') && event.target === watchRoot.value) {
     event.preventDefault();
     system.crownPress();
+  } else if (event.key === 'Backspace') {
+    event.preventDefault();
+    system.back();
   } else if (event.key.toLowerCase() === 'c') {
     system.sidePress();
   } else if (event.key.toLowerCase() === 'a') {
@@ -407,6 +484,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', escape, true);
   clearTimeout(faceHold);
   clearTimeout(indicatorTimer);
+  clearTimeout(edgeTimer);
   window.removeEventListener('resize', fit);
   window.removeEventListener('pointerup', screenUp);
   window.removeEventListener('pointermove', screenMove);
@@ -458,6 +536,7 @@ onBeforeUnmount(() => {
             @wheel.prevent="screenWheel"
             @pointerdown="screenDown"
             @pointermove="screenMove"
+            @pointerenter="nudgeEdge"
             @pointerup="screenUp"
             @pointercancel="cancelGesture"
             @click.capture="captureClick"
@@ -472,9 +551,22 @@ onBeforeUnmount(() => {
               <WatchFace v-if="!activeApp && view === 'face'" :inert="!!overlay" />
               <WatchAppView
                 v-else-if="!activeApp"
+                class="app-layer"
+                :class="{ settling }"
+                :style="swipe ? { transform: 'translateX(' + swipe + 'px)', '--swipe': swipe / 422 } : undefined"
                 :inert="!!overlay"
                 @open="openFromIcon"
               />
+              <!-- Uncovered while swiping back: a hint of where the swipe leads. -->
+              <div
+                v-if="swipe > 0 && (activeApp || view === 'apps')"
+                class="swipe-under"
+                :style="{ '--p': Math.min(1, swipe / 260) }"
+                aria-hidden="true"
+              >
+                <WatchGlyph name="back" />
+                <span>{{ backTarget }}</span>
+              </div>
               <Transition name="watch-app-zoom">
                 <KeepAlive>
                   <component
@@ -482,6 +574,9 @@ onBeforeUnmount(() => {
                     v-if="activeApp"
                     :key="activeApp"
                     :inert="!!overlay"
+                    class="app-layer"
+                    :class="{ settling }"
+                    :style="swipe ? { transform: 'translateX(' + swipe + 'px)', '--swipe': swipe / 422 } : undefined"
                   />
                 </KeepAlive>
               </Transition>
@@ -500,14 +595,7 @@ onBeforeUnmount(() => {
                   </span>
                 </template>
                 <template v-else>
-                  <button
-                    class="app-back"
-                    :aria-label="activeApp ? 'Back from ' + system.appName.value : 'Back to watch face'"
-                    :style="{ '--tint': activeApp ? appColor : '#fff' }"
-                    @click="system.back()"
-                  >
-                    <WatchGlyph name="back" />
-                  </button>
+
                   <Transition name="nav-title">
                     <span
                       v-if="activeApp && titled && navTitle"
@@ -575,6 +663,19 @@ onBeforeUnmount(() => {
                   <i class="banner-grabber" aria-hidden="true" />
                 </button>
               </Transition>
+              <!-- The edge grip: a quiet handle on the left edge. Drag it like a swipe, or click it. -->
+              <button
+                v-if="(activeApp || view === 'apps') && !overlay"
+                class="edge-back"
+                :class="{ awake: edgeAwake, hidden: swipe > 0 }"
+                :style="{ '--tint': activeApp ? appColor : '#fff' }"
+                :aria-label="activeApp ? 'Back from ' + system.appName.value + ' (or swipe from the left edge)' : 'Back to watch face'"
+                @pointerdown.stop="screenDown"
+                @click="edgeBack"
+              >
+                <i />
+                <WatchGlyph name="back" />
+              </button>
               <div
                 v-if="scrollRange > 1 && activeApp !== 'flashlight'"
                 class="scroll-rail"
