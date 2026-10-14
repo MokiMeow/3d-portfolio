@@ -3,7 +3,7 @@
  * Everything is shaped noise and a few sine tones, kept quiet. Nothing plays until `set` is called
  * from a user gesture, which is what browsers require.
  */
-export type AmbienceKind = 'none' | 'wind' | 'waves' | 'water' | 'forest' | 'night' | 'space';
+export type AmbienceKind = 'none' | 'wind' | 'waves' | 'water' | 'forest' | 'night' | 'space' | 'city' | 'fire';
 
 export function createAmbience() {
   let context: AudioContext | undefined;
@@ -76,6 +76,26 @@ export function createAmbience() {
     return () => { alive = false; clearTimeout(timer); };
   };
 
+  /** Pops and snaps of burning wood: tiny bursts of filtered noise at uneven moments. */
+  const crackle = (audio: AudioContext, out: AudioNode, level: number) => {
+    let alive = true, timer = 0;
+    const snap = () => {
+      if (!alive) return;
+      const length = 0.01 + Math.random() * 0.05;
+      const buffer = audio.createBuffer(1, Math.ceil(audio.sampleRate * length), audio.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 3);
+      const source = audio.createBufferSource(), filter = audio.createBiquadFilter(), gain = audio.createGain();
+      source.buffer = buffer;
+      filter.type = 'bandpass'; filter.frequency.value = 1200 + Math.random() * 3800; filter.Q.value = 0.9;
+      gain.gain.value = level * (0.3 + Math.random());
+      source.connect(filter).connect(gain).connect(out);
+      source.start();
+      timer = window.setTimeout(snap, Math.random() < 0.25 ? 30 + Math.random() * 90 : 120 + Math.random() * 900);
+    };
+    timer = window.setTimeout(snap, 300);
+    return () => { alive = false; clearTimeout(timer); };
+  };
   const RECIPES: Record<Exclude<AmbienceKind, 'none'>, (audio: AudioContext, out: AudioNode) => (() => void)[]> = {
     wind: (audio, out) => [
       bed(audio, out, { brown: true, type: 'lowpass', frequency: 420, level: 0.5, swell: 0.55, period: 9 }),
@@ -98,6 +118,16 @@ export function createAmbience() {
     night: (audio, out) => [
       bed(audio, out, { brown: true, type: 'lowpass', frequency: 300, level: 0.22, swell: 0.4, period: 13 }),
       calls(audio, out, { low: 4300, high: 4700, every: 0.9, length: 0.035, trill: 7, level: 0.012 }),
+    ],
+    city: (audio, out) => [
+      // Far-off traffic: a low rumble that rises and falls, a little hiss of tyres, the odd distant horn.
+      bed(audio, out, { brown: true, type: 'lowpass', frequency: 240, level: 0.4, swell: 0.35, period: 7 }),
+      bed(audio, out, { brown: false, type: 'bandpass', frequency: 1300, q: 0.5, level: 0.012, swell: 0.7, period: 4 }),
+      calls(audio, out, { low: 380, high: 520, every: 14, length: 0.35, trill: 2, level: 0.01 }),
+    ],
+    fire: (audio, out) => [
+      bed(audio, out, { brown: true, type: 'lowpass', frequency: 380, level: 0.3, swell: 0.3, period: 6 }),
+      crackle(audio, out, 0.06),
     ],
     space: (audio, out) => {
       const hum = audio.createOscillator(), gain = audio.createGain();

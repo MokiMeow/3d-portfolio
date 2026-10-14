@@ -19,19 +19,29 @@ import Settings from './vision/apps/Settings.vue';
 import Store from './vision/apps/Store.vue';
 import TV from './vision/apps/TV.vue';
 import YouTube from './vision/apps/YouTube.vue';
+import Arcade from './vision/apps/Arcade.vue';
+import FaceTime from './vision/apps/FaceTime.vue';
+import Weather from './vision/apps/Weather.vue';
+import Maps from './vision/apps/Maps.vue';
+import Clock from './vision/apps/Clock.vue';
+import Keynote from './vision/apps/Keynote.vue';
 
 type Win = { id: VisionAppId; x: number; y: number; w: number; h: number; z: number; full?: { x: number; y: number; w: number; h: number } };
 const VIEWS: Record<VisionAppId, Component> = {
   tv: TV, youtube: YouTube, photos: Photos, safari: Safari, music: Music, notes: Notes, mindfulness: Mindfulness, mac: Mac,
   freeform: Freeform, settings: Settings, messages: Messages, files: Files, encounter: Encounter, store: Store,
+  arcade: Arcade, facetime: FaceTime, weather: Weather, maps: Maps, clock: Clock, keynote: Keynote,
 };
 const NAMES = Object.fromEntries(VISION_APPS.map(item => [item.id, item.name])) as Record<VisionAppId, string>;
-// The Home View honeycomb: rows of 4, 5 and 5, each cell 146 apart.
+// The Home View honeycomb: pages of rows of 4, 5 and 5, each cell 146 apart, like the real Home View.
 const ROWS = [4, 5, 5];
-const CELLS = VISION_APPS.map((item, index) => {
-  const row = index < 4 ? 0 : index < 9 ? 1 : 2, column = index - [0, 4, 9][row];
-  return { ...item, x: (column - (ROWS[row] - 1) / 2) * 146, y: (row - 1) * 134 };
-});
+const PER_PAGE = 14;
+const PAGES = Array.from({ length: Math.ceil(VISION_APPS.length / PER_PAGE) }, (_, page) =>
+  VISION_APPS.slice(page * PER_PAGE, (page + 1) * PER_PAGE).map((item, index) => {
+    const row = index < 4 ? 0 : index < 9 ? 1 : 2, column = index - [0, 4, 9][row]!;
+    return { ...item, x: (column - (ROWS[row]! - 1) / 2) * 146, y: (row - 1) * 134 };
+  }));
+const ALL_CELLS = PAGES.flat();
 const PEOPLE = [
   { name: 'Build Bot', line: 'Available. Unfortunately.', tint: 'linear-gradient(180deg,#8e9aff,#5b5ce6)' },
   { name: 'Rubber Duck', line: 'Listening. Judging.', tint: 'linear-gradient(180deg,#ffe066,#ffb300)' },
@@ -45,6 +55,8 @@ const TIPS = [
 ];
 /** Space kept clear at the bottom for the dock, so a window's bar never hides behind it. */
 const DOCK = 96;
+// Windows live below the row of hardware pills and the clock, never underneath them.
+const TOP = 72;
 
 useHead({ link: [{ rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap' }] });
 
@@ -82,14 +94,14 @@ let noteTimer = 0, clockTimer = 0, bootTimer = 0, flashTimer = 0, glide = 0;
 let watcher: ResizeObserver | undefined;
 
 function focus(win: Win) { if (win.z !== top) win.z = ++top; }
-function room() { return { w: view.w - (compact.value ? 12 : 56), h: view.h - 52 - DOCK - 58 }; }
+function room() { return { w: view.w - (compact.value ? 12 : 56), h: view.h - TOP - DOCK - 58 }; }
 function open(id: VisionAppId) {
   const existing = windows.value.find(item => item.id === id);
   homeOpen.value = false; control.value = false; help.value = false;
   if (existing) { focus(existing); return; }
   const [width, height] = VISION_APPS.find(item => item.id === id)!.size, fit = room();
   const w = Math.min(width, fit.w), h = Math.min(height, fit.h), step = windows.value.length % 4;
-  windows.value.push({ id, w, h, x: Math.max(6, (view.w - w) / 2 + step * 28), y: Math.max(52, 52 + (fit.h - h) / 2 + step * 18), z: ++top });
+  windows.value.push({ id, w, h, x: Math.max(6, (view.w - w) / 2 + step * 28), y: Math.max(TOP, TOP + (fit.h - h) / 2 + step * 18), z: ++top });
   // The first window comes with one line on how to leave it.
   if (!hinted) { hinted = true; toast('Drag the bar under the window to move it. × closes it. Home is in the dock.'); }
 }
@@ -98,6 +110,36 @@ function close(id: VisionAppId) {
   if (!windows.value.length) { homeOpen.value = true; tab.value = 'apps'; }
 }
 function closeAll() { windows.value = []; homeOpen.value = true; tab.value = 'apps'; toast('All apps closed.'); }
+const page = ref(0);
+const pageDirection = ref(1);
+function turnPage(step: number) {
+  const next = Math.max(0, Math.min(PAGES.length - 1, page.value + step));
+  if (next === page.value) return;
+  pageDirection.value = Math.sign(step);
+  page.value = next;
+}
+function showPage(index: number) { turnPage(index - page.value); }
+// A sideways swipe or a sideways scroll turns the page; the click that ends a swipe never opens an app.
+let pageSwipe: { x: number; y: number; done: boolean } | null = null, swallowClick = false, wheelLock = 0;
+function pageDown(event: PointerEvent) { swallowClick = false; pageSwipe = { x: event.clientX, y: event.clientY, done: false }; }
+function pageMove(event: PointerEvent) {
+  if (!pageSwipe || pageSwipe.done) return;
+  const dx = event.clientX - pageSwipe.x, dy = event.clientY - pageSwipe.y;
+  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4) { pageSwipe.done = true; swallowClick = true; turnPage(dx < 0 ? 1 : -1); }
+}
+function pageUp() { pageSwipe = null; }
+function pageClick(event: MouseEvent) { if (!swallowClick) return; event.stopPropagation(); event.preventDefault(); swallowClick = false; }
+function pageWheel(event: WheelEvent) {
+  if (PAGES.length < 2 || Math.abs(event.deltaX) < Math.abs(event.deltaY) || Math.abs(event.deltaX) < 24 || performance.now() < wheelLock) return;
+  wheelLock = performance.now() + 450;
+  turnPage(event.deltaX > 0 ? 1 : -1);
+}
+function pageKeys(event: KeyboardEvent) {
+  if (!homeOpen.value || tab.value !== 'apps' || compact.value || event.defaultPrevented) return;
+  if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+  if (event.key === 'ArrowRight' || event.key === 'PageDown') turnPage(1);
+  else if (event.key === 'ArrowLeft' || event.key === 'PageUp') turnPage(-1);
+}
 function goHome(which: 'apps' | 'people' | 'environments' = 'apps') {
   control.value = false; help.value = false;
   if (homeOpen.value && tab.value === which && windows.value.length) { homeOpen.value = false; return; }
@@ -158,7 +200,7 @@ function capture() {
 }
 function recenter() {
   const fit = room();
-  windows.value.forEach((win, index) => { win.full = undefined; win.w = Math.min(win.w, fit.w); win.h = Math.min(win.h, fit.h); win.x = Math.max(6, (view.w - win.w) / 2 + (index % 4) * 28); win.y = Math.max(52, 52 + (fit.h - win.h) / 2 + (index % 4) * 18); });
+  windows.value.forEach((win, index) => { win.full = undefined; win.w = Math.min(win.w, fit.w); win.h = Math.min(win.h, fit.h); win.x = Math.max(6, (view.w - win.w) / 2 + (index % 4) * 28); win.y = Math.max(TOP, TOP + (fit.h - win.h) / 2 + (index % 4) * 18); });
   place.value?.recentre();
   control.value = false; toast('View recentred.');
 }
@@ -167,7 +209,7 @@ function zoom(win: Win) {
   if (win.full) { Object.assign(win, win.full); win.full = undefined; return; }
   const fit = room();
   win.full = { x: win.x, y: win.y, w: win.w, h: win.h };
-  win.w = fit.w; win.h = fit.h; win.x = (view.w - fit.w) / 2; win.y = 52;
+  win.w = fit.w; win.h = fit.h; win.x = (view.w - fit.w) / 2; win.y = TOP;
 }
 
 // Dragging a window by its bar, or resizing it from the corner.
@@ -177,14 +219,14 @@ function grab(event: PointerEvent, win: Win, mode: 'move' | 'size') {
   drag = { win, mode, x: event.clientX, y: event.clientY, left: win.x, top: win.y, w: win.w, h: win.h };
   (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
 }
-function lowest(win: Win) { return Math.max(52, view.h - DOCK - 54 - win.h); }
+function lowest(win: Win) { return Math.max(TOP, view.h - DOCK - 54 - win.h); }
 function pull(event: PointerEvent) {
   if (!drag) return;
   const dx = event.clientX - drag.x, dy = event.clientY - drag.y, win = drag.win;
   if (Math.abs(dx) + Math.abs(dy) > 3) win.full = undefined;
   if (drag.mode === 'move') {
     win.x = Math.max(90 - win.w, Math.min(view.w - 90, drag.left + dx));
-    win.y = Math.max(52, Math.min(lowest(win), drag.top + dy));
+    win.y = Math.max(TOP, Math.min(lowest(win), drag.top + dy));
   } else {
     win.w = Math.max(Math.min(380, view.w - 12), Math.min(view.w - win.x - 6, drag.w + dx));
     win.h = Math.max(300, Math.min(view.h - DOCK - 54 - win.y, drag.h + dy));
@@ -239,7 +281,7 @@ function measure() {
   const fit = room();
   for (const win of windows.value) {
     win.w = Math.min(win.w, fit.w); win.h = Math.min(win.h, fit.h);
-    win.x = Math.max(90 - win.w, Math.min(view.w - 90, win.x)); win.y = Math.max(52, Math.min(lowest(win), win.y));
+    win.x = Math.max(90 - win.w, Math.min(view.w - 90, win.x)); win.y = Math.max(TOP, Math.min(lowest(win), win.y));
   }
 }
 function finishHelp() {
@@ -253,6 +295,7 @@ onMounted(() => {
   watcher = new ResizeObserver(measure);
   if (visor.value) watcher.observe(visor.value);
   clockTimer = window.setInterval(() => { now.value = new Date(); }, 1000);
+  window.addEventListener('keydown', pageKeys);
   let welcomed = false;
   try { welcomed = localStorage.getItem('lab-vision-welcomed') === '1'; } catch { /* ignore */ }
   bootTimer = window.setTimeout(() => { booting.value = false; if (!welcomed) help.value = true; }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 2600);
@@ -261,6 +304,7 @@ onBeforeUnmount(() => {
   document.documentElement.classList.remove('lab-vision-on');
   if (labDeviceBack.handler === back) labDeviceBack.handler = null;
   watcher?.disconnect();
+  window.removeEventListener('keydown', pageKeys);
   ambience.dispose();
   clearInterval(clockTimer); clearTimeout(bootTimer); clearTimeout(noteTimer); clearTimeout(flashTimer); cancelAnimationFrame(glide);
 });
@@ -296,10 +340,19 @@ onBeforeUnmount(() => {
             <button :aria-pressed="tab === 'people'" aria-label="People" @click="tab = 'people'"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.500" r="3.800" fill="currentColor" /><path d="M4.500 20a7.500 7.500 0 0 1 15 0Z" fill="currentColor" /></svg><span>People</span></button>
             <button :aria-pressed="tab === 'environments'" aria-label="Environments" @click="tab = 'environments'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 19 6-10 4 6 2.500-3.500L21 19Z" fill="currentColor" /><circle cx="17" cy="6.500" r="2.200" fill="currentColor" /></svg><span>Environments</span></button>
           </nav>
-          <div v-if="tab === 'apps'" class="honeycomb">
-            <button v-for="(cell, index) in CELLS" :key="cell.id" :style="{ '--x': `${cell.x}px`, '--y': `${cell.y}px`, '--i': index }" @click="open(cell.id)">
-              <span class="orb"><VisionIcon :name="cell.id" /><i v-if="windows.some(win => win.id === cell.id)" class="running" /></span><span class="name">{{ cell.name }}</span>
-            </button>
+          <div v-if="tab === 'apps'" class="honeycomb" @pointerdown="pageDown" @pointermove="pageMove" @pointerup="pageUp" @pointercancel="pageUp" @click.capture="pageClick" @wheel="pageWheel">
+            <template v-if="compact">
+              <button v-for="(cell, index) in ALL_CELLS" :key="cell.id" :style="{ '--i': index }" @click="open(cell.id)">
+                <span class="orb"><VisionIcon :name="cell.id" /><i v-if="windows.some(win => win.id === cell.id)" class="running" /></span><span class="name">{{ cell.name }}</span>
+              </button>
+            </template>
+            <Transition v-else :name="pageDirection > 0 ? 'page-next' : 'page-back'" mode="out-in">
+              <div :key="page" class="page">
+                <button v-for="(cell, index) in PAGES[page]" :key="cell.id" :style="{ '--x': `${cell.x}px`, '--y': `${cell.y}px`, '--i': index }" @click="open(cell.id)">
+                  <span class="orb"><VisionIcon :name="cell.id" /><i v-if="windows.some(win => win.id === cell.id)" class="running" /></span><span class="name">{{ cell.name }}</span>
+                </button>
+              </div>
+            </Transition>
           </div>
           <div v-else-if="tab === 'people'" class="shelf people">
             <button v-for="person in PEOPLE" :key="person.name" @click="open('messages')">
@@ -312,6 +365,9 @@ onBeforeUnmount(() => {
               <b>{{ spot.name }}</b><small>{{ spot.line }}</small>
             </button>
           </div>
+          <nav v-if="tab === 'apps' && !compact && PAGES.length > 1" class="page-dots" aria-label="Home View pages">
+            <button v-for="(_, index) in PAGES" :key="index" :aria-pressed="index === page" :aria-label="`Page ${index + 1}`" @click="showPage(index)"><i /></button>
+          </nav>
         </div>
       </Transition>
     </div>
@@ -415,7 +471,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3
 .space.dimmed::before{opacity:1}
 
 /* Home View */
-.home{position:absolute;left:50%;top:calc((100% - 96px) / 2 + 14px);width:740px;height:430px;margin:-215px 0 0 -370px;z-index:5000;transform:scale(var(--s)) rotateY(calc(var(--tx) * .5deg)) rotateX(calc(var(--ty) * -.4deg));transform-style:preserve-3d;transition:transform .25s ease-out}
+.home{position:absolute;left:50%;top:calc((100% - 96px) / 2 + 14px);width:740px;height:430px;margin:-215px 0 0 -370px;z-index:5000;transform:scale(var(--s)) rotateY(calc(var(--tx) * .5deg)) rotateX(calc(var(--ty) * -.4deg));transform-style:flat;transition:transform .25s ease-out}
 .tabs{position:absolute;left:-104px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:40px;
   background:linear-gradient(135deg,rgb(255 255 255 / .2),rgb(255 255 255 / .05)),rgb(45 48 54 / .45);backdrop-filter:blur(36px) saturate(125%);-webkit-backdrop-filter:blur(36px) saturate(125%);box-shadow:inset 0 1px 0 rgb(255 255 255 / .3),inset 0 0 0 1px rgb(255 255 255 / .16),0 20px 50px rgb(0 0 0 / .25)}
 .tabs button{position:relative;width:56px;height:56px;border-radius:50%;display:grid;place-items:center;color:rgb(255 255 255 / .7);transition:background .2s,color .2s,transform .2s}
@@ -423,6 +479,17 @@ button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3
 .tabs svg{width:26px;height:26px}
 .tabs span{position:absolute;left:68px;top:50%;transform:translateY(-50%);padding:6px 12px;border-radius:14px;background:rgb(40 42 48 / .8);font-size:14px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s}.tabs button:hover span,.tabs button:focus-visible span{opacity:1}
 .honeycomb button{position:absolute;left:50%;top:50%;width:132px;margin:-64px 0 0 -66px;display:flex;flex-direction:column;align-items:center;gap:9px;transform:translate(var(--x),var(--y));animation:bloom .7s cubic-bezier(.2,.9,.3,1.150) both;animation-delay:calc(var(--i) * 26ms)}
+/* Pages slide sideways and the icons bloom in again, like turning a page of the real Home View. */
+/* The page sits in the same plane as its icons inside the tilting 3D Home View; it must never win the hit test. */
+.page{position:absolute;inset:0;pointer-events:none}.page button{pointer-events:auto}
+.page-next-enter-active,.page-back-enter-active,.page-next-leave-active,.page-back-leave-active{transition:opacity .28s ease,transform .38s cubic-bezier(.2,.8,.2,1)}
+.page-next-enter-from,.page-back-leave-to{opacity:0;transform:translateX(140px)}
+.page-next-leave-to,.page-back-enter-from{opacity:0;transform:translateX(-140px)}
+.page-dots{position:absolute;left:50%;top:calc(50% + 236px);transform:translateX(-50%);display:flex;gap:4px;padding:4px 6px;border-radius:14px;background:rgb(60 62 70 / .35);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.page-dots button{display:grid;place-items:center;width:22px;height:22px;border-radius:11px}
+.page-dots i{width:8px;height:8px;border-radius:50%;background:rgb(255 255 255 / .4);transition:background .2s,transform .2s}
+.page-dots button[aria-pressed=true] i{background:#fff;transform:scale(1.15)}
+.page-dots button:hover i{background:rgb(255 255 255 / .75)}
 .orb{position:relative;display:block;width:92px;transition:transform .25s cubic-bezier(.2,.9,.3,1.300),filter .25s}
 .honeycomb button:hover .orb,.honeycomb button:focus-visible .orb{transform:scale(1.1);filter:brightness(1.08) drop-shadow(0 0 18px rgb(255 255 255 / .35))}
 .honeycomb button:active .orb{transform:scale(.96)}
@@ -534,7 +601,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3
 .help .tip-place::after{right:14px;top:13px;width:8px;height:8px;border-radius:50%;background:#ffd60a}
 .go{display:block;width:100%;margin-top:18px;height:54px;border-radius:27px;background:#fff;color:#111;font-size:17px;font-weight:600;transition:transform .2s,background .2s}.go:hover{background:#e9e9ee}.go:active{transform:scale(.98)}
 
-.toast{position:absolute;left:50%;top:60px;transform:translateX(-50%);margin:0;max-width:calc(100vw - 24px);padding:13px 22px;border-radius:26px;z-index:7500;font-size:15px;text-align:center;pointer-events:none;
+.toast{position:absolute;left:50%;top:auto;bottom:calc(96px + 62px);transform:translateX(-50%);margin:0;max-width:calc(100vw - 24px);padding:13px 22px;border-radius:26px;z-index:7500;font-size:15px;text-align:center;pointer-events:none;
   background:rgb(50 52 60 / .78);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);box-shadow:inset 0 1px 0 rgb(255 255 255 / .28),0 16px 40px rgb(0 0 0 / .35)}
 .drop-enter-active,.drop-leave-active{transition:opacity .25s,translate .35s cubic-bezier(.2,.9,.2,1)}.drop-enter-from,.drop-leave-to{opacity:0;translate:0 -18px}
 .shutter{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:9000;transition:opacity .35s}.shutter.on{opacity:.75;transition:none}

@@ -613,6 +613,16 @@ const iconFactories = {
   ...extraAppleIcons,
   ...thirdPartyIcons,
   store: appleIcons.appstore,
+  arcade: (uid) => art(plate(uid, '#6437c8', '#d63d9d'),
+    '<path d="M34 38h32c8 0 13 8 15 18l3 14c2 8-5 12-11 7L62 66H38L27 77c-6 5-13 1-11-7l3-14c2-10 7-18 15-18Z" fill="#fff"/>'
+    + '<g stroke="#9237bb" stroke-width="4" stroke-linecap="round"><path d="M29 51v13m-6-6.5h12"/></g>'
+    + '<g fill="#9237bb"><circle cx="65" cy="51" r="3.2"/><circle cx="73" cy="59" r="3.2"/></g>'
+    + '<path d="m76 17 2.8 7.2L86 27l-7.2 2.8L76 37l-2.8-7.2L66 27l7.2-2.8Z" fill="#fff"/>'),
+  keynote: (uid) => art(plate(uid, '#42c0fc', '#1466d6'),
+    '<g fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">'
+    + '<path d="M38 21h44v30H38Zm8 21 8-8 8 5 11-12M60 51v15m0-4-8 10m8-10 8 10"/></g>'
+    + '<path d="M18 47h34l-4 11H22Zm8 14h18v16H26Zm-7 19h32v5H19Z" fill="#fff"/>'
+    + '<path d="M31 47V35c0-6 8-6 8-1" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>'),
 } satisfies Record<string, AppIconFactory>;
 
 export type AppIconKey = keyof typeof iconFactories;

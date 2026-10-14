@@ -16,6 +16,12 @@ export const VISION_APPS = [
   { id: 'files', name: 'Files', size: [940, 610] },
   { id: 'encounter', name: 'Encounter', size: [920, 600] },
   { id: 'store', name: 'App Store', size: [1000, 660] },
+  { id: 'arcade', name: 'Arcade', size: [1180, 700] },
+  { id: 'facetime', name: 'FaceTime', size: [1000, 640] },
+  { id: 'weather', name: 'Weather', size: [980, 640] },
+  { id: 'maps', name: 'Maps', size: [1080, 660] },
+  { id: 'clock', name: 'Clock', size: [900, 600] },
+  { id: 'keynote', name: 'Keynote', size: [1120, 680] },
 ] as const;
 export type VisionAppId = (typeof VISION_APPS)[number]['id'];
 
@@ -34,6 +40,11 @@ export const VISION_ENVIRONMENTS = [
   { id: 'goegap', name: 'Goegap Desert', line: 'Nothing for miles, on purpose', kind: 'photo', life: 'motes', sound: 'wind', night: false },
   { id: 'snow', name: 'Snowy Field', line: 'Fresh tracks and falling snow', kind: 'photo', life: 'snow', sound: 'wind', night: false },
   { id: 'pines', name: 'Misty Pines', line: 'A quiet forest in the fog', kind: 'photo', life: 'mist', sound: 'forest', night: false },
+  { id: 'bund', name: 'The Bund', line: 'Shanghai\'s skyline, lit up after dark', kind: 'photo', life: 'none', sound: 'city', night: true },
+  { id: 'venice', name: 'Venice Sunset', line: 'The lagoon at golden hour', kind: 'photo', life: 'motes', sound: 'water', night: false },
+  { id: 'fire', name: 'Sky on Fire', line: 'A blazing sunset over a rocky coast', kind: 'photo', life: 'none', sound: 'waves', night: false },
+  { id: 'sunflowers', name: 'Open Fields', line: 'Big sky, small road, no plans', kind: 'photo', life: 'motes', sound: 'wind', night: false },
+  { id: 'fireside', name: 'Fireside', line: 'A warm room and a crackling stove', kind: 'photo', life: 'none', sound: 'fire', night: true },
   { id: 'night', name: 'Milky Way', line: 'A clear night, far from any city', kind: 'photo', life: 'meteors', sound: 'night', night: true },
   { id: 'moon', name: 'The Moon', line: 'Earthrise over the regolith', kind: 'moon', life: 'none', sound: 'space', night: true },
   { id: 'jupiter', name: 'Jupiter', line: 'The view from a small, cold moon', kind: 'jupiter', life: 'none', sound: 'space', night: true },
