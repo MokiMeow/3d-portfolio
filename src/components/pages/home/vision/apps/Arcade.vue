@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { PS_GAMES, PS_SHELVES, type PsGame } from '~/common/playstation/games';
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
 import ArcadeIcon from './arcade/ArcadeIcon.vue';
 import GameCard from './arcade/GameCard.vue';
 import AppSheet from './arcade/AppSheet.vue';
+import GamePage from './arcade/GamePage.vue';
 const props = defineProps<{ compact?: boolean }>();
 const vision = inject(VISION)!;
 const view = ref('featured');
@@ -13,6 +14,15 @@ const query = ref('');
 const touchOnly = ref(false);
 const recent = ref<string[]>([]);
 const current = ref<PsGame | null>(null);
+const detail = ref<PsGame | null>(null);
+const favorites = ref<string[]>([]);
+const playedGames = ref<string[]>([]);
+const playedGenres = computed(() => new Set(playedGames.value.map(id => PS_GAMES.find(game => game.id === id)?.shelf).filter(Boolean)).size);
+const quickPicks = computed(() => [
+ { game: PS_GAMES.find(game => game.id === 'sandspiel')!, note: 'Make something' },
+ { game: PS_GAMES.find(game => game.id === 'swooop')!, note: 'Take a quick flight' },
+ { game: PS_GAMES.find(game => game.id === '2048') ?? PS_GAMES.find(game => game.phone)!, note: 'A little brain break' },
+]);
 const pending = ref<PsGame | null>(null);
 const info = ref(false);
 const loading = ref(false);
@@ -20,6 +30,7 @@ const slow = ref(false);
 const revision = ref(0);
 const player = ref<HTMLElement>();
 const content = ref<HTMLElement>();
+const arcadeRoot = ref<HTMLElement>();
 const heroIndex = ref(0);
 const heroHovered = ref(false);
 const heroFocused = ref(false);
@@ -29,7 +40,7 @@ const featured = ['minecraft', 'swooop', 'sandspiel', 'celeste', 'hexgl'].map(id
 const hero = computed(() => featured[heroIndex.value] ?? PS_GAMES[0]!);
 const navigation = [{ id: 'featured', name: 'Featured' }, ...PS_SHELVES, { id: 'search', name: 'Search' }];
 const title = computed(() => navigation.find(item => item.id === view.value)?.name ?? 'Featured');
-const subtitle = computed(() => PS_SHELVES.find(item => item.id === view.value)?.note ?? 'A roomful of games. Zero shelf space.');
+const subtitle = computed(() => PS_SHELVES.find(item => item.id === view.value)?.note ?? 'Independent adventures, beautifully at home in your space.');
 const results = computed(() => PS_GAMES.filter(game => {
   const matches = view.value === 'search' ? (game.title + ' ' + game.genre + ' ' + game.pitch).toLowerCase().includes(query.value.trim().toLowerCase()) : game.shelf === view.value;
   return matches && (!touchOnly.value || game.phone);
@@ -40,10 +51,20 @@ const rows = computed(() => {
   return [...(games.length ? [{ id: 'recent', name: 'Recently played', note: 'Another round?', games }] : []), ...shelves].filter(shelf => shelf.games.length);
 });
 let rotation: ReturnType<typeof setInterval> | undefined;
+let arcadeVisible = true;
+let arcadeMounted = false;
+let arcadeObserver: IntersectionObserver | undefined;
 let loadDelay: ReturnType<typeof setTimeout> | undefined;
 let slowDelay: ReturnType<typeof setTimeout> | undefined;
 let preference: MediaQueryList | undefined;
-function navigate(id: string): void { view.value = id; content.value?.scrollTo({ top: 0 }); }
+function navigate(id: string): void { detail.value = null; view.value = id; content.value?.scrollTo({ top: 0 }); }
+function backFromDetails(): void { detail.value = null; void nextTick(() => arcadeRoot.value?.querySelector<HTMLButtonElement>('.nav-item[aria-pressed="true"]')?.focus()); }
+function showGame(game: PsGame): void { detail.value = game; tilt.value = ''; }
+function toggleFavorite(game: PsGame): void {
+  favorites.value = favorites.value.includes(game.id) ? favorites.value.filter(id => id !== game.id) : [...favorites.value,game.id];
+  try { localStorage.setItem('lab-vision-arcade-favorites', JSON.stringify(favorites.value)); } catch { vision.toast('Favorites stay in this session.'); }
+}
+function detailKeys(event: KeyboardEvent): void { if (event.key === 'Escape' && detail.value && !current.value && !pending.value) { event.preventDefault(); event.stopPropagation(); backFromDetails(); } }
 function clearLoading(): void { clearTimeout(loadDelay); clearTimeout(slowDelay); }
 function beginLoading(): void {
   clearLoading(); loading.value = true; slow.value = false;
@@ -52,6 +73,8 @@ function beginLoading(): void {
 function play(game: PsGame, force = false): void {
   if (props.compact && !game.phone && !force) { pending.value = game; return; }
   pending.value = null; current.value = game; revision.value++; beginLoading();
+  if (!playedGames.value.includes(game.id)) playedGames.value.push(game.id);
+  try { localStorage.setItem('lab-vision-arcade-played', JSON.stringify(playedGames.value)); } catch { /* Milestones stay in this session. */ }
   recent.value = [game.id, ...recent.value.filter(id => id !== game.id)].slice(0, 8);
   try { localStorage.setItem('lab-vision-arcade-recent', JSON.stringify(recent.value)); } catch { vision.toast('Recently played stays in this session.'); }
 }
@@ -77,7 +100,13 @@ function pointer(event: PointerEvent): void {
   const y = Math.max(-1, Math.min(1, (event.clientY - box.top) / box.height * 2 - 1));
   tilt.value = 'perspective(1100px) rotateX(' + (-y * 4) + 'deg) rotateY(' + (x * 4) + 'deg)';
 }
-function motion(): void { reduced.value = preference?.matches ?? false; if (reduced.value) tilt.value = ''; }
+function refreshRotation(): void {
+  clearInterval(rotation); rotation = undefined;
+  if (!arcadeMounted || document.hidden || !arcadeVisible || reduced.value || current.value || detail.value || pending.value || view.value !== 'featured') return;
+  rotation = setInterval(() => { if (!heroHovered.value && !heroFocused.value) heroIndex.value = (heroIndex.value + 1) % featured.length; }, 8000);
+}
+function motion(): void { reduced.value = preference?.matches ?? false; if (reduced.value) tilt.value = ''; refreshRotation(); }
+watch([current, detail, pending, view], refreshRotation);
 async function tabKeys(event: KeyboardEvent): Promise<void> {
   if (!['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft'].includes(event.key)) return;
   const index = navigation.findIndex(item => item.id === view.value);
@@ -85,33 +114,43 @@ async function tabKeys(event: KeyboardEvent): Promise<void> {
   if (next) { event.preventDefault(); const nav = event.currentTarget as HTMLElement; navigate(next.id); await nextTick(); nav.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.focus(); }
 }
 onMounted(() => {
+  arcadeMounted = true;
+  document.addEventListener('visibilitychange', refreshRotation);
+  if (arcadeRoot.value && typeof IntersectionObserver !== 'undefined') { arcadeObserver = new IntersectionObserver(entries => { arcadeVisible = entries[0]?.isIntersecting ?? false; refreshRotation(); }); arcadeObserver.observe(arcadeRoot.value); }
   try { const saved: unknown = JSON.parse(localStorage.getItem('lab-vision-arcade-recent') ?? '[]'); if (Array.isArray(saved)) recent.value = [...new Set(saved.filter((id): id is string => typeof id === 'string' && PS_GAMES.some(game => game.id === id)))].slice(0, 8); } catch { /* A fresh shelf is perfectly fine. */ }
+  try { const saved: unknown = JSON.parse(localStorage.getItem('lab-vision-arcade-favorites') ?? '[]'); if (Array.isArray(saved)) favorites.value = [...new Set(saved.filter((id): id is string => typeof id === 'string' && PS_GAMES.some(game => game.id === id)))]; } catch { /* Favorites start empty. */ }
+  playedGames.value = [...recent.value];
+  try { const saved: unknown = JSON.parse(localStorage.getItem('lab-vision-arcade-played') ?? 'null'); if (Array.isArray(saved)) playedGames.value = [...new Set([...playedGames.value,...saved.filter((id): id is string => typeof id === 'string' && PS_GAMES.some(game => game.id === id))])]; } catch { /* The recent shelf still supplies local milestones. */ }
   preference = window.matchMedia('(prefers-reduced-motion: reduce)'); motion(); preference.addEventListener('change', motion);
-  rotation = setInterval(() => { if (!document.hidden && !current.value && !pending.value && !heroHovered.value && !heroFocused.value && !reduced.value) heroIndex.value = (heroIndex.value + 1) % featured.length; }, 8000);
+  refreshRotation();
 });
-onBeforeUnmount(() => { clearLoading(); clearInterval(rotation); preference?.removeEventListener('change', motion); });
+onBeforeUnmount(() => { arcadeMounted = false; document.removeEventListener('visibilitychange', refreshRotation); arcadeObserver?.disconnect(); clearLoading(); clearInterval(rotation); preference?.removeEventListener('change', motion); });
 </script>
 
 <template>
-  <div class="arcade-app" :class="{ compact }">
-    <div v-if="!current" class="browse-layout" :inert="pending ? true : undefined">
+  <div ref="arcadeRoot" class="arcade-app" :class="{ compact }" @keydown="detailKeys">
+    <GamePage v-if="detail && !current" :game="detail" :favorite="favorites.includes(detail.id)" :played="playedGames.includes(detail.id)" :genres="playedGenres" :inert="pending ? true : undefined" @back="backFromDetails" @play="play" @favorite="toggleFavorite" @select="showGame" />
+    <div v-else-if="!current" class="browse-layout" :inert="pending ? true : undefined">
       <nav class="tabs vk-tabbar vk-scroll" aria-label="Arcade shelves" @keydown="tabKeys">
         <button v-for="item in navigation" :key="item.id" v-hover class="nav-item" :aria-pressed="view === item.id" :title="item.name" @click="navigate(item.id)"><span class="vk-icon"><ArcadeIcon :name="item.id" /></span><span>{{ item.name }}</span></button>
       </nav>
       <main ref="content" class="browse-content vk-scroll">
-        <header class="page-heading"><div><span class="vk-footnote vk-secondary">ARCADE · THE ROOM'S LIBRARY</span><h1 class="vk-large-title">{{ title }}</h1></div><span class="vk-chip">{{ PS_GAMES.length }} games</span></header>
+        <header class="page-heading"><div><span class="vk-footnote vk-secondary">ARCADE / INDEPENDENT GAME LIBRARY</span><h1 class="vk-large-title">{{ title }}</h1></div><span class="vk-chip">{{ PS_GAMES.length }} games</span></header>
         <p class="vk-body vk-secondary intro">{{ subtitle }}</p>
         <div v-if="view === 'search'" class="search-tools"><input v-model="query" v-hover type="search" class="vk-field" placeholder="Find a game, genre, or tiny adventure" aria-label="Search game library" /><button v-hover class="vk-button" :aria-pressed="touchOnly" @click="touchOnly = !touchOnly">Touch ready</button></div>
         <template v-if="view === 'featured'">
+          <div class="opening-selection">
           <section class="hero" :style="{ transform: tilt }" aria-label="Featured games" @pointermove="pointer" @pointerenter="heroHovered = true" @pointerleave="heroHovered = false; tilt = ''" @focusin="heroFocused = true" @focusout="heroFocused = false">
             <Transition name="cover"><img :key="hero.id" :src="hero.cover" alt="" class="hero-cover" /></Transition>
             <div class="hero-shade" />
-            <Transition name="copy" mode="out-in"><div :key="hero.id" class="hero-copy"><span class="vk-footnote">TONIGHT'S NEXT ADVENTURE</span><h2>{{ hero.title }}</h2><p>{{ hero.pitch }}</p><div class="hero-actions"><span class="vk-chip">{{ hero.genre }}</span><span class="vk-chip">{{ hero.phone ? 'Touch ready' : 'Keyboard' }}</span><button v-hover class="vk-button primary" @click="play(hero)"><ArcadeIcon name="play" />Play</button></div></div></Transition>
+            <Transition name="copy" mode="out-in"><div :key="hero.id" class="hero-copy"><span class="vk-footnote">TONIGHT'S NEXT ADVENTURE</span><h2>{{ hero.title }}</h2><p>{{ hero.pitch }}</p><div class="hero-actions"><span class="vk-chip">{{ hero.genre }}</span><span class="vk-chip">{{ hero.phone ? 'Touch ready' : 'Keyboard' }}</span><button v-hover class="vk-button primary" @click="play(hero)"><ArcadeIcon name="play" />Play</button><button v-hover class="vk-button details-button" @click="showGame(hero)">Details</button></div></div></Transition>
           </section>
           <div class="dots" aria-label="Choose featured game"><button v-for="(game, index) in featured" :key="game.id" v-hover :aria-label="'Feature ' + game.title" :aria-pressed="heroIndex === index" @click="heroIndex = index"><span /></button></div>
-          <section v-for="row in rows" :key="row.id" class="shelf"><div class="shelf-heading"><h2 class="vk-title">{{ row.name }}</h2><button v-if="row.id !== 'recent'" v-hover class="vk-button" @click="navigate(row.id)">See all</button></div><p class="vk-footnote vk-secondary">{{ row.note }}</p><div class="card-row vk-scroll"><GameCard v-for="game in row.games" :key="game.id" :game="game" @play="play" /></div></section>
+          <div class="quick-picks"><button v-for="pick in quickPicks" :key="pick.game.id" v-hover class="quick-pick vk-platter" @click="showGame(pick.game)"><img :src="pick.game.cover" alt=""/><span><small>{{ pick.note }}</small><b>{{ pick.game.title }}</b><em>{{ pick.game.phone ? 'Touch ready' : 'Keyboard' }}</em></span><ArcadeIcon name="info"/></button></div>
+          </div>
+          <section v-for="row in rows" :key="row.id" class="shelf"><div class="shelf-heading"><h2 class="vk-title">{{ row.name }}</h2><button v-if="row.id !== 'recent'" v-hover class="vk-button" @click="navigate(row.id)">See all</button></div><p class="vk-footnote vk-secondary">{{ row.note }}</p><div class="card-row vk-scroll"><GameCard v-for="game in row.games" :key="game.id" :game="game" @play="showGame" /></div></section>
         </template>
-        <template v-else><div class="game-grid"><GameCard v-for="game in results" :key="game.id" :game="game" @play="play" /></div><p v-if="!results.length" class="empty vk-secondary">No games match this search. Try “sandbox”, or let the whole library surprise you.</p></template>
+        <template v-else><div class="game-grid"><GameCard v-for="game in results" :key="game.id" :game="game" @play="showGame" /></div><p v-if="!results.length" class="empty vk-secondary">No games match this search. Try “sandbox”, or let the whole library surprise you.</p></template>
         <p class="library-note vk-footnote vk-secondary">Independent games, credited to their creators. Online games may show their own menus, accounts, or ads.</p>
       </main>
     </div>
@@ -126,6 +165,72 @@ onBeforeUnmount(() => { clearLoading(); clearInterval(rotation); preference?.rem
 </template>
 
 <style src="../kit/kit.css"></style>
+<style scoped>
+/* A complete featured composition, followed by scrollable shelves. */
+.browse-content { container-type:size; }
+.page-heading h1 { font-size:32px; line-height:1.1; }
+.page-heading>div>.vk-footnote { font-size:10px; letter-spacing:.09em; }
+.intro { margin:9px 0 18px; font-size:15px; }
+.opening-selection { height:calc(100cqh - 110px); min-height:355px; display:grid; grid-template-rows:minmax(0,1fr) 44px 100px; padding-bottom:18px; }
+.opening-selection .hero { aspect-ratio:auto; min-height:0; }
+.opening-selection .hero-copy { min-height:0; height:100%; gap:10px; padding:26px; max-width:720px; }
+.opening-selection .hero-copy h2 { font-size:clamp(28px,3.8cqw,43px); }
+.opening-selection .hero-copy p { font-size:16px; max-width:540px; }
+.opening-selection .dots { margin:0; }
+.hero-actions .vk-chip { min-height:28px; font-size:11px; }
+.quick-picks { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; min-height:0; }
+.quick-pick { display:flex; text-align:left; align-items:center; gap:12px; padding:12px; min-width:0; }
+.quick-pick>img { width:62px; height:62px; flex:none; border-radius:16px; object-fit:cover; }
+.quick-pick>span { display:flex; min-width:0; flex-direction:column; gap:5px; }
+.quick-pick small { font-size:10px; color:var(--vk-secondary); }
+.quick-pick b { font-size:14px; line-height:1.2; }
+.quick-pick em { font-size:10px; font-style:normal; color:var(--vk-tertiary); }
+.quick-pick>svg { width:20px; height:20px; margin-left:auto; flex:none; color:var(--vk-secondary); }
+.shelf { margin-top:20px; }
+@container(max-height:540px) and (min-width:651px) {
+ .arcade-app .tabs { width:82px; margin-left:12px; padding:6px; }
+ .nav-item { min-height:54px; font-size:10px; }
+ .nav-item .vk-icon { width:36px; height:36px; min-height:36px; }
+ .browse-content { padding:20px 24px; }
+ .page-heading h1 { font-size:27px; }
+ .intro { margin:7px 0 12px; font-size:13px; }
+ .opening-selection { height:calc(100cqh - 87px); min-height:300px; grid-template-rows:minmax(0,1fr) 44px 80px; padding-bottom:8px; }
+ .opening-selection .hero-copy { padding:20px 24px; gap:7px; }
+ .opening-selection .hero-copy h2 { font-size:30px; }
+ .opening-selection .hero-copy p { font-size:14px; max-width:540px; }
+ .hero-actions .vk-chip { display:none; }
+ .quick-pick { padding:10px; gap:10px; }
+ .quick-pick>img { width:48px; height:48px; border-radius:13px; }
+ .quick-pick>svg,.quick-pick em { display:none; }
+}
+@container(max-width:650px) {
+ .browse-layout { flex-direction:column; }
+ .arcade-app .tabs { flex-direction:row; width:calc(100% - 32px); max-height:72px; margin:16px 16px 0; border-radius:25px; padding:6px; overflow-x:auto; }
+ .nav-item,.compact .nav-item { width:64px; flex:0 0 64px; min-height:54px; font-size:10px; }
+ .nav-item .vk-icon { width:32px; height:32px; min-height:32px; }
+ .browse-content,.compact .browse-content { padding:18px; }
+ .page-heading h1 { font-size:27px; }
+ .page-heading .vk-chip { font-size:11px; padding:5px 10px; }
+ .page-heading>div>.vk-footnote { font-size:9px; }
+ .intro { font-size:13px; margin:8px 0 13px; line-height:1.4; }
+ .opening-selection { height:calc(100cqh - 105px); min-height:340px; grid-template-rows:minmax(0,1fr) 44px 88px; padding-bottom:8px; }
+ .opening-selection .hero,.compact .opening-selection .hero { min-height:0; }
+ .opening-selection .hero-copy,.compact .opening-selection .hero-copy { min-height:0; padding:20px; gap:8px; }
+ .opening-selection .hero-copy h2 { font-size:29px; }
+ .opening-selection .hero-copy p { font-size:14px; line-height:1.4; }
+ .hero-actions .vk-chip { display:none; }
+ .hero-actions .primary { margin-left:0; }
+ .hero-actions .vk-button { font-size:13px; padding:0 16px; }
+ .quick-picks { gap:8px; }
+ .quick-pick { padding:8px; flex-direction:column; justify-content:center; gap:6px; text-align:center; }
+ .quick-pick>img { width:32px; height:32px; border-radius:9px; }
+ .quick-pick>span { gap:3px; width:100%; }
+ .quick-pick b { font-size:11px; }
+ .quick-pick small,.quick-pick em,.quick-pick>svg { display:none; }
+ .game-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px 12px; }
+ .game-grid :deep(.game-title) { font-size:15px; }
+}
+</style>
 <style scoped>
 .arcade-app { position: absolute; inset: 0; min-width: 0; min-height: 0; border-radius: inherit; overflow: hidden; color: var(--vk-text); container-type: size; }
 .arcade-app *, .arcade-app *::before, .arcade-app *::after { box-sizing: border-box; }

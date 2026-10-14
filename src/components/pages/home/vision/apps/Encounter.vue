@@ -2,6 +2,7 @@
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
 import Creature from './encounter/Creature.vue';
+import BotanicalLayer from './encounter/BotanicalLayer.vue';
 import AppGlyph from './files/AppGlyph.vue';
 
 const props = defineProps<{ compact?: boolean }>();
@@ -17,6 +18,9 @@ const active = ref(false);
 const playing = ref(false);
 const progress = ref(0);
 const reduced = ref(false);
+const visible = ref(true);
+const documentHidden = ref(false);
+const fieldSpecies = ref<Scene>('valley');
 const landed = ref(false);
 const mood = ref<Mood>('idle');
 const headAngle = ref(0);
@@ -68,6 +72,8 @@ let mounted = false;
 let elapsed = 0;
 let previousFrame = 0;
 let previousUpdate = 0;
+let previousPose = 0;
+let visibilityObserver: IntersectionObserver | undefined;
 let movedAt = 0;
 let lastSniff = -10000;
 let hasPointer = false;
@@ -218,7 +224,7 @@ function begin(): void {
   butterfly = { x: .5, y: .4 };
   caption.value = 'Something small. Something quite prehistoric.';
   if (reduced.value) void nextTick(placeButterfly);
-  else if (!frame && mounted) frame = requestAnimationFrame(animate);
+  else if (!frame && mounted && visible.value && !document.hidden) frame = requestAnimationFrame(animate);
 }
 function replay(): void {
   snacks.value = 0;
@@ -316,11 +322,17 @@ function motionChanged(event: MediaQueryListEvent): void {
     stage.value?.style.setProperty('--py', '0');
     butterfly = { x: .38, y: .29 };
     placeButterfly();
-  } else if (active.value && !frame) frame = requestAnimationFrame(animate);
+  } else if (active.value && !frame && visible.value && !document.hidden) frame = requestAnimationFrame(animate);
   if (event.matches && active.value && progress.value < 46) {
     progress.value = 46;
     elapsed = 12880;
   }
+}
+function syncVisibility(): void {
+  documentHidden.value = document.hidden;
+  const canAnimate = visible.value && !document.hidden;
+  if (!canAnimate) { cancelAnimationFrame(frame); frame = 0; previousFrame = 0; if (audio?.state === 'running') void audio.suspend().catch(() => undefined); }
+  else { if (active.value && !reduced.value && !frame) frame = requestAnimationFrame(animate); if (sound.value && audio?.state === 'suspended') void audio.resume().catch(() => undefined); }
 }
 function animate(now: number): void {
   const delta = Math.min(50, now - previousFrame || 16);
@@ -362,7 +374,8 @@ function animate(now: number): void {
       element.style.setProperty('--px', String(reduced.value ? 0 : (target.x - .5) * 2));
       element.style.setProperty('--py', String(reduced.value ? 0 : (target.y - .5) * 2));
     }
-    if (now - previousUpdate < 20 || !playing.value) {
+    if (now - previousPose >= 100) {
+      previousPose = now;
       const angle = Math.max(-9, Math.min(8, (target.y - .45) * 20 + (target.x - .7) * 5));
       if (Math.abs(angle - headAngle.value) > .35) headAngle.value = angle;
     }
@@ -372,7 +385,7 @@ function animate(now: number): void {
       react('sniff');
     }
   }
-  frame = mounted && active.value && !reduced.value ? requestAnimationFrame(animate) : 0;
+  frame = mounted && visible.value && !document.hidden && active.value && !reduced.value ? requestAnimationFrame(animate) : 0;
 }
 function togglePlayback(): void {
   if (progress.value >= 100) { replay(); return; }
@@ -391,9 +404,10 @@ function stepBack(event: KeyboardEvent): void {
 }
 function trapHelp(event: KeyboardEvent): void {
   if (event.key !== 'Tab') return;
-  const button = helpSheet.value?.querySelector<HTMLButtonElement>('button');
-  event.preventDefault();
-  button?.focus();
+  const buttons = Array.from(helpSheet.value?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []);
+  const first = buttons[0], last = buttons[buttons.length - 1];
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
 }
 watch(help, open => {
   void nextTick(() => {
@@ -403,6 +417,12 @@ watch(help, open => {
 });
 onMounted(() => {
   mounted = true;
+  documentHidden.value = document.hidden;
+  document.addEventListener('visibilitychange', syncVisibility);
+  if (stage.value && typeof IntersectionObserver !== 'undefined') {
+    visibilityObserver = new IntersectionObserver(entries => { visible.value = entries[0]?.isIntersecting ?? false; syncVisibility(); });
+    visibilityObserver.observe(stage.value);
+  }
   if (typeof window.matchMedia === 'function') {
     motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     reduced.value = motionQuery.matches;
@@ -420,6 +440,8 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
   mounted = false;
+  document.removeEventListener('visibilitychange', syncVisibility);
+  visibilityObserver?.disconnect();
   cancelAnimationFrame(frame);
   observer?.disconnect();
   motionQuery?.removeEventListener('change', motionChanged);
@@ -438,14 +460,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="encounter-app" :class="{ compact: props.compact, reduced, active, 'room-dark': dimmed }" @keydown="stepBack">
+  <main class="encounter-app" :class="{ compact: props.compact, reduced, active, 'room-dark': dimmed, 'motion-paused': !visible || documentHidden }" @keydown="stepBack">
     <header class="encounter-header" :inert="help">
       <div>
         <p class="eyebrow vk-footnote">{{ chapter }}</p>
-        <h1 class="vk-large-title">Encounter</h1>
+        <h1 class="vk-large-title">Encounter Dinosaurs</h1>
       </div>
       <button ref="helpButton" v-hover class="vk-icon" aria-label="How to meet your prehistoric neighbours" :aria-expanded="help" @click="help = !help">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
           <circle cx="12" cy="12" r="9" /><path d="M9.5 8a2.6 2.6 0 0 1 5 1c0 2-2.5 2-2.5 4" /><path d="M12 16v.5" />
         </svg>
       </button>
@@ -454,13 +476,13 @@ onBeforeUnmount(() => {
     <div class="experience" :inert="help">
       <nav class="scene-tabs vk-tabbar" aria-label="Encounter scenes">
         <button v-hover class="vk-icon" :aria-pressed="scene === 'valley'" aria-label="Fern Valley, curious rex" @click="changeScene('valley')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
             <path d="M12 21V4m0 11C4 15 4 9 4 7c4 0 8 3 8 8Zm0-5c6 0 8-4 8-7-5 0-8 2-8 7Z" />
           </svg>
           <span>Fern Valley</span>
         </button>
         <button v-hover class="vk-icon" :aria-pressed="scene === 'lagoon'" aria-label="Blue Lagoon, gentle triceratops" @click="changeScene('lagoon')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
             <path d="M3 15q3-4 6 0t6 0 6 0M3 20q3-4 6 0t6 0 6 0" /><circle cx="16" cy="6" r="3" />
           </svg>
           <span>Blue Lagoon</span>
@@ -515,32 +537,34 @@ onBeforeUnmount(() => {
               <path d="M123 191 66 97l68 78Zm26 7 98-68-69 77ZM863 191l-107-86 66 82Zm23-8 67-53-61 79Z" />
             </g>
           </svg>
+          <BotanicalLayer :lagoon="scene === 'lagoon'" />
           <div class="mist mist-back"></div>
           <div class="mist mist-front"></div>
         </div>
         <div class="portal-rim" aria-hidden="true"></div>
         <div class="scene-caption vk-footnote"><span class="scene-dot"></span>{{ sceneName }}<span class="era"> · An imagined Cretaceous</span></div>
 
+        <div v-if="!active" class="welcome-creature" aria-hidden="true"><Creature :id="uid + '-poster'" :scene="scene" mood="idle" :walking="false" :paused="true" :head-angle="-3" /></div>
         <Transition name="welcome">
           <section v-if="!active" class="welcome-panel">
-            <p class="intro-label vk-footnote">SOMETHING QUITE PREHISTORIC</p>
+            <p class="intro-label vk-footnote">AN ILLUSTRATED ENCOUNTER</p>
             <svg class="intro-butterfly" viewBox="0 0 100 80" aria-hidden="true">
               <path d="M47 43C5-17-9 31 23 51 8 85 49 83 47 43M53 43C95-17 109 31 77 51 92 85 51 83 53 43" fill="#e7cc92" />
               <path d="M50 23v42m0-42-8-10m8 10 8-10" fill="none" stroke="#f3e9c6" stroke-width="2" />
             </svg>
             <h2>
-              <span class="full-welcome">A visitor from <br />a quieter world.</span>
-              <span class="short-welcome">Meet your neighbours.</span>
+              <span class="full-welcome">Wonder, just <br />within reach.</span>
+              <span class="short-welcome">Meet a little wonder.</span>
             </h2>
-            <p class="vk-body">Hold still. Curiosity might land on you.</p>
+            <p class="vk-body">Step into a world of dappled light, quiet footsteps, and unexpected company.</p>
             <button v-hover class="vk-button primary begin-button" @click.stop="begin">Open the portal <AppGlyph name="open" /></button>
-            <small class="vk-footnote">An original, playful simulation.</small>
+            <div class="experience-facts"><span><b>28 seconds</b>Take your time</span><span><b>2 habitats</b>A new neighbour in each</span></div><small class="vk-footnote">Original illustration · Browser simulation</small>
           </section>
         </Transition>
 
         <button v-if="creatureVisible" v-hover class="vk-button creature-button" :style="creatureStyle"
           :aria-label="creatureName + '. Tap for a friendly roar.'" @click.stop="roar">
-          <Creature :id="uid" :scene="scene" :mood="mood" :walking="walking" :paused="(!playing && progress < 100) || reduced" :head-angle="headAngle" />
+          <Creature :id="uid" :scene="scene" :mood="mood" :walking="walking" :paused="(!playing && progress < 100) || reduced || !visible || documentHidden" :head-angle="headAngle" />
         </button>
         <div v-if="active" ref="butterflyElement" class="butterfly" :class="{ landed, still: !playing }" aria-hidden="true">
           <div class="landing-halo"></div>
@@ -619,7 +643,10 @@ onBeforeUnmount(() => {
           <h2 class="vk-title">A field guide</h2>
           <button v-hover class="vk-icon" aria-label="Close field guide" @click="help = false"><AppGlyph name="close" /></button>
         </header>
-        <p class="vk-body">You are a visitor here. A patient one is best.</p>
+        <p class="vk-body">Two habitats. Two very different personalities.</p>
+        <div class="field-tabs vk-segmented" role="group" aria-label="Choose illustrated creature"><button v-hover :aria-pressed="fieldSpecies === 'valley'" @click="fieldSpecies = 'valley'">Curious rex</button><button v-hover :aria-pressed="fieldSpecies === 'lagoon'" @click="fieldSpecies = 'lagoon'">Triceratops</button></div>
+        <div class="field-portrait vk-well"><Creature :id="uid + '-field'" :scene="fieldSpecies" mood="idle" :walking="false" :paused="true" :head-angle="0" /></div>
+        <div class="field-description"><span class="vk-footnote vk-secondary">{{ fieldSpecies === 'valley' ? 'FERN VALLEY / CREATURE 01' : 'BLUE LAGOON / CREATURE 02' }}</span><h3>{{ fieldSpecies === 'valley' ? 'A curious neighbour' : 'A gentle giant' }}</h3><p>{{ fieldSpecies === 'valley' ? 'A soft-spoken rex with a watchful eye. Approach its nose slowly and it will lean in for a closer look.' : 'Three horns, a sweeping frill, and a calm presence. Share an imaginary fern and watch its expression change.' }}</p></div>
         <div class="guide-row vk-platter"><b>Hold still</b><p>The butterfly follows your pointer. Rest it for a moment and it will land.</p></div>
         <div class="guide-row vk-platter"><b>Say hello</b><p>Let the dinosaur approach. Move near its nose for a sniff, tap it for a friendly roar, or share a fern.</p></div>
         <div class="guide-row vk-platter"><b>Take your time</b><p>Pause, replay, or scrub through the encounter. The left ornament visits a different creature.</p></div>
@@ -1469,5 +1496,61 @@ onBeforeUnmount(() => {
     animation: none !important;
     transition: none !important;
   }
+}
+/* Art-led arrival; transport stays outside the scene's scrollable guide. */
+.encounter-app { gap:12px; }
+.encounter-app .encounter-header h1 { font-size:30px; letter-spacing:-.035em; }
+.encounter-app .stage { overflow:hidden; }
+.encounter-app .welcome-creature { position:absolute; right:-10%; bottom:-9%; width:84%; height:100%; z-index:3; opacity:.94; pointer-events:none; filter:drop-shadow(0 18px 16px #071d16aa); }
+.encounter-app .welcome-creature :deep(svg) { width:100%; height:100%; }
+.encounter-app .welcome-panel { align-items:flex-start; text-align:left; justify-content:center; padding:52px 32px 34px; background:linear-gradient(90deg,#0c261deb,#0c261d89 44%,transparent 74%); }
+.encounter-app .welcome-panel h2 { font-size:clamp(28px,4.4cqw,42px); max-width:390px; }
+.encounter-app .welcome-panel .vk-body { max-width:310px; font-size:16px; line-height:1.5; }
+.encounter-app .intro-butterfly { display:none; }
+.encounter-app .welcome-panel .begin-button { min-height:44px; margin-top:4px; }
+.encounter-app .experience-facts { display:flex; gap:24px; margin-top:7px; font-size:11px; color:#e0e4cd; }
+.encounter-app .experience-facts span { display:flex; flex-direction:column; gap:3px; }
+.encounter-app .experience-facts b { color:#f5f5dc; font-size:14px; }
+.encounter-app .field-tabs { min-height:44px; flex:none; }
+.encounter-app .field-tabs button { min-height:44px; flex:1; }
+.encounter-app .field-portrait { min-height:165px; height:165px; flex:none; background:radial-gradient(ellipse at 70% 20%,#7f987655,#193b3155); }
+.encounter-app .field-portrait :deep(svg) { width:100%; height:100%; }
+.encounter-app .field-description h3 { margin:7px 0; font-size:23px; letter-spacing:-.03em; }
+.encounter-app .field-description p { font-size:15px; color:var(--vk-secondary); line-height:1.5; }
+.encounter-app.motion-paused :deep(*) { animation-play-state:paused !important; }
+@container(max-height:540px) and (min-width:601px) {
+ .encounter-app { padding:20px 24px; gap:10px; }
+ .encounter-app .encounter-header h1 { font-size:27px; }
+ .encounter-app .welcome-panel { padding:44px 28px 24px; gap:9px; }
+ .encounter-app .welcome-panel h2 { font-size:31px; }
+ .encounter-app .welcome-panel .vk-body { max-width:285px; font-size:14px; }
+ .encounter-app .experience-facts { margin:0; gap:22px; }
+ .encounter-app .controls { gap:5px; }
+ .encounter-app .creature-button { bottom:-5%; height:104%; }
+}
+@container(max-width:600px) {
+ .encounter-app { padding:20px; }
+ .encounter-app .encounter-header h1 { font-size:25px; }
+ .encounter-app .welcome-creature { width:126%; height:85%; right:-16%; bottom:24%; opacity:.88; }
+ .encounter-app .welcome-panel { justify-content:flex-end; align-items:flex-start; padding:46px 20px 25px; gap:9px; background:linear-gradient(0deg,#0c251df5,#0c251da3 48%,transparent 85%); }
+ .encounter-app .welcome-panel h2 { font-size:27px; }
+ .encounter-app .welcome-panel .full-welcome { display:inline; }
+ .encounter-app .welcome-panel .short-welcome { display:none; }
+ .encounter-app .welcome-panel h2 br { display:none; }
+ .encounter-app .welcome-panel .vk-body { display:block; font-size:14px; max-width:280px; }
+ .encounter-app .experience-facts { gap:18px; font-size:10px; margin:0; }
+ .encounter-app .experience-facts b { font-size:12px; }
+ .encounter-app .scene-tabs { max-height:56px; }
+}
+@container(max-width:600px) and (max-height:540px) {
+ .encounter-app .welcome-panel .vk-body,.encounter-app .experience-facts { display:none; }
+ .encounter-app .welcome-panel { padding:42px 18px 22px; }
+ .encounter-app .welcome-panel h2 { font-size:25px; }
+ .encounter-app .welcome-creature { bottom:13%; height:100%; }
+}
+@container(max-height:420px) {
+ .encounter-app .welcome-panel { gap:8px; padding:30px 18px 20px; }
+ .encounter-app .welcome-panel h2 { font-size:25px; }
+ .encounter-app .experience-facts,.encounter-app .welcome-panel .vk-body { display:none; }
 }
 </style>

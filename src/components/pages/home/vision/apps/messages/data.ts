@@ -300,11 +300,25 @@ export function createConversations(): [Conversation, Conversation, Conversation
       'Rubber Duck: We have reached consensus. Explain the bug one more time.',
     ],
   });
+  // A self-contained sample thread demonstrates attachments, groups and Tapbacks.
+  const group = chats.find(chat => chat.id === 4);
+  if (group) {
+    group.name = 'Weekend plans';
+    group.description = '3 people · Sample group conversation';
+    group.unread = 0;
+    group.messages = [
+      { id: 10, sender: 'Build Bot', text: 'Found a place for a quiet morning.', mine: false, time: '09:42', photo: 'lakeside', reaction: 'heart' },
+      { id: 11, text: 'This view is a good reason to leave early.', mine: true, time: '09:43', status: 'read' },
+      { id: 12, sender: 'Rubber Duck', text: 'I’m bringing the camera. Tea by the water?', mine: false, time: '09:44', reaction: 'like' },
+      { id: 13, text: 'Perfect. Let’s keep the rest of the day open.', mine: true, time: '09:45', status: 'read' },
+    ];
+    group.fallback = ['A slow morning sounds lovely. See you there.', 'Camera, notebook, and something warm to drink. Ready.', 'Let’s take the scenic route.'];
+  }
   return chats;
 }
 
-export const reactions = ['♥️', '👍', '😂', '‼️', '🤔', '☕'];
-export const stickers = ['🦆', '☕', '🫶', '🎉', '🧠', '✨', '🍛', '🚀'];
+export const reactions = ['heart', 'like', 'laugh', 'emphasis', 'question', 'tea'];
+export const stickers = ['duck', 'tea', 'heart', 'confetti', 'idea', 'sparkle', 'bowl', 'rocket'];
 export const photos = [
   { id: 'lakeside', name: 'Lakeside Sunrise' },
   { id: 'kiara', name: 'Kiara Dawn' },

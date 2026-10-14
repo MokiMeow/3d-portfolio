@@ -6,7 +6,7 @@ export function useMessages() {
     const seededChats = createConversations();
     const fallbackChat = seededChats[0];
     const conversations = ref<Conversation[]>(seededChats);
-    const selectedId = ref(1);
+    const selectedId = ref(4);
     const current = computed(() => conversations.value.find(chat => chat.id === selectedId.value) ?? fallbackChat);
     const search = ref('');
     const filter = ref<'all' | 'unread'>('all');

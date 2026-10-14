@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import ContactAvatar from './messages/ContactAvatar.vue';
+import MessageMark from './messages/MessageMark.vue';
 import { vHover } from "../kit/hover";
 import { useMessages } from "./messages/useMessages";
 import ControlIcon from "./freeform/ControlIcon.vue";
@@ -138,14 +140,10 @@ const {
             :aria-pressed="selectedId === chat.id"
             @click="choose(chat.id)"
           >
-            <span class="avatar" :style="{ '--tint': chat.tint }">
-              <ControlIcon :name="chat.id <= 3 ? chat.name : 'Chai & Debug'" />
-            </span>
+            <ContactAvatar :name="chat.name" :members="chat.members" :tint="chat.tint" />
             <span class="chat-copy">
               <span class="row-title">
-                <strong>
-                  {{ chat.name }}
-                </strong>
+                <strong>{{ chat.name }}</strong><time class="chat-time">{{ chat.messages.at(-1)?.time }}</time>
                 <svg v-if="chat.muted" class="muted-indicator" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M9 4a6 6 0 0 1 9 5v4l2 3H9M4 16l2-3V9m4 11h4M3 3l18 18"/>
                 </svg>
@@ -163,7 +161,7 @@ const {
           </button>
         </div>
         <p class="list-foot">
-          The concern about chai is universal.
+          Demo conversations · Stored for this visit
         </p>
       </aside>
       <main class="thread">
@@ -173,9 +171,7 @@ const {
               <path d="m14 5-7 7 7 7"/>
             </svg>
           </button>
-          <span class="avatar" :style="{ '--tint': current.tint }">
-            <ControlIcon :name="current.id <= 3 ? current.name : 'Chai & Debug'" />
-          </span>
+          <ContactAvatar :name="current.name" :members="current.members" :tint="current.tint" />
           <div class="heading-copy">
             <h2>
               {{ current.name }}
@@ -216,7 +212,7 @@ const {
           aria-relevant="additions text"
         >
           <p class="date-line">
-            Today · somewhere between builds
+            iMessage · Today, 9:42 AM
           </p>
           <article
             v-for="message in current.messages"
@@ -267,7 +263,7 @@ const {
                   @click="activateMessage(message)"
                 >
                   <span v-if="message.sticker" class="sticker-art">
-                    {{ message.sticker }}
+                    <MessageMark :name="message.sticker" sticker />
                   </span>
                   <span v-else>
                     {{ message.text }}
@@ -336,7 +332,7 @@ const {
                   </span>
                 </button>
                 <span v-if="message.reaction" class="reaction" :aria-label="'Tapback: ' + message.reaction">
-                  {{ message.reaction }}
+                  <MessageMark :name="message.reaction" />
                 </span>
               </div>
               <p class="message-meta">
@@ -389,7 +385,7 @@ const {
         <div v-if="tool" class="composer-tools vk-sheet vk-scroll" @keydown="panelKeys">
           <div class="tool-heading">
             <strong>
-              {{ tool === 'attachments' ? 'Add to your message' : tool === 'emoji' ? 'Stickers & emoji' : 'Send with an effect' }}
+              {{ tool === 'attachments' ? 'Add to your message' : tool === 'emoji' ? 'Stickers' : 'Send with an effect' }}
             </strong>
             <button v-hover class="vk-icon" aria-label="Close composer tools" @click="tool = undefined">
               <ControlIcon name="close" />
@@ -427,7 +423,7 @@ const {
               class="emoji-button"
               @click="send({ sticker, text: sticker })"
             >
-              {{ sticker }}
+              <MessageMark :name="sticker" sticker />
             </button>
             <button
               v-hover
@@ -435,7 +431,7 @@ const {
               aria-label="Insert smiling emoji in draft"
               @click="composer += ' 😊'; tool = undefined; composerInput?.focus()"
             >
-              😊 Add to text
+              <MessageMark name="smile" /> Add smile
             </button>
           </div>
           <div v-else class="effect-grid">
@@ -475,14 +471,14 @@ const {
             class="vk-field"
             maxlength="1000"
             :aria-label="'Message ' + current.name"
-            :placeholder="editing ? 'Edit your message' : 'Message, or a small existential crisis'"
+            :placeholder="editing ? 'Edit your message' : 'iMessage'"
             autocomplete="off"
           />
           <button
             v-hover
             type="button"
             class="vk-icon emoji-toggle"
-            aria-label="Choose sticker or emoji"
+            aria-label="Choose a sticker"
             :aria-expanded="tool === 'emoji'"
             :disabled="!!editing"
             @click="tool = tool === 'emoji' ? undefined : 'emoji'"
@@ -651,7 +647,7 @@ const {
               :aria-pressed="menuMessage.reaction === emoji"
               @click="react(emoji)"
             >
-              {{ emoji }}
+              <MessageMark :name="emoji" />
             </button>
           </div>
           <button v-hover class="vk-row" @click="replyTo">

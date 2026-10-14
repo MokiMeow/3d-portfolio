@@ -3,7 +3,7 @@ import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
 import ItemArt from './freeform/ItemArt.vue';
 import ControlIcon from './freeform/ControlIcon.vue';
-import { boardSvg, bounds, clone, connector, makeItem, palette, readBoards, seed, shapes, textLines, uid } from './freeform/model';
+import { boardPhotos, boardSvg, bounds, clone, connector, makeItem, palette, readBoards, seed, shapes, textLines, uid } from './freeform/model';
 import type { Board, Item, Point, Shape } from './freeform/model';
 
 defineProps<{ compact?: boolean }>();
@@ -50,11 +50,42 @@ const zoom = ref(1);
 const pan = ref<Point>({ x: 0, y: 0 });
 const marquee = ref<{ x: number; y: number; w: number; h: number } | null>(null);
 const linkStart = ref<string | null>(null);
-const popup = ref<'boards' | 'inspector' | 'shape' | 'help' | 'rename' | 'edit' | null>(null);
+const popup = ref<'boards' | 'inspector' | 'shape' | 'help' | 'rename' | 'edit' | 'photos' | null>(null);
 const editText = ref('');
 const boardName = ref('');
 const status = ref('A board for beautifully unfinished thinking.');
 const exporting = ref(false);
+const photoAbort = new AbortController();
+const canvasSize = ref({ w: 0, h: 0 });
+const miniBounds = computed(() => bounds(items.value));
+const miniViewport = computed(() => ({ x: -pan.value.x / zoom.value, y: -pan.value.y / zoom.value,
+  w: canvasSize.value.w / zoom.value, h: canvasSize.value.h / zoom.value }));
+function addPhoto(src: string, name: string): void {
+  const point = worldPoint({ x: canvasSize.value.w / 2, y: canvasSize.value.h / 2 });
+  const item = { ...makeItem('photo', point.x - 140, point.y - 109, '#eef9f4'), w: 280, h: 218, src, text: name };
+  change(() => current.value?.items.push(item));
+  selected.value = [item.id]; popup.value = null;
+}
+function miniNavigate(event: MouseEvent): void {
+  const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  const world = miniBounds.value;
+  const x = world.x + (event.clientX - box.left) / box.width * world.w;
+  const y = world.y + (event.clientY - box.top) / box.height * world.h;
+  pan.value = { x: canvasSize.value.w / 2 - x * zoom.value, y: canvasSize.value.h / 2 - y * zoom.value };
+}
+async function embeddedPhotos(snapshot: Item[]): Promise<Record<string, string>> {
+  const result: Record<string, string> = {};
+  await Promise.all([...new Set(snapshot.flatMap(item => item.src ? [item.src] : []))].map(async src => {
+    const response = await fetch(src, { signal: photoAbort.signal });
+    if (!response.ok) throw new Error('Photo unavailable');
+    const blob = await response.blob();
+    result[src] = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader(); reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Photo unavailable'));
+      reader.onerror = () => reject(new Error('Photo unavailable')); reader.readAsDataURL(blob);
+    });
+  }));
+  return result;
+}
 const undoVersion = ref(0);
 const history = new Map<string, { undo: Item[][]; redo: Item[][] }>();
 const pointers = new Map<number, Point>();
@@ -474,13 +505,15 @@ function commitRename(): void {
 function thumbnail(board: Board): string {
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(boardSvg(board.items));
 }
-function exportPng(): void {
+async function exportPng(): Promise<void> {
   if (exporting.value) return;
   exporting.value = true;
   try {
     const snapshot = clone(items.value);
     const name = current.value?.name ?? 'Freeform';
-    const svg = boardSvg(snapshot);
+    const photos = await embeddedPhotos(snapshot);
+    if (disposed) return;
+    const svg = boardSvg(snapshot, photos);
     const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
     urls.add(url);
     const image = new Image();
@@ -507,7 +540,7 @@ function exportPng(): void {
           anchor.click();
           const timer = setTimeout(() => { URL.revokeObjectURL(download); urls.delete(download); exportTimers.delete(timer); }, 1000);
           exportTimers.add(timer);
-          finishExport('PNG exported. A tangible record of intangible scope.');
+          finishExport('Board exported as PNG.');
         }, 'image/png');
       } catch { finishExport('PNG export is unavailable in this browser. Your board is still safe.'); }
       URL.revokeObjectURL(url);
@@ -524,6 +557,7 @@ function exportPng(): void {
   } catch { finishExport('PNG export is unavailable. Your board is still safe.'); }
 }
 function finishExport(message: string): void {
+  if (disposed) return;
   exporting.value = false;
   announce(message);
 }
@@ -556,6 +590,7 @@ onMounted(() => {
   } catch { announce('Storage is unavailable. This canvas still works for the session.'); }
   if (typeof ResizeObserver !== 'undefined') {
     observer = new ResizeObserver(() => {
+      canvasSize.value = { w: area.value?.clientWidth ?? 0, h: area.value?.clientHeight ?? 0 };
       if (!drag && !pinch) fit();
     });
     if (area.value) observer.observe(area.value);
@@ -564,6 +599,7 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
   disposed = true;
+  photoAbort.abort();
   if (saveTimer) clearTimeout(saveTimer);
   // Flush edits on close rather than losing the last debounce.
   persist();
@@ -595,7 +631,7 @@ onBeforeUnmount(() => {
       <main class="workspace">
         <header class="heading">
           <div class="titles">
-            <p class="eyebrow vk-footnote">FREEFORM</p>
+            <p class="eyebrow vk-footnote">FREEFORM <span class="board-local">Personal board · {{ visibleItems.length }} items</span></p>
             <button v-hover class="board-title" aria-label="Rename board" @click="rename">{{ current?.name }}</button>
           </div>
           <button v-hover class="vk-icon" aria-label="Help and keyboard shortcuts" @click="popup = 'help'"><ControlIcon name="help" /></button>
@@ -635,6 +671,12 @@ onBeforeUnmount(() => {
                 @keydown.right.prevent.stop="change(() => { item.rotation += 15 })"><ControlIcon name="redo" /></button>
             </div>
           </div>
+          <button v-if="visibleItems.length" class="minimap vk-platter" aria-label="Canvas overview. Click to navigate; Enter fits the board." @pointerdown.stop @click.stop="miniNavigate" @keydown.enter.prevent="fit">
+            <svg :viewBox="miniBounds.x + ' ' + miniBounds.y + ' ' + miniBounds.w + ' ' + miniBounds.h" preserveAspectRatio="none" aria-hidden="true">
+              <rect v-for="item in visibleItems" :key="item.id" :x="item.x" :y="item.y" :width="item.w" :height="item.h" :fill="item.color" rx="8" opacity=".65" />
+              <rect :x="miniViewport.x" :y="miniViewport.y" :width="miniViewport.w" :height="miniViewport.h" fill="#ffffff12" stroke="#91caff" stroke-width="8" />
+            </svg><span>Overview</span>
+          </button>
           <p v-if="!visibleItems.length" class="empty vk-secondary">An excellent place to overthink a small idea.<br />Choose a note, shape or pen below.</p>
         </div>
         <div class="contextbar">
@@ -652,6 +694,9 @@ onBeforeUnmount(() => {
             :aria-pressed="tool === entry.id" :aria-label="entry.label" :title="entry.label" @click="pickTool(entry.id)">
             <ControlIcon :name="entry.id === 'shape' ? 'rectangle' : entry.id" /><span class="tool-label">{{ entry.label }}</span>
           </button>
+          <button v-hover class="vk-icon large" aria-label="Add a photo" title="Add a photo" @click="popup = 'photos'">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8" cy="8" r="2" /><path d="m3 17 5-5 4 4 4-6 5 7" /></svg><span class="tool-label">Photo</span>
+          </button>
         </footer>
       </main>
     </div>
@@ -660,10 +705,14 @@ onBeforeUnmount(() => {
       <section class="popover vk-sheet vk-scroll" @keydown="panelKeys" role="dialog" aria-modal="true" :aria-label="popup === 'boards' ? 'Boards' : 'Canvas options'">
         <header class="sheet-heading">
           <h2 class="vk-title">{{ { boards: 'Your boards', inspector: 'Style & selection', shape: 'Choose a shape',
-            help: 'A little room to think', rename: 'Rename board', edit: 'Edit thought' }[popup] }}</h2>
+            help: 'A little room to think', rename: 'Rename board', edit: 'Edit thought', photos: 'Add a little inspiration' }[popup] }}</h2>
           <button v-hover class="vk-icon" aria-label="Close panel" @click="popup = null"><ControlIcon name="close" /></button>
         </header>
-        <template v-if="popup === 'boards'">
+        <template v-if="popup === 'photos'">
+          <p class="vk-footnote vk-secondary">A small collection of CC0 photographs. Added to this board only.</p>
+          <div class="photo-picker"><button v-for="photo in boardPhotos" :key="photo.src" v-hover class="vk-platter" @click="addPhoto(photo.src, photo.name)"><img :src="photo.src" :alt="photo.name" loading="lazy" /><span>{{ photo.name }}</span></button></div>
+        </template>
+        <template v-else-if="popup === 'boards'">
           <p class="vk-secondary vk-footnote">Saved in this browser. No account, no committee.</p>
           <div class="board-browser">
             <button v-for="entry in boards" :key="entry.id" v-hover class="vk-platter board-card" :aria-pressed="entry.id === activeId"

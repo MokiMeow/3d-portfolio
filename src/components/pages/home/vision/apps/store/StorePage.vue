@@ -47,9 +47,9 @@ function changeScreenshot(direction: number): void {
         <small>FICTIONAL RATING</small><strong>{{ app.rating }}</strong>
         <span class="stars" role="img" aria-label="Five stars"><AppGlyph v-for="n in 5" :key="n" name="star" /></span>
       </div>
-      <div><small>AGE</small><strong>4+</strong><span>Years of optimism</span></div>
+      <div><small>AGE</small><strong>4+</strong><span>Age guidance · demo</span></div>
       <div><small>CATEGORY</small><strong>{{ app.arcade ? 'Play' : 'Create' }}</strong><span>{{ app.category }}</span></div>
-      <div><small>SIZE</small><strong>{{ app.size }}</strong><span>{{ app.headsetId ? 'Already here' : 'Imaginary storage' }}</span></div>
+      <div><small>SIZE</small><strong>{{ app.size }}</strong><span>{{ app.headsetId ? 'Already here' : 'Demo download' }}</span></div>
     </div>
     <section class="screenshots">
       <div class="section-header"><h2>Preview</h2>
@@ -67,7 +67,8 @@ function changeScreenshot(direction: number): void {
           :aria-pressed="screenshot === n - 1" @click="screenshot = n - 1"><i /></button>
       </div>
     </section>
-    <section class="description-section"><h2>A little more about it</h2><p>{{ app.description }}</p>
+    <section class="feature-section"><h2>Built for a little more space</h2><div class="feature-grid"><div class="vk-platter"><AppGlyph name="grid"/><strong>{{ app.arcade ? 'Room to play' : 'A focused workspace' }}</strong><span>Spacious layouts and controls that stay close.</span></div><div class="vk-platter"><AppGlyph name="shield"/><strong>Your pace, your space</strong><span>Keyboard access and reduced motion support.</span></div></div></section>
+    <section class="description-section"><h2>About this app</h2><p>{{ app.description }}</p>
       <p class="vk-secondary">{{ app.headsetId ? 'Built into this portfolio experience. This listing is a demonstration, independent of the real App Store.'
         : 'Designed for a spacious imaginary world, with no subscriptions, tracking, or imaginary upgrade fees.' }}</p>
     </section>
@@ -106,7 +107,7 @@ function changeScreenshot(direction: number): void {
     <section>
       <h2>App privacy</h2><p class="vk-footnote vk-secondary">Privacy information for this store demonstration.</p>
       <div class="privacy-grid">
-        <div class="privacy-label vk-platter"><AppGlyph name="tag" /><h3>Data not linked to you</h3>
+        <div class="privacy-label vk-platter"><AppGlyph name="tag" /><h3>Stored on this device</h3>
           <p>Your simulated purchases and store preferences stay in this browser, using local storage.</p><small>Purchase history · Preferences</small>
         </div>
         <div class="privacy-label vk-platter"><AppGlyph name="shield" /><h3>No tracking by this store</h3>
@@ -602,4 +603,10 @@ function changeScreenshot(direction: number): void {
     transition: none;
   }
 }
+
+.store-page { padding: 24px; }.store-page .page-navigation { margin-bottom: 16px; }.store-page .page-hero { gap: 16px; }.store-page .page-hero :deep(.store-icon.large) { width: 78px; height: 78px; }.store-page h1 { font-size: 27px; }.store-page .hero-copy p { font-size: 14px; }.store-page .simulation-note { font-size: 11px; margin-top: 12px; }
+.store-page .metrics { margin-top: 16px; padding: 13px 0; }.store-page .metrics small { font-size: 9px; }.store-page .metrics strong { font-size: 21px; }.store-page .metrics span { font-size: 10px; }.store-page section { margin-top: 22px; }.store-page .screenshots :deep(.store-art) { height: clamp(140px,26cqh,180px); border-radius: 22px; }.store-page .section-header { margin-bottom: 10px; }.store-page .screen-dots { margin-top: 0; }
+.feature-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }.feature-grid>div { padding: 22px; }.feature-grid .app-glyph { width: 26px; height: 26px; color: #b5d6ee; }.feature-grid strong,.feature-grid span { display: block; }.feature-grid strong { font-size: 16px; margin: 14px 0 6px; }.feature-grid span { color: var(--vk-secondary); font-size: 13px; line-height: 1.5; }
+@container (max-height: 540px) and (min-width: 600px) { .store-page { padding: 18px 24px; }.store-page .page-navigation { margin-bottom: 12px; }.store-page .page-hero :deep(.store-icon.large) { width: 64px; height: 64px; }.store-page .metrics { padding: 10px 0; margin-top: 12px; }.store-page .screenshots { margin-top: 14px; }.store-page .screenshots :deep(.store-art) { height: 126px; } }
+@container (max-width: 600px) { .store-page { padding: 18px; }.store-page .page-hero { flex-wrap: wrap; }.store-page .page-hero h1 { font-size: 23px; }.store-page .metrics { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px 0; }.store-page .metrics>div:nth-child(2) { border-right: 0; }.feature-grid { grid-template-columns: 1fr; }.store-page .section-header { flex-wrap: wrap; }.store-page .section-header h2 { font-size: 21px; } }
 </style>

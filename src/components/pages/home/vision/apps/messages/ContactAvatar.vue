@@ -1,0 +1,10 @@
+<script setup lang="ts">
+const props = defineProps<{ name: string; members?: string[]; tint: string }>();
+const id = 'avatar-' + useId().replace(/[^a-zA-Z0-9]/g, '');
+const people = computed(() => props.members && props.members.length > 1 ? props.members.slice(0, 3) : [props.name]);
+const variant = (name: string): number => [...name].reduce((total, char) => total + char.charCodeAt(0), 0) % 3;
+</script>
+<template><span class="contact-avatar" :class="{ group: people.length > 1 }" :style="{ '--tint': tint }" aria-hidden="true"><svg v-for="(person,index) in people" :key="person" viewBox="0 0 64 64" :class="'person-' + index">
+<defs><linearGradient :id="id + index" x2="1" y2="1"><stop :stop-color="index === 1 ? '#96cabc' : index === 2 ? '#b9b3df' : tint"/><stop offset="1" stop-color="#526675"/></linearGradient></defs>
+<circle cx="32" cy="32" r="31" :fill="'url(#'+id+index+')'"/><path d="M9 63c0-18 10-25 23-25s23 7 23 25" :fill="variant(person) === 1 ? '#e6c899' : '#c8dbe3'"/><path d="M25 35v9q7 8 14 0v-9" fill="#d5ad91"/><ellipse cx="32" cy="27" rx="13" ry="17" fill="#e6c0a3"/><path v-if="variant(person) === 0" d="M18 29V20q0-14 14-14t14 14v10l-6-14q-10 6-20 0Z" fill="#334551"/><path v-else-if="variant(person) === 1" d="M18 29q-7-14 1-20 8-9 16-3 17-2 14 21l-7-9-5-8q-4 12-19 10Z" fill="#62483e"/><path v-else d="M18 25q0-18 14-18t14 18l-6-7q-8 4-17-2Z" fill="#48515f"/><g fill="none" stroke="#5a514c" stroke-width="1.8" stroke-linecap="round"><path d="M25 27h1m12 0h1m-10 8q3 2 6 0"/><path v-if="variant(person)===0" d="M21 25h10v6H21zm12 0h10v6H33zm-2 2h2"/></g><circle cx="32" cy="32" r="31" fill="none" stroke="#ffffff35" stroke-width="1.8"/></svg></span></template>
+<style scoped>.contact-avatar{display:block;position:relative;width:46px;height:46px;flex:0 0 46px}.contact-avatar svg{width:100%;height:100%;border-radius:50%;display:block;filter:drop-shadow(0 3px 4px #0002)}.group{width:50px;flex-basis:50px}.group svg{position:absolute;width:32px;height:32px;box-shadow:0 0 0 2px #52616b}.group .person-0{left:0;top:0}.group .person-1{right:0;top:2px}.group .person-2{left:10px;bottom:0}</style>

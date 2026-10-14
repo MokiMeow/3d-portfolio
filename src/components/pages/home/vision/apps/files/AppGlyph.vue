@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const paths = {
+  account: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M4 21v-2a8 8 0 0 1 16 0v2',
   more: 'M5 12h.1M12 12h.1M19 12h.1',
   back: 'M20 12H4m7-7-7 7 7 7',
   forward: 'M4 12h16m-7-7 7 7-7 7',
@@ -29,7 +30,7 @@ defineProps<{ name: keyof typeof paths }>();
 
 <template>
   <svg class="app-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <path :d="paths[name]" />
   </svg>
 </template>

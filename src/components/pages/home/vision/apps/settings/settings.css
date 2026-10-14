@@ -1945,3 +1945,45 @@ dd {
     color: #ffffffb8;
   }
 }
+
+/* A complete device overview replaces the tall empty hero. */
+.device-hero { display: flex; align-items: center; gap: 18px; padding: 18px 20px; margin-bottom: 16px; text-align: left; }
+.device-hero :deep(.device) { width: 150px; height: 86px; flex-shrink: 0; }
+.device-hero h3 { font-size: 23px; margin: 5px 0; }
+.device-kicker { font-size: 10px; letter-spacing: .09em; color: var(--vk-secondary); }
+.device-hero p { font-size: 13px; }
+.device-ready { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: #b7e8cb; }
+.device-ready i { width: 5px; height: 5px; background: #7fe1a5; border-radius: 50%; }
+.device-summary { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin: 0 0 16px; }
+.device-summary button { display: flex; align-items: center; gap: 14px; padding: 14px 18px; min-height: 70px; text-align: left; }
+.device-summary .control-icon { width: 27px; height: 27px; color: #b6d9f7; flex-shrink: 0; }
+.device-summary strong, .device-summary small { display: block; }
+.device-summary strong { font-size: 19px; }
+.device-summary small { margin-top: 2px; font-size: 11px; }
+.general-links { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-bottom: 16px; }
+.general-links .disclosure { min-height: 60px; padding: 12px 16px; border-radius: 20px; font-size: 15px; }
+.general-links .row-tail { gap: 7px; font-size: 12px; }
+.general-links .disclosure:last-child { grid-column: 1/-1; }
+.display-preview { background: radial-gradient(ellipse at 20% 30%,#94b8bb33,transparent 70%), #0002; }
+.display-sample small { color: #ffffffb8; font-size: 10px; }
+.sample-apps i { display: grid; place-items: center; }
+.sample-apps :deep(svg) { width: 19px; height: 19px; }
+.battery-period { display: flex; width: max-content; margin: 0 auto 16px; }
+.battery-chart .chart-bars { height: 110px; gap: 5px; background: repeating-linear-gradient(0deg,transparent 0 35px,#ffffff10 35px 36px); }
+.chart-bars button { flex: 1; height: 100%; min-width: 0; padding: 0 4px; border-radius: 8px; display: flex; align-items: flex-end; background: transparent; }
+.chart-bars button i { width: 100%; background: #7bda99; border-radius: 4px 4px 0 0; display: block; }
+.amber .chart-bars button i { background: #efc874; }
+.chart-bars button.chosen { background: #ffffff24; }
+.chart-selection { text-align: center; font-size: 12px; margin: -5px 0 18px; }
+.activity-card { padding: 20px; margin-bottom: 14px; }
+.activity-card h4 { display: flex; justify-content: space-between; }
+.activity-bars { display: flex; align-items: flex-end; gap: 7px; height: 85px; margin-top: 14px; background: repeating-linear-gradient(0deg,transparent 0 27px,#ffffff10 27px 28px); }
+.activity-bars i { flex: 1; min-height: 3px; border-radius: 4px 4px 0 0; background: #76b5f3; }
+.usage-summary { display: flex; gap: 30px; margin-top: 16px; }
+.usage-summary strong,.usage-summary small { display: block; }
+.usage-summary strong { font-size: 18px; }.usage-summary small { margin-top: 4px; }
+.battery-app { display: flex; align-items: center; gap: 12px; padding: 14px; }
+.battery-app>i { width: 30px; height: 30px; border-radius: 10px; box-shadow: inset 0 1px #ffffff55; }
+.battery-app>span { flex: 1; }.battery-app strong,.battery-app small { display: block; }.battery-app strong { font-size: 15px; }.battery-app small { margin-top: 3px; font-size: 12px; }.battery-app b { font-size: 14px; }
+@container (max-height: 540px) and (min-width: 540px) { .detail-header { min-height: 64px; padding-top: 16px; padding-bottom: 12px; } .device-hero { padding: 12px 16px; gap: 14px; margin-bottom: 12px; } .device-hero :deep(.device) { width: 120px; height: 68px; } .device-summary { margin-bottom: 12px; }.device-summary button { min-height: 58px; padding: 10px 16px; } .general-links { gap: 8px; margin-bottom: 10px; } .general-links .disclosure { min-height: 48px; padding: 8px 14px; } }
+@container (max-width: 539px) { .device-hero { gap: 10px; padding: 16px; }.device-hero :deep(.device) { width: 94px; height: 70px; }.device-hero h3 { font-size: 18px; }.device-hero p { font-size: 12px; }.device-summary button { padding: 12px; gap: 8px; }.device-summary strong { font-size: 17px; }.general-links { grid-template-columns: 1fr; }.general-links .disclosure { min-height: 54px; } }

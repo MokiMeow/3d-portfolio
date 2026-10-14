@@ -3,6 +3,7 @@ import type { ComponentPublicInstance } from 'vue';
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
 import FileGlyph from './files/FileGlyph.vue';
+import FileThumbnail from './files/FileThumbnail.vue';
 import AppGlyph from './files/AppGlyph.vue';
 import QuickLook from './files/QuickLook.vue';
 import { FILE_TAGS, KIND_NAMES, MAX_FILE_CONTENT, MAX_FILE_ENTRIES, MAX_FILE_NAME, formatBytes, readSavedFiles, seedFiles } from './files/model';
@@ -29,6 +30,15 @@ const view = ref<'grid' | 'list' | 'columns'>('grid');
 const sort = ref<'name' | 'date' | 'size' | 'kind'>('date');
 const descending = ref(true);
 const group = ref<'none' | 'kind' | 'tag' | 'storage'>('none');
+const galleryPage = ref(0);
+const galleryBox = ref({ w: 600, h: 330 });
+// The gallery scrolls like the real Files app; one page holds everything.
+const galleryCapacity = computed(() => Math.max(1, shown.value.length));
+const galleryPages = computed(() => Math.max(1, Math.ceil(shown.value.length / galleryCapacity.value)));
+const pageEntries = computed(() => view.value === 'grid' && group.value === 'none'
+  ? shown.value.slice(galleryPage.value * galleryCapacity.value, (galleryPage.value + 1) * galleryCapacity.value) : shown.value);
+let galleryObserver: ResizeObserver | undefined;
+
 const activeTag = ref<FileTag | 'All'>('All');
 const selected = ref<number[]>([]);
 const multi = ref(false);
@@ -41,6 +51,12 @@ const moveStorage = ref<FileStorage>('device');
 const message = ref('');
 const root = ref<HTMLElement>();
 const collection = ref<HTMLElement>();
+watch(collection, element => {
+  galleryObserver?.disconnect();
+  if (!element || typeof ResizeObserver === 'undefined') return;
+  galleryObserver = new ResizeObserver(() => { galleryBox.value = { w: element.clientWidth, h: element.clientHeight }; });
+  galleryObserver.observe(element);
+}, { flush: 'post' });
 const popover = ref<HTMLElement>();
 const renameInput = ref<HTMLInputElement>();
 const railLabel = ref<{ name: string; x: number; y: number } | null>(null);
@@ -99,9 +115,10 @@ const shown = computed(() => order(entries.value.filter(item => {
   if (location.value === 'Tags') return activeTag.value === 'All' || item.tag === activeTag.value;
   return location.value === 'Recents' || item.storage === storageForLocation(location.value);
 })));
+watch([shown, galleryCapacity, view, group], () => { galleryPage.value = Math.min(galleryPage.value, galleryPages.value - 1); });
 const groups = computed(() => {
   const result = new Map<string, FileEntry[]>();
-  for (const item of shown.value) {
+  for (const item of pageEntries.value) {
     const key = group.value === 'kind' ? KIND_NAMES[item.kind] : group.value === 'tag'
       ? item.tag || 'Untagged' : group.value === 'storage' ? storageLabel[item.storage] : '';
     const list = result.get(key) ?? [];
@@ -554,7 +571,8 @@ onMounted(() => {
   } catch { /* Private browsing keeps the same experience in memory. */ }
   mounted = true;
 });
-onBeforeUnmount(() => { clearTimeout(messageTimer); endMarquee(); draggedIds = []; });
+onBeforeUnmount(() => {
+  galleryObserver?.disconnect(); clearTimeout(messageTimer); endMarquee(); draggedIds = []; });
 </script>
 
 <template>
@@ -568,7 +586,7 @@ onBeforeUnmount(() => { clearTimeout(messageTimer); endMarquee(); draggedIds = [
           @focus="showRailLabel($event, place.name)" @blur="railLabel = null"
           @dragover.prevent @drop="dropLocation($event, place.name)">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path :d="place.path" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            <path :d="place.path" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
         </button>
       </nav>
@@ -576,7 +594,7 @@ onBeforeUnmount(() => { clearTimeout(messageTimer); endMarquee(); draggedIds = [
         <span v-if="railLabel" class="rail-label vk-sheet" :style="{ left: railLabel.x + 'px', top: railLabel.y + 'px' }">{{ railLabel.name }}</span>
       </Transition>
       <aside :inert="!!panel" class="tree vk-platter vk-scroll" aria-label="Folder browser">
-        <div class="tree-heading"><h1 class="vk-large-title">Files</h1><p class="vk-footnote vk-secondary">Everything has a place.<br />Allegedly.</p></div>
+        <div class="tree-heading"><h1 class="vk-large-title">Files</h1><p class="vk-footnote vk-secondary">Your sample workspace.<br />Organized and close at hand.</p></div>
         <h2 class="vk-footnote vk-secondary">FOLDERS</h2>
         <button v-for="item in folderTree" :key="item.id" v-hover class="vk-row tree-row"
           :aria-pressed="folder === item.id" :style="{ paddingLeft: 12 + treeDepth(item) * 12 + 'px' }"
@@ -589,17 +607,17 @@ onBeforeUnmount(() => { clearTimeout(messageTimer); endMarquee(); draggedIds = [
         <header class="browser-heading">
           <button v-if="folder !== null" v-hover class="vk-icon folder-back" aria-label="Go to parent folder"
             @click="navigateFolder(entries.find(item => item.id === folder)?.parent ?? null)"><AppGlyph name="back" /></button>
-          <div><span class="eyebrow vk-footnote vk-secondary">YOUR FILES, IN SPACE</span><h1 class="vk-large-title">{{ title }}</h1></div>
+          <div><span class="eyebrow vk-footnote vk-secondary">FILES · SAMPLE WORKSPACE</span><h1 class="vk-large-title">{{ title }}</h1></div>
           <button v-hover class="vk-icon" aria-label="Sort, group and change file view" title="View options" @click="showPanel('organise')"><AppGlyph name="sort" /></button>
         </header>
         <div class="search-row">
           <input v-model="query" v-hover class="vk-field" type="search" aria-label="Search files in this location"
-            placeholder="Find the actual final version" />
+            placeholder="Search files, folders, and tags" />
           <button v-hover class="vk-icon" aria-label="Select multiple files" :aria-pressed="multi" title="Select multiple" @click="multi = !multi">
             <AppGlyph name="check" />
           </button>
         </div>
-        <nav class="breadcrumb vk-scroll" aria-label="Folder path">
+        <nav v-if="folder !== null" class="breadcrumb vk-scroll" aria-label="Folder path">
           <button v-hover class="vk-button" :aria-current="folder === null ? 'page' : undefined" @click="navigateFolder(null)"
             @dragover.prevent @drop="dropInto($event, null, storageForLocation(location))">{{ location }}</button>
           <template v-for="crumb in breadcrumbs" :key="crumb.id">
@@ -636,6 +654,7 @@ onBeforeUnmount(() => { clearTimeout(messageTimer); endMarquee(); draggedIds = [
               </div>
             </div>
           </section>
+          <aside v-if="selectedEntries.length === 1 && selectedEntries[0]?.kind !== 'folder'" class="column-preview vk-platter vk-scroll"><FileThumbnail :entry="selectedEntries[0]!" /><h3>{{ selectedEntries[0]?.name }}</h3><p>{{ selectedEntries[0]?.detail }}</p><dl><div><dt>Kind</dt><dd>{{ KIND_NAMES[selectedEntries[0]!.kind] }}</dd></div><div><dt>Size</dt><dd>{{ formatBytes(selectedEntries[0]!.bytes) }}</dd></div><div><dt>Tag</dt><dd>{{ selectedEntries[0]?.tag || 'None' }}</dd></div></dl><button v-hover class="vk-button primary" @click="open(selectedEntries[0]!)">Quick Look</button></aside>
         </div>
         <div v-else ref="collection" class="entries vk-scroll" @pointerdown="startMarquee" @pointermove="moveMarquee"
           @pointerup="endMarquee" @pointercancel="endMarquee">
@@ -660,7 +679,7 @@ onBeforeUnmount(() => { clearTimeout(messageTimer); endMarquee(); draggedIds = [
                     :aria-label="item.name + ', ' + KIND_NAMES[item.kind] + (item.deleted ? ', deleted' : '')"
                     :aria-pressed="selected.includes(item.id)" @click="choose($event, item)"
                     @dblclick="open(item)" @keydown="keyItem($event, item)" @contextmenu.prevent="showActions(item)">
-                    <FileGlyph :kind="item.kind" />
+                    <FileThumbnail v-if="view === 'grid'" :entry="item" /><FileGlyph v-else :kind="item.kind" />
                     <span class="entry-name"><strong><template v-for="(part, index) in item.name.split(/(?<=[_ -])/)" :key="index">{{ part }}<wbr /></template></strong>
                       <small class="vk-secondary">{{ item.kind === 'folder' ? entries.filter(child => child.parent === item.id && !child.deleted).length + ' items'
                         : formatBytes(item.bytes) }}</small>
@@ -681,6 +700,7 @@ onBeforeUnmount(() => { clearTimeout(messageTimer); endMarquee(); draggedIds = [
           </div>
         </div>
         <footer class="browser-footer">
+          <div v-if="view === 'grid' && group === 'none' && galleryPages > 1" class="gallery-paging"><span class="vk-footnote vk-secondary">{{ galleryPage * galleryCapacity + 1 }}–{{ Math.min((galleryPage + 1) * galleryCapacity, shown.length) }} of {{ shown.length }}</span><div><button v-hover class="vk-icon" aria-label="Previous files" :disabled="galleryPage === 0" @click="galleryPage--"><AppGlyph name="back" /></button><span>{{ galleryPage + 1 }} / {{ galleryPages }}</span><button v-hover class="vk-icon" aria-label="Next files" :disabled="galleryPage + 1 >= galleryPages" @click="galleryPage++"><AppGlyph name="forward" /></button></div></div>
           <div class="storage-line">
             <span class="vk-footnote vk-secondary">{{ selected.length ? selected.length + ' selected' : shown.length + ' items' }}</span>
             <span class="storage-summary vk-footnote vk-secondary">{{ formatBytes(used) }} of 256 GB</span>

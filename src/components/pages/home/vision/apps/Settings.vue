@@ -107,6 +107,19 @@ const {
     openApp,
     reset
 } = useSettingsState();
+const batteryPeriod = ref<'24 hours' | '10 days'>('24 hours');
+const batteryHour = ref<number | null>(null);
+const batteryLevels = computed(() => batteryPeriod.value === '24 hours'
+  ? [96,94,91,89,86,82,78,75,73,100,87,71]
+  : [92,78,84,62,90,73,85,68,82,71]);
+const batteryActivity = computed(() => batteryPeriod.value === '24 hours'
+  ? [12,5,0,0,4,13,28,36,22,8,31,24] : [38,52,46,65,32,54,43,61,45,49]);
+const batteryApps = [
+  { name: 'TV', value: 38, color: '#71b4f5', detail: '48 min · Immersive viewing' },
+  { name: 'Safari', value: 26, color: '#9bd7ce', detail: '34 min · Browsing' },
+  { name: 'Freeform', value: 21, color: '#f3d58c', detail: '27 min · On screen' },
+  { name: 'Other apps', value: 15, color: '#c1b0e4', detail: '19 min · On screen' },
+];
 </script>
 
 <template>
@@ -145,7 +158,7 @@ const {
         </button>
         <p v-if="!searchable.length" class="empty">No settings match “{{ query }}”.</p>
       </nav>
-      <p class="sidebar-foot">A little space to make your own.</p>
+      <p class="sidebar-foot">Personalize your spatial workspace.</p>
     </aside>
     <main class="detail">
       <header class="detail-header">
@@ -159,13 +172,12 @@ const {
       <div :key="page" class="detail-body vk-scroll">
         <div class="page-inner">
           <template v-if="page === 'General'">
-            <div class="hero device-hero">
-              <DeviceArt />
-              <h3>Your Vision Pro</h3>
-              <p>One very real browser. A remarkably pretend headset.</p>
+            <div class="device-hero vk-platter">
+              <DeviceArt /><div><span class="device-kicker">PERSONAL DEVICE · DEMO</span><h3>Apple Vision Pro</h3><p>visionOS 27 · Your spatial workspace</p><span class="device-ready"><i /> Ready to explore</span></div>
             </div>
-            <div class="group vk-platter">
-              <button v-for="item in generalPages" :key="item" v-hover class="vk-row disclosure" @click="navigate(item)">
+            <div class="device-summary"><button v-hover class="vk-platter" @click="navigate('Battery')"><ControlIcon name="Battery" /><span><strong>71%</strong><small>Battery · simulated</small></span></button><button v-hover class="vk-platter" @click="navigate('Storage')"><ControlIcon name="Storage" /><span><strong>{{ usedStorage.toFixed(1) }} GB</strong><small>of 256 GB used</small></span></button></div>
+            <div class="general-links">
+              <button v-for="item in generalPages" :key="item" v-hover class="vk-row disclosure vk-platter" @click="navigate(item)">
                 <span>{{ item }}</span>
                 <span class="row-tail">
                   {{ item === 'Software Update'
@@ -246,12 +258,12 @@ const {
             </div>
             <div class="update-result vk-platter" aria-live="polite">
               <span v-if="updateState === 'checking'" class="spinner" aria-hidden="true"/>
-              <h3>{{ updateState === 'checking' ? 'Checking for updates…' : updateState === 'done' ? 'Your headset is up to date. Your code is not.' : 'Ready when you are.' }}</h3>
+              <h3>{{ updateState === 'checking' ? 'Checking for updates…' : updateState === 'done' ? 'Your software reference is up to date.' : 'Ready when you are.' }}</h3>
               <p>
                 {{ updateState === 'checking'
-                  ? 'Consulting the imaginary update server.'
+                  ? 'Checking the local demo reference.'
                   : updateState === 'done'
-                  ? 'No downloads. Perhaps a quick look at that TODO.'
+                  ? 'No update is available for this demonstration.'
                   : 'Run a simulated software check.' }}
               </p>
               <button v-hover class="vk-button primary" :disabled="updateState === 'checking'" @click="checkUpdate">
@@ -503,11 +515,9 @@ const {
             <div class="display-preview vk-well" :style="{ '--brightness': brightness / 100 }">
               <div class="display-sample" :style="{ transform: 'scale(' + (displaySize === 'Small' ? .8 : displaySize === 'Large' ? 1.1 : .95) + ')' }">
                 <span/>
-                <h4>Room to think.</h4>
+                <h4>Your space, in focus.</h4><small>Choose a comfortable window scale</small>
                 <div class="sample-apps">
-                  <i/>
-                  <i/>
-                  <i/>
+                  <i><ControlIcon name="General" /></i><i><ControlIcon name="Environments" /></i><i><ControlIcon name="Persona" /></i>
                 </div>
               </div>
             </div>
@@ -728,19 +738,20 @@ const {
                 71
                 <span>%</span>
               </strong>
-              <p>{{ lowPower ? 'Taking things a little slower.' : 'Plenty of imaginary energy.' }}</p>
+              <p>{{ lowPower ? 'Taking things a little slower.' : 'Last charged to 100% at 9:00 AM.' }}</p>
             </div>
             <div class="group vk-platter">
               <ToggleRow v-model="lowPower" label="Low Power Mode" detail="A simulated power preference. The preview turns amber." />
               <ToggleRow v-model="optimiseCharging" label="Optimised Battery Charging" detail="Your imaginary battery appreciates the thought." />
             </div>
+            <div class="battery-period vk-segmented" role="group" aria-label="Battery chart period"><button v-for="period in ['24 hours', '10 days'] as const" :key="period" v-hover :aria-pressed="batteryPeriod === period" @click="batteryPeriod = period; batteryHour = null">Last {{ period }}</button></div>
             <div class="battery-chart vk-platter" :class="{ amber: lowPower }">
               <h4>
                 Battery Level
-                <small>Last 24 hours, simulated</small>
+                <small>{{ batteryPeriod === '24 hours' ? 'Last 24 hours' : 'Last 10 days' }}, simulated</small>
               </h4>
-              <div class="chart-bars" role="img" aria-label="Simulated battery chart, starting at 100 percent and ending at 71 percent">
-                <span v-for="(level, index) in [100, 98, 94, 91, 90, 88, 85, 81, 79, 75, 73, 71]" :key="index" :style="{ height: level + '%' }"/>
+              <div class="chart-bars" role="group" aria-label="Simulated battery history. Select a bar for details.">
+                <button v-for="(level, index) in batteryLevels" :key="index" v-hover :class="{ chosen: batteryHour === index }" :aria-label="'Period ' + (index + 1) + ': ' + level + ' percent battery'" :aria-pressed="batteryHour === index" @click="batteryHour = index"><i :style="{ height: level + '%' }" /></button>
               </div>
               <div class="chart-labels">
                 <span>00:00</span>
@@ -749,7 +760,10 @@ const {
                 <span>Now</span>
               </div>
             </div>
-            <p class="footnote">This is a static demonstration, not a reading of your headset, laptop or phone battery. Powered mostly by optimism.</p>
+            <p class="chart-selection" role="status">{{ batteryHour === null ? 'Select a bar to explore battery usage.' : 'Period ' + (batteryHour + 1) + ' · Battery ' + batteryLevels[batteryHour] + '% · Active for ' + batteryActivity[batteryHour] + ' min' }}</p>
+            <div class="activity-card vk-platter"><h4>Activity <small>Sample usage</small></h4><div class="activity-bars" aria-hidden="true"><i v-for="(minutes, index) in batteryActivity" :key="index" :style="{ height: minutes + '%' }" /></div><div class="usage-summary"><span><strong>2 h 08 min</strong><small>Screen active</small></span><span><strong>18 min</strong><small>Background activity</small></span></div></div>
+            <h3 class="section-title">Battery usage by app</h3><div class="group vk-platter"><div v-for="item in batteryApps" :key="item.name" class="battery-app"><i :style="{ background: item.color }" /><span><strong>{{ item.name }}</strong><small>{{ item.detail }}</small></span><b>{{ item.value }}%</b></div></div>
+            <p class="footnote">Sample battery history for this simulation. No device readings are collected.</p>
           </template>
           <template v-else-if="page === 'Storage'">
             <div class="storage-summary">

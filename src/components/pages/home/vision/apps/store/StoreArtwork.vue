@@ -13,7 +13,7 @@ const sceneTitle = computed(() => ['A little more room', 'Make it your own', 'A 
       <div class="tab-stack" :class="'scene-' + (scene ?? 0)">
         <div v-for="n in 4" :key="n" class="little-window" :style="{ '--n': n }">
           <div class="dots"><i /><i /><i /></div>
-          <div class="mini-block" /><div class="mini-line" /><div class="mini-line short" />
+          <div class="mini-block"><img :src="'/phone/photos/' + ['mountains-1','beach-1','sunset-0','workspace-4'][n - 1] + '.webp'" alt="" loading="lazy" /></div><div class="mini-line" /><div class="mini-line short" />
           <span>{{ ['Research', 'Definitely later', 'One more idea', 'The actual task'][n - 1] }}</span>
         </div>
       </div>
@@ -400,4 +400,6 @@ const sceneTitle = computed(() => ['A little more room', 'Make it your own', 'A 
     font-size: 19px;
   }
 }
+
+.mini-block { overflow: hidden; }.mini-block img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: .75; }
 </style>

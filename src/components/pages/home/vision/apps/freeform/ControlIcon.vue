@@ -51,6 +51,7 @@ const paths: Record<string, string> = {
   Notifications: 'M5 17h14l-2-3V9a5 5 0 0 0-10 0v5ZM10 21h4',
   Apps: 'M3 3h7v7H3ZM14 3h7v7h-7ZM3 14h7v7H3ZM14 14h7v7h-7Z',
   'Control Centre': 'M4 6h16M4 12h16M4 18h16M8 3v6m8 0v6m-6 0v6',
+  Storage: 'M4 4h16v16H4ZM8 8h8M8 12h8M8 16h4',
   Battery: 'M2 6h18v12H2Zm20 4v4M5 9v6m4-6v6m4-6v6',
   Accessibility: 'M14 4a2 2 0 1 1-4 0 2 2 0 1 1 4 0ZM3 8l9 2 9-2M12 10v5l-5 6m5-6 5 6',
   'Build Bot': 'M5 5h14v14H5ZM9 9h.1m5.9 0h.1M9 15h6M12 2v3M2 9v6m20-6v6',

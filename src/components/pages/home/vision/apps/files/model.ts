@@ -35,21 +35,21 @@ export function seedFiles(): FileEntry[] {
   ): void => {
     result.push({ id, name, parent, storage, kind, bytes, tag, detail, content, modified: 1791936000000 - id * 3600000, deleted: false });
   };
-  add(1, 'Projects, eventually', null, 'device', 'folder', 0, 'Later', 'A comfortable home for ambitious intentions.');
-  add(2, 'Screenshots of screenshots', null, 'device', 'folder', 0, 'Important', 'Evidence that something once looked right.');
-  add(3, 'Chai research', null, 'cloud', 'folder', 0, 'Important', 'A deeply steeped body of work.');
-  add(4, 'final_final_REAL_v7.fig', 1, 'device', 'design', 14200000, 'Later', 'The final version. Until the next final version.');
-  add(5, 'do_not_open.zip', null, 'device', 'zip', 404000000, 'Later', 'Contents: another archive named definitely_do_not_open.zip.');
-  add(6, 'taxes_2019_maybe.pdf', null, 'cloud', 'pdf', 2100000, 'Important', 'An entirely fictional document with impressively vague numbers.');
-  add(7, 'meeting_that_could_be_a_note.txt', 1, 'device', 'text', 800, 'Later', 'Agenda: discuss. Outcome: another discussion.',
+  add(1, 'Creative projects', null, 'device', 'folder', 0, 'Later', 'A comfortable home for ambitious intentions.');
+  add(2, 'Image collection', null, 'device', 'folder', 0, 'Important', 'Evidence that something once looked right.');
+  add(3, 'Field notes', null, 'cloud', 'folder', 0, 'Important', 'A deeply steeped body of work.');
+  add(4, 'Weekend moodboard.fig', 1, 'device', 'design', 14200000, 'Later', 'The final version. Until the next final version.');
+  add(5, 'Reference collection.zip', null, 'device', 'zip', 404000000, 'Later', 'Contents: another archive named definitely_do_not_open.zip.');
+  add(6, 'Weekend field guide.pdf', null, 'cloud', 'pdf', 2100000, 'Important', 'An entirely fictional document with impressively vague numbers.');
+  add(7, 'Ideas for a slow morning.txt', 1, 'device', 'text', 800, 'Later', 'Agenda: discuss. Outcome: another discussion.',
     'Meeting notes\n\nAgenda: discuss.\nOutcome: another discussion.\n\nAction items\n1. Reduce the number of action items.\n2. Schedule a meeting about item one.');
-  add(8, 'it_was_green_yesterday.png', 2, 'device', 'image', 1800000, 'Important', 'A lovingly preserved passing build.', 'lakeside');
-  add(9, 'bug_before_the_demo.png', 2, 'device', 'image', 2400000, 'Later', 'Captured just before a very confident explanation.', 'kiara');
-  add(10, 'screenshot_of_a_screenshot.png', 2, 'device', 'image', 3200000, 'Important', 'Image quality: recursive.', 'pines');
+  add(8, 'Lakeside morning.webp', 2, 'device', 'image', 1800000, 'Important', 'A lovingly preserved passing build.', 'lakeside');
+  add(9, 'Desert light.webp', 2, 'device', 'image', 2400000, 'Later', 'Captured just before a very confident explanation.', 'kiara');
+  add(10, 'Forest study.webp', 2, 'device', 'image', 3200000, 'Important', 'Image quality: recursive.', 'pines');
   add(11, 'chai_temperature_study.pdf', 3, 'cloud', 'pdf', 4200000, 'Important', 'Conclusion: drink it before opening your inbox.');
   add(12, 'ginger_vs_cardamom.txt', 3, 'cloud', 'text', 1100, 'Important', 'Both. The answer was both.',
     'Ginger vs cardamom\n\nBoth. The answer was both.\n\nMethod: brew, taste, repeat.\nPeer review: Amma approved the ingredients.\nLimitations: all samples were consumed.');
-  add(13, 'please_review_before_monday.fig', null, 'shared', 'design', 8600000, 'Later', 'The review deadline is a state of mind.');
+  add(13, 'Canvas explorations.fig', null, 'shared', 'design', 8600000, 'Later', 'The review deadline is a state of mind.');
   add(14, 'scope_creep_v2.pdf', null, 'shared', 'pdf', 9700000, 'Later', 'A small feature, now available in seven volumes.');
   add(15, 'readme_before_you_panic.txt', null, 'device', 'text', 1400, 'Important', 'Step one: breathe. Step two: check the console. Step three: chai.',
     [
@@ -120,6 +120,11 @@ export function seedFiles(): FileEntry[] {
   add(33, 'untitled_no_longer.txt', null, 'device', 'text', 400, '', 'A blank document given a second chance.', 'It is okay to start small.');
   const deleted = result.find(item => item.id === 33);
   if (deleted) deleted.deleted = true;
+  // Featured sample images lead Recents; saved user changes are never overwritten.
+  for (const [index, id] of [8, 9, 10, 4, 6, 7].entries()) {
+    const entry = result.find(item => item.id === id);
+    if (entry) entry.modified = 1791936000000 + (6 - index) * 3600000;
+  }
   return result;
 }
 export function readSavedFiles(raw: string): FileEntry[] | undefined {

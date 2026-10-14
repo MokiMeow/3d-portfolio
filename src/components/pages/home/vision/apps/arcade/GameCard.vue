@@ -4,7 +4,7 @@ import { vHover } from '../../kit/hover';
 defineProps<{ game: PsGame }>();
 defineEmits<{ play: [game: PsGame] }>();
 </script>
-<template><button v-hover class="game-card" :style="{ '--game-color': game.color }" :aria-label="'Play ' + game.title" @click="$emit('play', game)"><span class="art"><img :src="game.cover" alt="" loading="lazy" draggable="false" /><span class="play-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m9 5 11 7-11 7Z" /></svg></span></span><strong>{{ game.title }}</strong><small>{{ game.genre }}<span v-if="game.phone"> · Touch ready</span></small></button></template>
+<template><button v-hover class="game-card" :style="{ '--game-color': game.color }" :aria-label="'View ' + game.title" @click="$emit('play', game)"><span class="art"><img :src="game.cover" alt="" loading="lazy" draggable="false" /><span class="play-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m9 5 11 7-11 7Z" /></svg></span></span><strong>{{ game.title }}</strong><small>{{ game.genre }}<span v-if="game.phone"> · Touch ready</span></small></button></template>
 <style scoped>
 .game-card { display: flex; flex-direction: column; gap: 5px; min-width: 0; width: 240px; flex: 0 0 240px; padding: 0 0 8px; border: 0; background: none; border-radius: 20px; color: inherit; text-align: left; cursor: pointer; font: inherit; }
 .art { position: relative; width: 100%; aspect-ratio: 16/9; border-radius: 20px; overflow: hidden; background: var(--game-color); transition: box-shadow .25s, transform .3s var(--vk-spring); }

@@ -21,6 +21,11 @@ const notifications = ref(true);
 const announcement = ref('');
 const notice = ref('');
 const stage = ref<HTMLElement | null>(null);
+const storeRoot = ref<HTMLElement | null>(null);
+const storePaused = ref(false);
+let storeVisible = true;
+let storeObserver: IntersectionObserver | undefined;
+let storeLastSecond = 0;
 const storyElement = ref<HTMLElement | null>(null);
 const launchElement = ref<HTMLElement | null>(null);
 const storeSearch = ref<HTMLInputElement | null>(null);
@@ -64,7 +69,7 @@ const shown = computed(() => storeApps.filter(app => {
 }));
 const suggestions = ['Productivity', 'Chai', 'Developer', 'Arcade', 'Headset'];
 const headline = computed(() => selected.value ? selected.value.name : tab.value);
-const listTitle = computed(() => tab.value === 'Today' ? 'A few good distractions'
+const listTitle = computed(() => tab.value === 'Today' ? 'Selected for your space'
   : tab.value === 'Search' ? query.value ? 'Search results' : 'Discover something' : 'Made for a little more space');
 let tick: ReturnType<typeof setInterval> | undefined;
 let noticeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -327,16 +332,7 @@ function stepBack(event: KeyboardEvent): void {
   event.preventDefault();
   event.stopPropagation();
 }
-onMounted(() => {
-  mounted = true;
-  restorePurchases();
-  try {
-    motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    reducedMotion.value = motionQuery.matches;
-    motionQuery.addEventListener('change', updateMotion);
-  } catch { reducedMotion.value = true; }
-  let lastSecond = Date.now();
-  tick = setInterval(() => {
+function updateSimulation(): void {
     const now = Date.now();
     for (const app of storeApps) {
       const item = downloads.value[app.id];
@@ -354,14 +350,38 @@ onMounted(() => {
       timerSeconds.value = Math.max(0, teaRemainingAtStart.value - Math.floor((now - teaStarted.value) / 1000));
       if (timerSeconds.value === 0) { teaStarted.value = null; notify('Tea is ready. The imaginary biscuit has excellent timing.'); }
     }
-    if (now - lastSecond >= 1000) {
+    if (now - storeLastSecond >= 1000) {
       if (focused.value) focusTime.value += 1;
-      lastSecond = now;
+      storeLastSecond = now;
     }
-  }, 80);
+}
+
+function syncStoreTicker(): void {
+  if (tick !== undefined) clearInterval(tick); tick = undefined;
+  storePaused.value = document.hidden || !storeVisible;
+  if (storePaused.value) cardAnimation?.pause(); else if (cardAnimation?.playState === 'paused') cardAnimation.play();
+  if (!mounted || storePaused.value || !activeDownloads.value.length && teaStarted.value === null && !focused.value) return;
+  storeLastSecond = Date.now();
+  updateSimulation();
+  tick = setInterval(updateSimulation, 120);
+}
+watch([() => activeDownloads.value.length, teaStarted, focused], syncStoreTicker);
+onMounted(() => {
+  mounted = true;
+  restorePurchases();
+  try {
+    motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    reducedMotion.value = motionQuery.matches;
+    motionQuery.addEventListener('change', updateMotion);
+  } catch { reducedMotion.value = true; }
+  document.addEventListener('visibilitychange', syncStoreTicker);
+  if (storeRoot.value && typeof IntersectionObserver !== 'undefined') { storeObserver = new IntersectionObserver(entries => { storeVisible = entries[0]?.isIntersecting ?? false; syncStoreTicker(); }); storeObserver.observe(storeRoot.value); }
+  syncStoreTicker();
 });
 onBeforeUnmount(() => {
   mounted = false;
+  document.removeEventListener('visibilitychange', syncStoreTicker);
+  storeObserver?.disconnect();
   if (noticeTimer !== undefined) clearTimeout(noticeTimer);
   if (tick !== undefined) clearInterval(tick);
   cardAnimation?.cancel();
@@ -370,7 +390,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="store-root" :class="{ compact }" @keydown="stepBack">
+  <div ref="storeRoot" class="store-root" :class="{ compact, 'motion-paused': storePaused }" @keydown="stepBack">
     <div ref="navigationWrap" class="navigation-wrap">
     <nav class="store-navigation vk-tabbar vk-scroll" aria-label="App Store destinations" :inert="!!story || !!launch" @scroll="navTooltip = null">
       <button v-for="item in tabs" :key="item.name" v-hover class="vk-icon nav-button" :aria-label="item.name"
@@ -378,7 +398,7 @@ onBeforeUnmount(() => {
         @pointerenter="showNavLabel(item.name, $event)" @pointerleave="navTooltip = null"
         @focus="showNavLabel(item.name, $event)" @blur="navTooltip = null">
         <svg viewBox="0 0 28 28" fill="none" aria-hidden="true"><path :d="item.path" stroke="currentColor"
-          stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
         <i v-if="item.name === 'Updates' && updates.length" class="update-dot" />
       </button>
     </nav>
@@ -389,12 +409,12 @@ onBeforeUnmount(() => {
       <StorePage v-if="selected" :app="selected" :state="state(selected.id)" @activate="selected && activate(selected)" @back="backToList" />
       <div v-else class="store-home" :inert="!!story || !!launch">
         <header class="store-header">
-          <div><p class="eyebrow vk-secondary">{{ tab === 'Today' ? 'A GOOD DAY FOR SOMETHING UNNECESSARY' : 'THE SIMULATED APP STORE' }}</p>
+          <div><p class="eyebrow vk-secondary">{{ tab === 'Today' ? 'DISCOVER SOMETHING EXTRAORDINARY' : 'THE SIMULATED APP STORE' }}</p>
             <h1>{{ headline }}</h1></div>
-          <button v-hover class="vk-icon account-avatar" aria-label="Open account and purchases" @click="switchTab('Account')">M</button>
+          <button v-hover class="vk-icon account-avatar" aria-label="Open account and purchases" @click="switchTab('Account')"><AppGlyph name="account" /></button>
         </header>
         <div v-if="tab === 'Search'" class="search-area">
-          <input ref="storeSearch" v-model="query" v-hover class="vk-field" type="search" placeholder="Apps, games, and good excuses"
+          <input ref="storeSearch" v-model="query" v-hover class="vk-field" type="search" placeholder="Apps, games, and spatial experiences"
             aria-label="Search apps" />
           <div v-if="!query" class="suggestions" aria-label="Search suggestions">
             <button v-for="suggestion in suggestions" :key="suggestion" v-hover class="vk-chip" @click="query = suggestion">{{ suggestion }}</button>
@@ -451,7 +471,7 @@ onBeforeUnmount(() => {
                 data-app-card @click="openStory(item, $event)">
                 <span class="eyebrow">{{ item.kicker }}</span><h2>{{ item.title }}</h2>
                 <StoreArtwork v-if="storyApp(item)" :app="storyApp(item) as StoreApp" editorial />
-                <span class="editorial-bottom"><strong>{{ storyApp(item)?.name }}</strong><small>{{ item.line }}</small></span>
+                <span class="editorial-bottom"><span class="editorial-type">{{ item.appId === 'scope' ? 'A WORLD OF PLAY' : 'MADE FOR YOUR SPACE' }}</span><strong>{{ storyApp(item)?.name }}</strong><small>{{ item.line }}</small><span class="editorial-read">Read the story <AppGlyph name="forward" /></span></span>
               </button>
             </div>
             <div v-if="tab === 'Arcade' || tab === 'Games'" class="arcade-hero vk-platter">
@@ -464,7 +484,7 @@ onBeforeUnmount(() => {
                 @click="filter = category">{{ category }}</button>
             </div>
             <div class="section-heading"><h2>{{ listTitle }}</h2><span v-if="tab === 'Search'" class="vk-footnote vk-secondary">{{ shown.length }} results</span></div>
-            <div class="app-list">
+            <div class="app-list discovery-list">
               <article v-for="app in shown" :key="app.id" class="app-row vk-platter">
                 <button v-hover class="vk-row app-details" :aria-label="'View ' + app.name" data-app-card @click="showDetails(app)">
                   <StoreIcon :app="app" /><span class="app-copy"><strong>{{ app.name }}</strong><small>{{ app.subtitle }}</small>
@@ -1616,4 +1636,27 @@ onBeforeUnmount(() => {
     transition: none !important;
   }
 }
+
+/* Today is composed as one complete editorial spread at every window height. */
+.store-root { padding: 24px; --vk-secondary: rgb(255 255 255 / .68); --vk-tertiary: rgb(255 255 255 / .44); }
+.store-root .store-home { padding: 0 0 0 8px; gap: 18px; }.store-root .eyebrow { font-size: 10px; letter-spacing: .09em; margin-bottom: 8px; }
+.store-root .store-feed { container-type: size; padding: 2px 3px 12px; }
+.store-root .editorial-grid { grid-template-columns: 1.15fr 1fr; grid-template-rows: repeat(2,minmax(0,1fr)); height: calc(100cqh - 6px); min-height: 330px; gap: 14px; margin-bottom: 30px; }
+.store-root .editorial-card { min-height: 0; padding: 22px; border-radius: 28px; border: 1px solid #ffffff16; }
+.store-root .editorial-card.tabs { grid-row: span 2; background: radial-gradient(ellipse at 65% 65%,#84ced055,transparent 68%),linear-gradient(145deg,#537a8ca6,#23374685); }
+.store-root .editorial-card.tabs :deep(.store-art) { flex: 1; height: auto; min-height: 100px; max-height: 240px; margin: 0; }
+.store-root .editorial-card.chai, .store-root .editorial-card.scope { grid-column: 2; padding: 20px 43% 18px 20px; }
+.store-root .editorial-card.scope { min-height: 0; background: radial-gradient(ellipse at 90% 60%,#87ae6155,transparent),linear-gradient(135deg,#3c65528c,#223e418c); }
+.store-root .editorial-card.chai :deep(.store-art), .store-root .editorial-card.scope :deep(.store-art) { position: absolute; inset: 0 0 0 auto; width: 43%; height: 100%; margin: 0; }
+.store-root .editorial-card h2 { font-size: clamp(23px,3cqw,31px); letter-spacing: -.035em; line-height: 1.1; }
+.store-root .editorial-card.chai h2, .store-root .editorial-card.scope h2 { font-size: 22px; }
+.store-root .editorial-type { display: block; color: #ffffff85; font-size: 9px; letter-spacing: .08em; margin-bottom: 5px; }
+.store-root .editorial-bottom strong { font-size: 16px; }.store-root .editorial-bottom small { font-size: 12px; line-height: 1.4; }
+.store-root .editorial-read { display: flex; align-items: center; gap: 4px; font-size: 11px; margin-top: 10px; color: #ffffffd9; }.editorial-read .app-glyph { width: 12px; height: 12px; }
+.store-root .discovery-list { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.store-root .app-copy strong { font-size: 15px; }.store-root .app-copy small { font-size: 12px; }.store-root .app-details { gap: 12px; }.store-root .app-row { border-radius: 22px; }.store-root .row-rating { font-size: 10px; }
+@container (max-height: 540px) and (min-width: 600px) { .store-root .editorial-grid { min-height: 290px; }.store-root .editorial-card { padding: 18px; }.store-root .editorial-card h2 { font-size: 25px; }.store-root .editorial-card.chai,.store-root .editorial-card.scope { padding: 16px 40% 16px 16px; }.store-root .editorial-card.chai h2,.store-root .editorial-card.scope h2 { font-size: 19px; }.store-root .editorial-type,.store-root .editorial-read { display: none; }.store-root .editorial-bottom strong { font-size: 13px; }.store-root .editorial-bottom small { font-size: 11px; } }
+@container (max-width: 600px) { .store-root .editorial-grid { display: flex; flex-direction: column; height: auto; gap: 18px; }.store-root .editorial-card.tabs { min-height: calc(100cqh - 8px); }.store-root .editorial-card.tabs :deep(.store-art) { height: 140px; min-height: 100px; flex: 1; }.store-root .editorial-card.chai,.store-root .editorial-card.scope { grid-column: auto; min-height: 210px; }.store-root .discovery-list { grid-template-columns: 1fr; }.store-root .editorial-card.tabs h2 { font-size: 29px; }.store-root .editorial-read { margin-top: 8px; } }
+@container (max-width: 450px) { .store-root .store-home { padding: 0; gap: 14px; }.store-root .store-header .eyebrow { font-size: 9px; }.store-root .store-header h1 { font-size: 28px; }.store-root .editorial-card { padding: 20px; } }
+.store-root.motion-paused :deep(*) { animation-play-state: paused !important; }
 </style>
