@@ -6,7 +6,8 @@ export type AtelierAction =
   | "lamp"
   | "newspaper"
   | "sound"
-  | "console";
+  | "console"
+  | "headset";
 
 export interface AtelierState {
   study: number;

@@ -1218,7 +1218,7 @@ export function createAtelier(
   box(bookcase, [.02, 1.24, 2.82], [.12, .66, 0], "#2a2725").material = fluted;
   const gameCorner = buildGameCorner(bookcase, {
     geo, lightMaterial, own: material => { materials.add(material); }, box, cylinder, ball, panel, canvasTexture, textured,
-    clickable: mesh => clickable(mesh, "console"), envMap: probe.texture, walnut,
+    clickable: mesh => clickable(mesh, "console"), clickableHeadset: mesh => clickable(mesh, "headset"), envMap: probe.texture, walnut,
   });
   for (let row = 0; row < 2; row++) {
     for (let i = 0; i < 12; i++) {

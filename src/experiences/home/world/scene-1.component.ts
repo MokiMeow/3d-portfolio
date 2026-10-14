@@ -906,6 +906,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 		if (action === "sound") this._music.value.open = true;
 		if (action === "newspaper") useState<boolean>('isNewspaperOpen', () => false).value = true;
 		if (action === "console") useState<boolean>('isConsoleOpen', () => false).value = true;
+		if (action === "headset") useState<LabDevice>("activeLabDevice", () => null).value = "glasses";
 		if (action === "console" || action === "newspaper") this.companion?.react(action);
 		if (action === "study" || action === "palette") this.companion?.react("art");
 		if (action === "sound") this.companion?.react("music");

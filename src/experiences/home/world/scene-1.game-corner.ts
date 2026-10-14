@@ -14,7 +14,10 @@ import {
   Texture,
   TorusGeometry,
 } from "three";
+import { Matrix4, Vector3, type Material } from "three";
 import { PS_GAMES } from "~/common/playstation/games";
+import { dualSenseFactory } from "./dualsense";
+import { createHeadset } from "./scene-3.devices";
 
 type SurfaceMaterial = MeshBasicMaterial | MeshStandardMaterial;
 
@@ -30,6 +33,8 @@ export interface GameCornerKit {
   canvasTexture: (w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void) => CanvasTexture;
   textured: (texture: Texture, transparent?: boolean) => MeshBasicMaterial;
   clickable: (mesh: Object3D) => void;
+  /** Clicking one of the Vision Pro headsets puts it on. */
+  clickableHeadset: (mesh: Object3D) => void;
   envMap: Texture;
   walnut: string;
 }
@@ -52,7 +57,7 @@ const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number,
  * bookcase's open room-facing side turned into lit cubbies. Everything here opens the PlayStation.
  */
 export function buildGameCorner(bookcase: Object3D, kit: GameCornerKit) {
-  const { geo, lightMaterial, own, box, cylinder, ball, panel, canvasTexture, textured, clickable } = kit;
+  const { geo, lightMaterial, own, box, cylinder, ball, panel, canvasTexture, textured, clickable, clickableHeadset } = kit;
   const surface = (options: ConstructorParameters<typeof MeshPhysicalMaterial>[0]) =>
     lightMaterial(new MeshPhysicalMaterial({ envMap: kit.envMap, envMapIntensity: .55, ...options }));
   const srgb = (hex: string) => new Color(hex).convertLinearToSRGB();
@@ -137,45 +142,37 @@ export function buildGameCorner(bookcase: Object3D, kit: GameCornerKit) {
   touch(...parts);
 
   /* ---------- Controllers ---------- */
-  const silhouette = new Shape();
-  silhouette.moveTo(0, .04);
-  silhouette.bezierCurveTo(.035, .042, .06, .042, .072, .03);
-  silhouette.bezierCurveTo(.086, .012, .09, -.03, .084, -.056);
-  silhouette.bezierCurveTo(.078, -.076, .055, -.078, .046, -.058);
-  silhouette.bezierCurveTo(.038, -.04, .025, -.028, 0, -.028);
-  silhouette.bezierCurveTo(-.025, -.028, -.038, -.04, -.046, -.058);
-  silhouette.bezierCurveTo(-.055, -.078, -.078, -.076, -.084, -.056);
-  silhouette.bezierCurveTo(-.09, -.03, -.086, .012, -.072, .03);
-  silhouette.bezierCurveTo(-.06, .042, -.035, .042, 0, .04);
-  const padGeometry = geo(new ExtrudeGeometry(silhouette, { depth: .02, bevelEnabled: true, bevelThickness: .009, bevelSize: .007, bevelSegments: 4, curveSegments: 20 }));
-  padGeometry.center();
-  const controller = (parent: Object3D, position: number[], rotation: number[]) => {
-    const pad = new Group();
-    pad.position.fromArray(position);
-    pad.rotation.set(rotation[0]!, rotation[1]!, rotation[2]!);
-    parent.add(pad);
-    // Built face up: x across, y towards the light bar, z out of the face.
-    const body = mesh(padGeometry, shell, pad);
-    const plate = box(pad, [.07, .03, .006], [0, -.016, .017], "#111", .006);
-    plate.material = piano;
-    box(pad, [.062, .036, .004], [0, .016, .02], "#f4f4f1", .004).material = shell;
-    for (const side of [-1, 1]) {
-      mesh(geo(new PlaneGeometry(.0025, .03)), strip, pad, [side * .033, .016, .0225]);
-      const stick = cylinder(pad, .0105, .012, [side * .024, -.018, .024], "#18191b");
-      stick.rotation.x = Math.PI / 2;
-      stick.material = graphite;
-    }
-    for (const [x, y] of [[.06, .012], [.05, .001], [.07, .001], [.06, -.01]]) {
-      const button = cylinder(pad, .0045, .004, [x, y, .02], "#1a1a1c");
-      button.rotation.x = Math.PI / 2;
-    }
-    box(pad, [.016, .005, .003], [-.06, 0, .021], "#1a1a1c");
-    box(pad, [.005, .016, .003], [-.06, 0, .021], "#1a1a1c");
-    touch(body, plate);
-    return pad;
+  const makePad = dualSenseFactory({ geo, surface, glow, canvasTexture });
+  const MM = 0.00118;
+  // Lying on the bookcase: face up, the player side toward the room.
+  const lying = makePad();
+  lying.group.scale.setScalar(MM);
+  lying.group.position.set(.08, TOP + .001, -1.18);
+  lying.group.rotation.y = Math.PI / 2 + 0.38;
+  bookcase.add(lying.group);
+  touch(lying.body);
+  // Standing in the charging dock: face to the room, triggers down into the cradle.
+  const standing = (parent: Object3D, z: number) => {
+    const pad = makePad();
+    pad.group.scale.setScalar(MM);
+    // Face to the room, grips down into the cradle, triggers up.
+    pad.group.setRotationFromMatrix(new Matrix4().makeBasis(new Vector3(0, 0, -1), new Vector3(1, 0, 0), new Vector3(0, -1, 0)));
+    pad.group.position.set(-0.015, 0.03 + 58 * MM, z);
+    parent.add(pad.group);
+    touch(pad.body);
   };
-  controller(bookcase, [.07, TOP + .016, -1.17], [-Math.PI / 2, 0, .35]);
 
+  /* ---------- Vision Pro headsets ---------- */
+  const deviceKit = { geometries: [] as import("three").BufferGeometry[], materials: [] as Material[], textures: [] as import("three").Texture[], envMap: kit.envMap };
+  const headset = (parent: Object3D, position: number[], turn: number) => {
+    const made = createHeadset(deviceKit);
+    made.group.scale.setScalar(0.00122);
+    made.group.position.fromArray(position);
+    made.group.rotation.y = turn;
+    parent.add(made.group);
+    made.group.traverse(item => { if ((item as Mesh).isMesh) clickableHeadset(item); });
+    return made.group;
+  };
   /* ---------- Record crate ---------- */
   const crate = new Group();
   crate.position.set(-.02, TOP, .98);
@@ -242,9 +239,9 @@ export function buildGameCorner(bookcase: Object3D, kit: GameCornerKit) {
   const dock = new Group();
   dock.position.set(.27, .0875, -1.13);
   bookcase.add(dock);
-  box(dock, [.08, .03, .22], [0, .015, 0], "#efefec", .01).material = shell;
-  box(dock, [.06, .006, .2], [0, .033, 0], "#111", .003).material = piano;
-  for (const z of [-.055, .055]) controller(dock, [0, .1, z], [0, Math.PI / 2, 0]);
+  box(dock, [.09, .03, .44], [0, .015, 0], "#efefec", .01).material = shell;
+  box(dock, [.066, .006, .42], [0, .033, 0], "#111", .003).material = piano;
+  for (const z of [-.108, .108]) standing(dock, z);
   // Left bay, upper: a shelf of game cases with titles from the console's library, and a little plant.
   const cases = PS_GAMES.slice(0, 9);
   const spines = canvasTexture(64 * 9, 512, ctx => {
@@ -285,22 +282,12 @@ export function buildGameCorner(bookcase: Object3D, kit: GameCornerKit) {
     const lp = box(bookcase, [.25, .25, .009], [.27, .0875 + .125, 1.0 + i * .0128], lpColors[(i * 7) % lpColors.length]!);
     if (i > 23) { lp.rotation.x = .2; lp.position.z += .03; lp.position.y -= .01; }
   }
-  // Right bay, upper: a headset on its stand and a small photograph.
-  const stand = new Group();
-  stand.position.set(.28, .6775, 1.24);
-  bookcase.add(stand);
-  cylinder(stand, .05, .01, [0, .005, 0], "#1b1c1f").material = graphite;
-  cylinder(stand, .007, .22, [0, .115, 0], "#5d6066").material = steel;
-  const band = mesh(geo(new TorusGeometry(.085, .011, 12, 40, Math.PI)), shell, stand, [0, .225, 0]);
-  band.rotation.y = Math.PI / 2;
-  for (const side of [-1, 1]) {
-    const cup = cylinder(stand, .046, .034, [0, .225, side * .087], "#111");
-    cup.rotation.x = Math.PI / 2;
-    cup.material = piano;
-    const ring = cylinder(stand, .049, .012, [0, .225, side * .072], "#eee");
-    ring.rotation.x = Math.PI / 2;
-    ring.material = shell;
-  }
+  // Right bay, upper: a Vision Pro on its display stand, and a small photograph.
+  const plinth = cylinder(bookcase, .085, .016, [.27, .6775 + .008, 1.25], "#1b1c1f");
+  plinth.material = graphite;
+  cylinder(bookcase, .074, .004, [.27, .6775 + .018, 1.25], "#d8d6d0").material = shell;
+  clickableHeadset(plinth);
+  headset(bookcase, [.27, .6775 + .02, 1.25], Math.PI / 2 - 0.25);
   const photo = canvasTexture(256, 320, ctx => {
     ctx.fillStyle = "#f3efe6"; ctx.fillRect(0, 0, 256, 320);
     const sky = ctx.createLinearGradient(0, 20, 0, 250);
@@ -317,6 +304,17 @@ export function buildGameCorner(bookcase: Object3D, kit: GameCornerKit) {
   bookcase.add(frameGroup);
   box(frameGroup, [.13, .16, .012], [0, 0, 0], "#2a2522", .003);
   panel(frameGroup, .112, .14, [0, 0, .0065], textured(photo));
+
+  const room = bookcase.parent;
+  if (room) {
+    const floor = bookcase.position.y;
+    const tray = box(room, [.34, .012, .26], [3.55, floor + .987, -2.12], "#3a3936", .006);
+    tray.material = surface({ color: srgb("#3b3a38"), roughness: .95 });
+    clickableHeadset(tray);
+    headset(room, [3.55, floor + .993, -2.12], -0.42);
+  }
+  deviceKit.materials.forEach(material => lightMaterial(material as MeshStandardMaterial));
+  deviceKit.geometries.forEach(geometry => geo(geometry));
 
   /* ---------- Television picture ---------- */
   // An idle PS5 home screen that slowly cycles through the library, drawn from the console's own cover art.
@@ -395,6 +393,7 @@ export function buildGameCorner(bookcase: Object3D, kit: GameCornerKit) {
     },
     dispose() {
       screenTexture.dispose();
+      deviceKit.textures.forEach(texture => texture.dispose());
     },
   };
 }
