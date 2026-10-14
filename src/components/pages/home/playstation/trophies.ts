@@ -17,6 +17,7 @@ export const TROPHIES: Trophy[] = [
   { id: "race", name: "Late for Nothing", detail: "Took something fast for a spin.", tier: "bronze" },
   { id: "chill", name: "Do Not Disturb", detail: "Picked a slow game on purpose.", tier: "bronze" },
   { id: "classic", name: "Old Soul", detail: "Played a classic. Respect.", tier: "bronze" },
+  { id: "pocket", name: "Pocket Change", detail: "Played something 128 pixels wide.", tier: "bronze" },
   { id: "browser", name: "Window Shopper", detail: "Opened the whole library just to look.", tier: "bronze" },
   { id: "media", name: "Couch Mode", detail: "Switched over to Media.", tier: "bronze" },
   { id: "five", name: "Sampler Platter", detail: "Launched five different games.", tier: "silver" },
@@ -25,7 +26,7 @@ export const TROPHIES: Trophy[] = [
 ];
 
 export const SHELF_TROPHY: Record<PsShelf, string> = {
-  build: "build", shoot: "shoot", race: "race", chill: "chill", classic: "classic",
+  build: "build", shoot: "shoot", race: "race", chill: "chill", classic: "classic", pocket: "pocket",
 };
 
 const KEY = "mohith-lab-playstation-v1";

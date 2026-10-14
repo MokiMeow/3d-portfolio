@@ -26,7 +26,7 @@ const strip = ref<HTMLElement>();
 const frame = ref<HTMLIFrameElement>();
 
 const phase = ref<'off' | 'boot' | 'prompt' | 'home'>('off');
-const tab = ref<'games' | 'media'>('games');
+const tab = ref<'games' | 'explore' | 'media'>('games');
 const focus = ref(0);
 const library = ref(false);
 const shelf = ref<PsShelf | 'all'>('all');
@@ -64,11 +64,33 @@ const recent = computed(() => {
   const rest = PS_GAMES.filter(game => !profile.played.includes(game.id));
   return [...played, ...rest].slice(0, 10).map(gameTile);
 });
-const row = computed<Tile[]>(() => (tab.value === 'games' ? recent.value : videos));
+const row = computed<Tile[]>(() => (tab.value === 'games' ? recent.value : tab.value === 'media' ? videos : []));
+
+/* ---------- Explore: a magazine of the library, the way the real console shows collections ---------- */
+const COLLECTIONS: { title: string; note: string; ids: string[] }[] = [
+  { title: 'Ten minutes, max', note: 'For the gap between two meetings', ids: ['dino', 'floppybird', 'tetris', 'game2048', 'pixelrunner', 'towerbuilder', 'swopper', 'celeste'] },
+  { title: 'Play with strangers', note: 'Real people, real servers, real chaos', ids: ['bloxd', 'krunker', 'smashkarts', 'shellshockers', 'narrowone', 'tanx', 'venge', 'zombs', 'diep', 'powerline'] },
+  { title: 'Blast from the past', note: 'Your childhood called. It wants a rematch', ids: ['pinball', 'doom', 'pacman', 'duckhunt', 'solitaire', 'minecraft', 'darkroom'] },
+  { title: 'Builders and planners', note: 'Blocks, factories and tiny cities', ids: ['minecraft', 'shapez', 'isocity', 'yourcraft', 'peakofempires', 'picocraft', 'sandspiel'] },
+  { title: 'Pocket Arcade', note: 'PICO-8 gems: 128 pixels, unlimited charm', ids: ['outvain', 'fleb', 'babademake', 'overstory', 'mossmoss', 'descender', 'pinballvania', 'picoball', 'forlornshores'] },
+  { title: 'Slow evenings', note: 'Nothing is chasing you here', ids: ['orbfarm', 'alchemy', 'astray', 'ancientbeast', 'sandspiel', 'solitaire'] },
+];
+const SPOTLIGHT = ['pinball', 'minecraft', 'doom', 'shapez', 'peakofempires', 'smashkarts'];
+const spotlight = ref(0);
+const collections = computed(() => COLLECTIONS.map(group => ({
+  ...group,
+  games: group.ids.map(id => PS_GAMES.find(game => game.id === id)).filter((game): game is PsGame => !!game),
+})));
+const spotlightGame = computed(() => PS_GAMES.find(game => game.id === SPOTLIGHT[spotlight.value % SPOTLIGHT.length])!);
+let spotlightTimer = 0;
+function startSpotlight() {
+  clearInterval(spotlightTimer);
+  spotlightTimer = window.setInterval(() => { if (tab.value === 'explore' && !showPlayer.value && !reduced()) spotlight.value++; }, 7000);
+}
 // Index row.length is the Game Library tile on the Games tab.
 const libraryIndex = computed(() => (tab.value === 'games' ? row.value.length : -1));
 const current = computed<Tile | null>(() => row.value[focus.value] ?? null);
-const heroTile = computed(() => current.value ?? (tab.value === 'games' ? recent.value[0]! : videos[0]!));
+const heroTile = computed(() => tab.value === 'explore' ? gameTile(spotlightGame.value) : current.value ?? (tab.value === 'games' ? recent.value[0]! : videos[0]!));
 const shelfGames = computed(() => {
   const words = query.value.trim().toLowerCase();
   return PS_GAMES.filter(game => (shelf.value === 'all' || game.shelf === shelf.value)
@@ -149,12 +171,85 @@ function pick(index: number) {
   if (index === focus.value) { const tile = row.value[index]; if (tile) launch(tile); return; }
   setFocus(index);
 }
-function switchTab(next: 'games' | 'media') {
+function switchTab(next: 'games' | 'explore' | 'media') {
   if (tab.value === next) return;
   tab.value = next;
   focus.value = 0;
   sound('move');
   if (next === 'media') award('media');
+  if (next === 'explore') void nextTick(() => dialog.value?.querySelector<HTMLElement>('.explore [data-nav]')?.focus({ preventScroll: true }));
+}
+
+/* ---------- Spatial navigation for grids and the Explore page (arrow keys and the d-pad) ---------- */
+function spatial(direction: 'left' | 'right' | 'up' | 'down', scope: Element | null): boolean {
+  if (!scope) return false;
+  const items = [...scope.querySelectorAll<HTMLElement>('[data-nav]')].filter(item => item.offsetParent);
+  const active = document.activeElement instanceof HTMLElement && items.includes(document.activeElement) ? document.activeElement : null;
+  if (!active) { items[0]?.focus(); return !!items[0]; }
+  const from = active.getBoundingClientRect();
+  const fx = from.left + from.width / 2, fy = from.top + from.height / 2;
+  let best: HTMLElement | null = null, bestScore = Infinity;
+  for (const item of items) {
+    if (item === active) continue;
+    const r = item.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const dx = x - fx, dy = y - fy;
+    const ahead = direction === 'left' ? -dx : direction === 'right' ? dx : direction === 'up' ? -dy : dy;
+    if (ahead < 8) continue;
+    const across = direction === 'left' || direction === 'right' ? Math.abs(dy) : Math.abs(dx);
+    const score = ahead + across * 2.2;
+    if (score < bestScore) { bestScore = score; best = item; }
+  }
+  if (!best) return false;
+  best.focus();
+  best.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduced() ? 'auto' : 'smooth' });
+  sound('move');
+  return true;
+}
+
+/* ---------- A real controller: any gamepad the browser can see drives the console ---------- */
+const padConnected = ref(false);
+let padFrame = 0, padNext = 0;
+const padHeld: boolean[] = [];
+function padPress(index: number, pad: Gamepad): boolean {
+  const now = !!pad.buttons[index]?.pressed;
+  const fresh = now && !padHeld[index];
+  padHeld[index] = now;
+  return fresh;
+}
+function sendKey(key: string) {
+  dialog.value?.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+}
+function pollPads() {
+  padFrame = requestAnimationFrame(pollPads);
+  const pad = [...(navigator.getGamepads?.() ?? [])].find((item): item is Gamepad => !!item && item.connected);
+  if (!pad) return;
+  if (padPress(16, pad) || padPress(8, pad)) { psButton(); return; }
+  // While a game is on screen the controller belongs to the game, apart from the PS button.
+  if (showPlayer.value && !control.value) { padHeld.length = 0; return; }
+  if (phase.value !== 'home') { if (padPress(0, pad) || padPress(9, pad)) wake(); return; }
+  if (padPress(0, pad)) { (document.activeElement as HTMLElement | null)?.click(); return; }
+  if (padPress(1, pad)) { escape(); return; }
+  if (padPress(9, pad) && current.value) { options.value = !options.value; sound('open'); return; }
+  if (padPress(4, pad)) { switchTab(tab.value === 'media' ? 'explore' : 'games'); return; }
+  if (padPress(5, pad)) { switchTab(tab.value === 'games' ? 'explore' : 'media'); return; }
+  const x = pad.axes[0] ?? 0, y = pad.axes[1] ?? 0;
+  const dpad = padPress(14, pad) ? 'ArrowLeft' : padPress(15, pad) ? 'ArrowRight' : padPress(12, pad) ? 'ArrowUp' : padPress(13, pad) ? 'ArrowDown' : '';
+  if (dpad) { sendKey(dpad); padNext = performance.now() + 380; return; }
+  const stick = x < -0.6 ? 'ArrowLeft' : x > 0.6 ? 'ArrowRight' : y < -0.6 ? 'ArrowUp' : y > 0.6 ? 'ArrowDown' : '';
+  if (stick && performance.now() > padNext) { sendKey(stick); padNext = performance.now() + 170; }
+}
+function onPad(event: GamepadEvent) {
+  padConnected.value = event.type === 'gamepadconnected';
+  if (padConnected.value && opened.value) notice('Controller connected', 'Cross to select, Circle to go back, PS for Control Center.');
+}
+
+/* ---------- The hero art leans gently toward the pointer ---------- */
+const lean = reactive({ x: 0, y: 0 });
+let leanFrame = 0;
+function leanTo(event: PointerEvent) {
+  if (phone.value || reduced() || leanFrame) return;
+  const x = event.clientX / window.innerWidth - 0.5, y = event.clientY / window.innerHeight - 0.5;
+  leanFrame = requestAnimationFrame(() => { leanFrame = 0; lean.x = x; lean.y = y; });
 }
 function openLibrary() {
   library.value = true;
@@ -275,7 +370,18 @@ function key(event: KeyboardEvent) {
   }
   if (event.key === 'Escape') { event.preventDefault(); escape(); return; }
   if (event.key.toLowerCase() === 'p' && !library.value) { event.preventDefault(); psButton(); return; }
-  if (showPlayer.value || library.value || control.value || options.value) return;
+  if (showPlayer.value || control.value || options.value) return;
+  const arrows: Record<string, 'left' | 'right' | 'up' | 'down' | undefined> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+  const arrow = arrows[event.key];
+  if (library.value) {
+    if (arrow && spatial(arrow, dialog.value?.querySelector('.library') ?? null)) event.preventDefault();
+    return;
+  }
+  if (tab.value === 'explore') {
+    if (arrow && spatial(arrow, dialog.value?.querySelector('.explore') ?? null)) event.preventDefault();
+    else if (arrow === 'up') { event.preventDefault(); dialog.value?.querySelector<HTMLElement>('.tabs .on')?.focus(); }
+    return;
+  }
   const inStrip = !!strip.value?.contains(document.activeElement);
   if (event.key === 'ArrowRight' && inStrip) { event.preventDefault(); setFocus(focus.value + 1); focusTile(); }
   if (event.key === 'ArrowLeft' && inStrip) { event.preventDefault(); setFocus(focus.value - 1); focusTile(); }
@@ -323,9 +429,24 @@ watch(opened, async value => {
   sound('boot');
   bootTimer = window.setTimeout(() => { phase.value = 'prompt'; }, 2400);
 });
-onMounted(() => window.addEventListener('resize', measure));
+onMounted(() => {
+  window.addEventListener('resize', measure);
+  window.addEventListener('gamepadconnected', onPad);
+  window.addEventListener('gamepaddisconnected', onPad);
+});
+// The controller is only polled while the console is switched on.
+watch(opened, value => {
+  cancelAnimationFrame(padFrame);
+  clearInterval(spotlightTimer);
+  if (value) { padFrame = requestAnimationFrame(pollPads); startSpotlight(); }
+});
 onBeforeUnmount(() => {
   window.removeEventListener('resize', measure);
+  window.removeEventListener('gamepadconnected', onPad);
+  window.removeEventListener('gamepaddisconnected', onPad);
+  cancelAnimationFrame(padFrame);
+  cancelAnimationFrame(leanFrame);
+  clearInterval(spotlightTimer);
   clearTimeout(bootTimer); clearTimeout(slowTimer); clearTimeout(settleTimer); clearTimeout(idleTimer); clearTimeout(hoverTimer); clearInterval(clockTimer);
   opened.value = false;
 });
@@ -367,16 +488,19 @@ const tierColor: Record<Trophy['tier'], string> = { bronze: '#d08a52', silver: '
       </Transition>
 
       <!-- Home -->
-      <div v-if="phase === 'home'" class="home" :inert="showPlayer || undefined">
-        <div class="hero" aria-hidden="true" :style="{ '--tint': heroTile?.color }">
+      <div v-if="phase === 'home'" class="home" :inert="showPlayer || undefined" @pointermove="leanTo">
+        <div class="hero" aria-hidden="true" :style="{ '--tint': heroTile?.color, '--lx': lean.x, '--ly': lean.y }">
           <img v-if="heroes.a" :src="heroes.a" :class="{ on: heroes.showA }" alt="">
           <img v-if="heroes.b" :src="heroes.b" :class="{ on: !heroes.showA }" alt="">
           <i class="scrim-top" /><i class="scrim-left" /><i class="scrim-bottom" />
+          <!-- The drifting light the real home screen is known for: a handful of soft orbs, all on the GPU. -->
+          <div class="motes"><i v-for="n in 14" :key="n" :style="{ '--n': n }" /></div>
         </div>
 
         <header class="topbar">
           <nav class="tabs" aria-label="Console sections">
             <button :class="{ on: tab === 'games' }" @click="switchTab('games')">Games</button>
+            <button :class="{ on: tab === 'explore' }" @click="switchTab('explore')">Explore</button>
             <button :class="{ on: tab === 'media' }" @click="switchTab('media')">Media</button>
           </nav>
           <div class="system">
@@ -391,6 +515,7 @@ const tierColor: Record<Trophy['tier'], string> = { bronze: '#d08a52', silver: '
           </div>
         </header>
 
+        <template v-if="tab !== 'explore'">
         <div ref="strip" class="strip" role="listbox" :aria-label="tab === 'games' ? 'Games' : 'Videos'" :class="tab">
           <button
             v-for="(tile, index) in row"
@@ -486,6 +611,34 @@ const tierColor: Record<Trophy['tier'], string> = { bronze: '#d08a52', silver: '
             <div class="actions"><button class="play" @click="openLibrary"><PsGlyph name="library" />Open Library</button></div>
           </section>
         </Transition>
+        </template>
+
+        <!-- Explore -->
+        <section v-else class="explore" aria-label="Explore">
+          <Transition name="hub" mode="out-in">
+            <button :key="spotlightGame.id" data-nav class="spotlight" :style="{ '--tint': spotlightGame.color }" @click="launch(gameTile(spotlightGame))">
+              <img :src="spotlightGame.cover" alt="">
+              <span class="spot-copy">
+                <small>Spotlight · {{ spotlightGame.genre }}</small>
+                <b>{{ spotlightGame.title }}</b>
+                <em>{{ spotlightGame.pitch }}</em>
+                <span class="play"><PsGlyph name="play" />Play now</span>
+              </span>
+              <span class="spot-dots" aria-hidden="true"><i v-for="(id, index) in SPOTLIGHT" :key="id" :class="{ on: index === spotlight % SPOTLIGHT.length }" /></span>
+            </button>
+          </Transition>
+          <div v-for="group in collections" :key="group.title" class="collection">
+            <h3>{{ group.title }} <small>{{ group.note }}</small></h3>
+            <div class="collection-row">
+              <button v-for="game in group.games" :key="group.title + game.id" data-nav class="cover" :class="{ square: game.square }" :style="{ '--tint': game.color }" @click="launch(gameTile(game))" @pointerenter="sound('move')">
+                <img :src="game.cover" alt="" loading="lazy">
+                <span class="cover-copy"><b>{{ game.title }}</b><small>{{ game.genre }}<template v-if="game.online"> · Online</template></small></span>
+                <i v-if="running?.id === game.id" class="live-dot" />
+              </button>
+            </div>
+          </div>
+          <p class="explore-foot">{{ PS_GAMES.length }} games, every one free and made by people worth following. Credits live in each game's options.</p>
+        </section>
       </div>
 
       <!-- Library and search -->
@@ -507,7 +660,7 @@ const tierColor: Record<Trophy['tier'], string> = { bronze: '#d08a52', silver: '
           </nav>
           <p class="shelf-note">{{ shelf === 'all' ? 'Every game on the console.' : PS_SHELVES.find(item => item.id === shelf)?.note }}</p>
           <div class="grid">
-            <button v-for="game in shelfGames" :key="game.id" class="cover" :style="{ '--tint': game.color }" @click="launch(gameTile(game))" @pointerenter="sound('move')">
+            <button v-for="game in shelfGames" :key="game.id" data-nav class="cover" :style="{ '--tint': game.color }" @click="launch(gameTile(game))" @pointerenter="sound('move')">
               <img :src="game.cover" alt="" loading="lazy">
               <span class="cover-copy">
                 <b>{{ game.title }}</b>
@@ -527,6 +680,7 @@ const tierColor: Record<Trophy['tier'], string> = { bronze: '#d08a52', silver: '
           :key="running.id"
           :src="running.url"
           :title="running.title"
+          :class="{ square: running.game?.square }"
           allow="autoplay; fullscreen; gamepad; pointer-lock; accelerometer; gyroscope; clipboard-write"
           allowfullscreen
           referrerpolicy="no-referrer-when-downgrade"
@@ -690,7 +844,12 @@ const tierColor: Record<Trophy['tier'], string> = { bronze: '#d08a52', silver: '
 .home { position: absolute; inset: 0; }
 .hero { position: absolute; inset: 0; background: color-mix(in srgb, var(--tint, #12204a) 45%, #05060a); transition: background .5s ease; }
 .hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transform: scale(1.06); transition: opacity .45s ease, transform 14s linear; }
-.hero img.on { opacity: 1; transform: scale(1); }
+.hero img.on { opacity: 1; transform: scale(1.04) translate(calc(var(--lx, 0) * -14px), calc(var(--ly, 0) * -10px)); transition: opacity .45s ease, transform .6s cubic-bezier(.2, .8, .2, 1); }
+.motes { position: absolute; inset: 0; overflow: hidden; pointer-events: none; mix-blend-mode: screen; }
+.motes i { position: absolute; left: calc(var(--n) * 7%); top: calc(20% + var(--n) * 4%); width: calc(30px + var(--n) * 9px); aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--tint, #4f7bff) 60%, #fff) 0%, transparent 70%); opacity: .12;
+  animation: mote calc(14s + var(--n) * 1.7s) ease-in-out infinite alternate; animation-delay: calc(var(--n) * -2.3s); will-change: transform; }
+@keyframes mote { from { transform: translate3d(0, 30px, 0) scale(.8); } to { transform: translate3d(calc(var(--n) * 6px - 40px), -60px, 0) scale(1.15); opacity: .22; } }
 .hero i { position: absolute; inset: 0; pointer-events: none; }
 .scrim-top { background: linear-gradient(#000c, #0006 14%, transparent 30%); }
 .scrim-left { background: linear-gradient(90deg, #000c 0%, #0008 32%, #0003 55%, transparent 75%); }
@@ -759,6 +918,36 @@ button.card:hover { background: #22232ae6; transform: translateY(-3px); }
 .meter { height: 6px; border-radius: 3px; background: #ffffff1f; overflow: hidden; }
 .meter i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #8fb0ff, #fff); transition: width .6s ease; }
 
+/* ---------- Explore ---------- */
+.explore { position: absolute; z-index: 4; inset: calc(118 * var(--u)) 0 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding: 8px calc(112 * var(--u)) 60px; }
+.explore::-webkit-scrollbar { display: none; }
+.spotlight { position: relative; display: block; width: 100%; height: clamp(220px, calc(430 * var(--u)), 460px); border-radius: 20px; overflow: hidden; text-align: left; box-shadow: 0 24px 60px #000a; transition: transform .2s ease, box-shadow .2s ease; }
+.spotlight img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scale(1.02); transition: transform 6s ease; }
+.spotlight:hover img { transform: scale(1.08); }
+.spotlight::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, #000d 0%, #0008 40%, transparent 75%), linear-gradient(transparent 60%, #000a); }
+.spotlight:focus-visible { box-shadow: 0 0 0 4px #fff, 0 24px 60px #000a; }
+.spot-copy { position: absolute; z-index: 1; left: 44px; bottom: 40px; max-width: 520px; display: grid; gap: 10px; }
+.spot-copy small { font-size: 14px; letter-spacing: .12em; text-transform: uppercase; color: #ffffffb0; }
+.spot-copy b { font-size: clamp(30px, calc(60 * var(--u)), 60px); line-height: 1; font-weight: 600; }
+.spot-copy em { font-style: normal; font-size: 18px; line-height: 1.4; color: #e2e4ea; font-weight: 300; }
+.spot-copy .play { justify-self: start; margin-top: 8px; height: 52px; min-width: 180px; font-size: 18px !important; }
+.spot-dots { position: absolute; z-index: 1; right: 28px; bottom: 26px; display: flex; gap: 6px; }
+.spot-dots i { width: 7px; height: 7px; border-radius: 4px; background: #ffffff55; transition: width .3s ease, background .3s ease; }
+.spot-dots i.on { width: 22px; background: #fff; }
+.collection { margin-top: 34px; }
+.collection h3 { display: flex; align-items: baseline; gap: 14px; margin: 0 0 14px; font-size: 22px; font-weight: 500; }
+.collection h3 small { font-size: 14px; color: #9a9eaa; font-weight: 400; }
+.collection-row { display: flex; gap: 16px; overflow-x: auto; padding: 6px 4px 14px; scrollbar-width: none; scroll-snap-type: x proximity; }
+.collection-row::-webkit-scrollbar { display: none; }
+.collection-row .cover { flex: none; width: 280px; padding-top: 0; height: 175px; scroll-snap-align: start; }
+.collection-row .cover.square img { object-position: center 30%; }
+.explore-foot { margin: 36px 0 0; color: #7d818c; font-size: 13px; }
+.phone .explore { inset: calc(max(14px, env(safe-area-inset-top)) + 52px) 0 0; padding: 6px 16px 40px; }
+.phone .spotlight { height: 240px; border-radius: 16px; }
+.phone .spot-copy { left: 20px; bottom: 22px; right: 20px; }
+.phone .spot-copy em { font-size: 14px; }
+.phone .collection-row .cover { width: 200px; height: 125px; }
+
 /* ---------- Library ---------- */
 .library { position: absolute; inset: 0; z-index: 12; display: flex; flex-direction: column; padding: calc(48 * var(--u)) calc(112 * var(--u)) 0; background: linear-gradient(#0b0d14f5, #07080cfa); backdrop-filter: blur(30px); }
 .library header { display: flex; align-items: center; gap: calc(28 * var(--u)); }
@@ -786,6 +975,9 @@ button.card:hover { background: #22232ae6; transform: translateY(-3px); }
 /* ---------- Player ---------- */
 .player { position: absolute; inset: 0; z-index: 20; background: #000; }
 .player iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #000; }
+/* PICO-8 carts are square: frame them in the middle like a handheld held up to the screen. */
+.player iframe.square { left: 50%; right: auto; width: min(100vw, calc(100dvh * 1.08)); transform: translateX(-50%); }
+.player:has(iframe.square) { background: radial-gradient(70% 90% at 50% 50%, #1d1a2b, #000 70%); }
 .veil { position: absolute; inset: 0; display: grid; place-items: center; background: #000; }
 .veil img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(30px) brightness(.45); transform: scale(1.1); }
 .veil-copy { position: relative; display: grid; justify-items: center; gap: 14px; max-width: 560px; padding: 24px; text-align: center; }

@@ -1,4 +1,4 @@
-export type PsShelf = "build" | "shoot" | "race" | "chill" | "classic";
+export type PsShelf = "build" | "shoot" | "race" | "chill" | "classic" | "pocket";
 
 export interface PsGame {
   id: string;
@@ -17,11 +17,14 @@ export interface PsGame {
   controls: string;
   phone: boolean;
   online?: boolean;
+  /** PICO-8 carts are square; the console frames them in the middle of the screen. */
+  square?: boolean;
 }
 
 const cover = (id: string) => `/playstation/covers/${id}.webp`;
 
 // Every game here was loaded inside an iframe from another origin and checked to run (October 2026).
+// Pocket Arcade games use Lexaloffle's own embeddable PICO-8 player.
 // itch.io builds were dropped: itch deliberately blocks them outside its own pages.
 export const PS_GAMES: PsGame[] = [
   { id: "minecraft", title: "Minecraft Classic", pitch: "The 2009 original, free from Mojang. Thirty-two blocks and no excuses.", shelf: "build", genre: "Sandbox", url: "https://classic.minecraft.net/", cover: cover("minecraft"), logo: false, color: "#5d9b3a", credit: "Mojang Studios", controls: "WASD to move · Mouse to look · Click to break · Right click to place · B for blocks", phone: false },
@@ -46,6 +49,32 @@ export const PS_GAMES: PsGame[] = [
   { id: "darkroom", title: "A Dark Room", pitch: "Light the fire. Everything after that is a surprise.", shelf: "chill", genre: "Text adventure", url: "https://adarkroom.doublespeakgames.com/", cover: cover("darkroom"), logo: true, color: "#b4642a", credit: "Doublespeak Games", controls: "Click", phone: true },
   { id: "astray", title: "Astray", pitch: "A glowing ball, a dark maze, and the quiet fear of corners.", shelf: "chill", genre: "Maze", url: "https://wwwtyro.github.io/Astray/", cover: cover("astray"), logo: false, color: "#b7843f", credit: "Rye Terrell", controls: "Arrows or WASD to roll", phone: false },
   { id: "celeste", title: "Celeste Classic", pitch: "The PICO-8 original. Climb the mountain, dash, die, dash again.", shelf: "classic", genre: "Platformer", url: "https://www.lexaloffle.com/bbs/widget.php?pid=15133", cover: cover("celeste"), logo: true, color: "#5b6ee1", credit: "Maddy Thorson & Noel Berry", controls: "Arrows to move · C to jump · X to dash", phone: true },
+  {id: "pinball",title: "3D Pinball: Space Cadet",pitch: "The Windows XP pinball, rescued and running in a browser. Your 2006 self says hi.",shelf: "classic",genre: "Pinball",url: "https://alula.github.io/SpaceCadetPinball/",cover: cover("pinball"),logo: true,color: "#3b5bb5",credit: "Maxis (original) · alula (port)",controls: "Z and / for flippers · Space to launch",phone: false},
+  {id: "doom",title: "DOOM (Shareware)",pitch: "Episode one, as id Software gave it away in 1993. Rip, tear, run in a tab.",shelf: "shoot",genre: "Classic FPS",url: "https://js-dos.com/games/doom.exe.html",cover: cover("doom"),logo: false,color: "#8a1c12",credit: "id Software · js-dos",controls: "Arrows to move · Ctrl to fire · Space to open doors",phone: false},
+  {id: "tanx",title: "TANX",pitch: "Tiny tanks, big feelings. Drive, shoot, respawn, repeat.",shelf: "shoot",genre: "Tank arena",url: "https://playcanv.as/p/aP0oxhUr/",cover: cover("tanx"),logo: true,color: "#2fbf71",credit: "PlayCanvas",controls: "WASD to drive · Mouse to aim · Click to fire",phone: false,online: true},
+  {id: "shapez",title: "shapez",pitch: "Build a factory that makes shapes. Then a bigger one. Then lose a weekend.",shelf: "build",genre: "Factory builder",url: "https://shapez.io/",cover: cover("shapez"),logo: true,color: "#6e8ef7",credit: "tobspr Games",controls: "Mouse to build · WASD to pan · R to rotate",phone: false},
+  {id: "isocity",title: "IsoCity",pitch: "A tiny isometric city with no budget meetings.",shelf: "build",genre: "City builder",url: "https://victorqribeiro.github.io/isocity/",cover: cover("isocity"),logo: true,color: "#4aa3df",credit: "Victor Ribeiro",controls: "Pick a tile · Click to place",phone: true},
+  {id: "ancientbeast",title: "Ancient Beast",pitch: "Turn-based creature battles with gorgeous art and open-source soul.",shelf: "chill",genre: "Tactics",url: "https://beta.ancientbeast.com/",cover: cover("ancientbeast"),logo: true,color: "#8c2b2b",credit: "FreezingMoon",controls: "Mouse to choose units and abilities",phone: false},
+  {id: "tetris",title: "Tetris Handheld",pitch: "The brick game you had in school, rebuilt in React. Still impossible to stop.",shelf: "classic",genre: "Puzzle",url: "https://chvin.github.io/react-tetris/",cover: cover("tetris"),logo: false,color: "#efcb2e",credit: "chvin",controls: "Arrows to move · Space to drop",phone: true},
+  {id: "pacman",title: "Pac-Man",pitch: "Waka waka, in a browser, with ghosts who know what they did.",shelf: "classic",genre: "Arcade",url: "https://masonicgit.github.io/pacman/",cover: cover("pacman"),logo: false,color: "#ffcc00",credit: "masonicGIT",controls: "Arrows to move",phone: false},
+  {id: "duckhunt",title: "Duck Hunt",pitch: "The NES classic, minus the dog laughing at you. Mostly.",shelf: "classic",genre: "Shooting gallery",url: "https://duckhuntjs.com/",cover: cover("duckhunt"),logo: false,color: "#5aa9e6",credit: "Matt Surabian",controls: "Click to shoot · P to pause",phone: true},
+  {id: "floppybird",title: "Floppy Bird",pitch: "Tap. Flap. Pipe. Again. You know exactly how this goes.",shelf: "classic",genre: "Arcade",url: "https://nebezb.com/floppybird/",cover: cover("floppybird"),logo: false,color: "#4ec0ca",credit: "Nebez Briefkani",controls: "Space or tap to flap",phone: true},
+  {id: "towerbuilder",title: "Tower Builder",pitch: "Stack the floors perfectly. The wind disagrees.",shelf: "chill",genre: "Stacking",url: "https://iamkun.github.io/tower_game/",cover: cover("towerbuilder"),logo: false,color: "#e45b3c",credit: "iamkun",controls: "Click or tap to drop a floor",phone: true},
+  {id: "game2048",title: "2048",pitch: "Slide, merge, panic, repeat. The number is always further than it looks.",shelf: "chill",genre: "Puzzle",url: "https://www.2048.org/",cover: cover("game2048"),logo: false,color: "#edc22e",credit: "Gabriele Cirulli (original)",controls: "Arrows or swipe",phone: true},
+  {id: "solitaire",title: "Solitaire",pitch: "The original procrastination engine. Now with fewer meetings.",shelf: "chill",genre: "Cards",url: "https://www.solitr.com/",cover: cover("solitaire"),logo: false,color: "#2f8f4e",credit: "Solitr",controls: "Click or drag cards",phone: true},
+  { id: "outvain", title: "Outvain", pitch: "A tiny platformer with a big heart and suspiciously good jumps.", shelf: "pocket", genre: "Platformer", url: "https://www.lexaloffle.com/bbs/widget.php?pid=132515", cover: cover("outvain"), logo: true, color: "#ff004d", credit: "Ruva", controls: "Arrows · Z to jump · X to act", phone: true, square: true },
+  { id: "descender", title: "Descender", pitch: "Go down. Keep going down. Do not ask what is at the bottom.", shelf: "pocket", genre: "Action", url: "https://www.lexaloffle.com/bbs/widget.php?pid=146992", cover: cover("descender"), logo: true, color: "#ff004d", credit: "fdisk", controls: "Arrows · Z and X", phone: true, square: true },
+  { id: "babademake", title: "Baba Is You (demake)", pitch: "Rules are blocks. Push the words. Break the level.", shelf: "pocket", genre: "Puzzle", url: "https://www.lexaloffle.com/bbs/widget.php?pid=149645", cover: cover("babademake"), logo: true, color: "#ff004d", credit: "ooooggll", controls: "Arrows · Z to undo", phone: true, square: true },
+  { id: "overstory", title: "Overstory of Übermorgen", pitch: "A hand-drawn adventure about a lizard with a sword and a lot to say.", shelf: "pocket", genre: "Adventure", url: "https://www.lexaloffle.com/bbs/widget.php?pid=162950", cover: cover("overstory"), logo: true, color: "#ff004d", credit: "Amity", controls: "Arrows · Z and X", phone: true, square: true },
+  { id: "peakofempires", title: "Peak of Empires", pitch: "Age of Empires, shrunk to 128 pixels and somehow still all-consuming.", shelf: "pocket", genre: "Strategy", url: "https://www.lexaloffle.com/bbs/widget.php?pid=165109", cover: cover("peakofempires"), logo: true, color: "#ff004d", credit: "taxicomics", controls: "Arrows · Z to select · X for menu", phone: true, square: true },
+  { id: "picocraft", title: "PicoCraft", pitch: "Warcraft III, lovingly demade. Peons included, complaints included.", shelf: "pocket", genre: "Strategy", url: "https://www.lexaloffle.com/bbs/widget.php?pid=165229", cover: cover("picocraft"), logo: true, color: "#ff004d", credit: "dhostin", controls: "Arrows · Z to select · X to command", phone: true, square: true },
+  { id: "picoball", title: "PICO-BALL", pitch: "A sports game where the athletes are mostly blobs. Very competitive blobs.", shelf: "pocket", genre: "Sports", url: "https://www.lexaloffle.com/bbs/widget.php?pid=171244", cover: cover("picoball"), logo: true, color: "#ff004d", credit: "Munchkin", controls: "Arrows · Z and X", phone: true, square: true },
+  { id: "swopper", title: "Swopper", pitch: "Swap gems before the stack wins. Fast, bright and loud.", shelf: "pocket", genre: "Puzzle", url: "https://www.lexaloffle.com/bbs/widget.php?pid=181630", cover: cover("swopper"), logo: true, color: "#ff004d", credit: "4EyedIgby", controls: "Arrows · Z to swap", phone: true, square: true },
+  { id: "pixelrunner", title: "Pixel Runner", pitch: "Run, jump, do not look down. Never look down.", shelf: "pocket", genre: "Runner", url: "https://www.lexaloffle.com/bbs/widget.php?pid=184855", cover: cover("pixelrunner"), logo: true, color: "#ff004d", credit: "plushie", controls: "Z or up to jump", phone: true, square: true },
+  { id: "mossmoss", title: "Moss Moss", pitch: "A cosy little platformer where everything is slightly mossy.", shelf: "pocket", genre: "Platformer", url: "https://www.lexaloffle.com/bbs/widget.php?pid=185041", cover: cover("mossmoss"), logo: true, color: "#ff004d", credit: "noelcody", controls: "Arrows · Z to jump", phone: true, square: true },
+  { id: "forlornshores", title: "Forlorn Shores", pitch: "Wash up somewhere strange and start piecing it together.", shelf: "pocket", genre: "Adventure", url: "https://www.lexaloffle.com/bbs/widget.php?pid=190262", cover: cover("forlornshores"), logo: true, color: "#ff004d", credit: "Jusiv", controls: "Arrows · Z and X", phone: true, square: true },
+  { id: "pinballvania", title: "Pinballvania", pitch: "A pinball game that is secretly a dungeon crawl. Or the reverse.", shelf: "pocket", genre: "Pinball", url: "https://www.lexaloffle.com/bbs/widget.php?pid=63353", cover: cover("pinballvania"), logo: true, color: "#ff004d", credit: "guerragames", controls: "Arrows for flippers · Z and X", phone: true, square: true },
+  { id: "fleb", title: "Fleb: The Great Lettuce Heist", pitch: "Steal the lettuce. Become legend. Avoid the guards.", shelf: "pocket", genre: "Stealth", url: "https://www.lexaloffle.com/bbs/widget.php?pid=74339", cover: cover("fleb"), logo: true, color: "#ff004d", credit: "Sorcery", controls: "Arrows · Z and X", phone: true, square: true },
   { id: "dino", title: "Dino Run", pitch: "The game you play when the internet leaves. Now on purpose.", shelf: "classic", genre: "Endless runner", url: "https://chromedino.com/", cover: cover("dino"), logo: true, color: "#8a8a8a", credit: "ChromeDino.com", controls: "Space or tap to jump · Down to duck", phone: true },
 ];
 
@@ -55,6 +84,7 @@ export const PS_SHELVES: { id: PsShelf; name: string; note: string }[] = [
   { id: "race", name: "Race & Fly", note: "Wheels, wings and anti-gravity" },
   { id: "chill", name: "Chill", note: "Slow games for a quiet evening" },
   { id: "classic", name: "Classics", note: "Small, perfect and impossible to put down" },
+  { id: "pocket", name: "Pocket Arcade", note: "PICO-8 gems: 128 pixels, unlimited charm" },
 ];
 
 export const psGame = (id: string) => PS_GAMES.find(game => game.id === id);
