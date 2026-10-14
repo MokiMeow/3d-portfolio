@@ -36,6 +36,7 @@ const VIEWS: Record<VisionAppId, Component> = {
   objects: defineAsyncComponent(() => import('./vision/apps/Objects.vue')),
   beatstudio: defineAsyncComponent(() => import('./vision/apps/BeatStudio.vue')),
   zengarden: defineAsyncComponent(() => import('./vision/apps/ZenGarden.vue')),
+  gravity: defineAsyncComponent(() => import('./vision/apps/Gravity.vue')),
 };
 const NAMES = Object.fromEntries(VISION_APPS.map(item => [item.id, item.name])) as Record<VisionAppId, string>;
 // The Home View honeycomb: pages of rows of 4, 5 and 5, each cell 146 apart, like the real Home View.

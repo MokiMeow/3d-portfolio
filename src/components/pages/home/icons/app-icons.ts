@@ -649,6 +649,14 @@ const iconFactories = {
     + '<path d="M69 57c-2-12 3-16 1-28m0 13 10-8m-10 2-8-8" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>'
     + '<path d="M60 57h24l-4 9H64Z" fill="#fff"/>'
     + '<path d="M56 28c-3-7 4-14 11-11 5-7 16-3 15 3 11 0 13 12 2 14H61c-8 0-10-3-5-6Z" fill="#fff"/>'),
+  gravity: (uid) => art(plate(uid, '#6668da', '#58c8df'),
+  '<path d="m40 20 19 11-19 11-19-11Z" fill="#fff"/>'
+  + '<path d="m21 31 19 11v22L21 53Z" fill="#fff" opacity=".9"/>'
+  + '<path d="m40 42 19-11v22L40 64Z" fill="#fff" opacity=".7"/>'
+  + '<path d="M29 13v8m11-14v8m11-4v7" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".55"/>'
+  + '<path d="M53 77c8-26 14-27 22-12" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="1 4" opacity=".8"/>'
+  + '<circle cx="77" cy="73" r="8" fill="#fff"/>'
+  + '<ellipse cx="41" cy="76" rx="18" ry="3" fill="#fff" opacity=".2"/>'),
 } satisfies Record<string, AppIconFactory>;
 
 export type AppIconKey = keyof typeof iconFactories;

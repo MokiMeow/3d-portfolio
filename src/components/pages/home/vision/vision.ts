@@ -18,14 +18,15 @@ export const VISION_APPS = [
   { id: 'store', name: 'App Store', size: [1000, 660] },
   { id: 'arcade', name: 'Arcade', size: [1180, 700] },
   { id: 'facetime', name: 'FaceTime', size: [1000, 640] },
-  { id: 'weather', name: 'Weather', size: [980, 640] },
+  { id: 'weather', name: 'Weather', size: [1000, 720] },
   { id: 'maps', name: 'Maps', size: [1080, 660] },
-  { id: 'clock', name: 'Clock', size: [900, 600] },
+  { id: 'clock', name: 'Clock', size: [960, 660] },
   { id: 'keynote', name: 'Keynote', size: [1120, 680] },
   { id: 'nightsky', name: 'Night Sky', size: [1120, 700] },
   { id: 'objects', name: 'Objects', size: [1040, 660] },
   { id: 'beatstudio', name: 'Beat Studio', size: [1100, 680] },
   { id: 'zengarden', name: 'Zen Garden', size: [1000, 640] },
+  { id: 'gravity', name: 'Gravity', size: [1100, 700] },
 ] as const;
 export type VisionAppId = (typeof VISION_APPS)[number]['id'];
 

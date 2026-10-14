@@ -30,7 +30,7 @@ const ALIASES: Partial<Record<VisionAppId, string>> = {
   freeform: 'whiteboard board draw canvas', settings: 'preferences options', messages: 'chat text sms', files: 'documents folders',
   encounter: 'dinosaurs dino', store: 'app store download', arcade: 'games play pinball minecraft', facetime: 'call video persona',
   weather: 'forecast rain sun', maps: 'directions navigation city', clock: 'alarm timer stopwatch time', keynote: 'slides presentation deck',
-  nightsky: 'stars planets astronomy constellations', objects: 'models 3d wall-e', beatstudio: 'drums music beats synth', zengarden: 'sand relax rake',
+  nightsky: 'stars planets astronomy constellations', objects: 'models 3d wall-e', beatstudio: 'drums music beats synth', zengarden: 'sand relax rake', gravity: 'physics playground blocks drop throw',
 };
 const ACTIONS: SpotlightResult[] = [
   { kind: 'action', id: 'dark', title: 'Dark environments', note: 'Turn the evening look on or off' },
