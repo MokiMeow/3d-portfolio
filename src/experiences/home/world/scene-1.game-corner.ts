@@ -14,7 +14,7 @@ import {
   Texture,
   TorusGeometry,
 } from "three";
-import { Matrix4, Vector3, type Material } from "three";
+import { Box3, Matrix4, Vector3, type Material } from "three";
 import { PS_GAMES } from "~/common/playstation/games";
 import { dualSenseFactory } from "./dualsense";
 import { createHeadset } from "./scene-3.devices";
@@ -164,11 +164,15 @@ export function buildGameCorner(bookcase: Object3D, kit: GameCornerKit) {
 
   /* ---------- Vision Pro headsets ---------- */
   const deviceKit = { geometries: [] as import("three").BufferGeometry[], materials: [] as Material[], textures: [] as import("three").Texture[], envMap: kit.envMap };
-  const headset = (parent: Object3D, position: number[], turn: number) => {
+  // The model's origin is near the front glass and the band trails far behind it, so centre the
+  // footprint on the spot and rest the lowest point on the surface instead of trusting the origin.
+  const headset = (parent: Object3D, position: number[], turn: number, scale = 0.00122) => {
     const made = createHeadset(deviceKit);
-    made.group.scale.setScalar(0.00122);
-    made.group.position.fromArray(position);
+    made.group.scale.setScalar(scale);
     made.group.rotation.y = turn;
+    made.group.updateMatrixWorld(true);
+    const bounds = new Box3().setFromObject(made.group), middle = bounds.getCenter(new Vector3());
+    made.group.position.set(position[0]! - middle.x, position[1]! - bounds.min.y, position[2]! - middle.z);
     parent.add(made.group);
     made.group.traverse(item => { if ((item as Mesh).isMesh) clickableHeadset(item); });
     return made.group;
@@ -308,10 +312,10 @@ export function buildGameCorner(bookcase: Object3D, kit: GameCornerKit) {
   const room = bookcase.parent;
   if (room) {
     const floor = bookcase.position.y;
-    const tray = box(room, [.34, .012, .26], [3.55, floor + .987, -2.12], "#3a3936", .006);
+    const tray = box(room, [.46, .012, .36], [3.55, floor + .987, -2.12], "#3a3936", .006);
     tray.material = surface({ color: srgb("#3b3a38"), roughness: .95 });
     clickableHeadset(tray);
-    headset(room, [3.55, floor + .993, -2.12], -0.42);
+    headset(room, [3.55, floor + .993, -2.12], -0.42, 0.00158);
   }
   deviceKit.materials.forEach(material => lightMaterial(material as MeshStandardMaterial));
   deviceKit.geometries.forEach(geometry => geo(geometry));

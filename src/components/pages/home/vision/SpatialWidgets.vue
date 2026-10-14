@@ -56,7 +56,7 @@ function valid(value: unknown): value is Widget {
     && typeof value.y === 'number' && Number.isFinite(value.y) && value.y >= 0 && value.y <= 1
     && typeof value.playing === 'boolean';
 }
-function save() { try { localStorage.setItem(STORAGE, JSON.stringify({ version: 1, seeded: true, widgets: widgets.value })); } catch { /* Storage is optional in private sessions. */ } }
+function save() { try { localStorage.setItem(STORAGE, JSON.stringify({ version: 2, seeded: true, widgets: widgets.value })); } catch { /* Storage is optional in private sessions. */ } }
 function make(family: Family, appearance: Appearance, x = .5, y = .4): Widget {
   return { id: 'w-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,9), family, ...appearance, x, y, playing: false };
 }
@@ -64,13 +64,15 @@ function load() {
   let seeded = false;
   try {
     const value: unknown = JSON.parse(localStorage.getItem(STORAGE) ?? 'null');
-    if (record(value) && value.version === 1 && value.seeded === true && Array.isArray(value.widgets)) {
+    if (record(value) && (value.version === 1 || value.version === 2) && value.seeded === true && Array.isArray(value.widgets)) {
       seeded = true;
       const ids = new Set<string>();
-      widgets.value = value.widgets.filter(valid).filter(item => { if (ids.has(item.id)) return false; ids.add(item.id); return true; }).slice(0,12);
+      // Version 1 pinned a clock for every new visitor; drop that one, but keep anything placed by hand.
+      const legacy = value.version === 1;
+      widgets.value = value.widgets.filter(valid).filter(item => !(legacy && item.family === 'clock' && item.x === .14 && item.y === .22)).filter(item => { if (ids.has(item.id)) return false; ids.add(item.id); return true; }).slice(0,12);
     }
   } catch { /* Invalid JSON starts a fresh layout. */ }
-  if (!seeded) widgets.value = [make('clock', { size: 'M', finish: 'Glass', frame: 'Natural' }, .14, .22)];
+  if (!seeded) widgets.value = [];
   save();
 }
 function dimensions(widget: Widget) {
