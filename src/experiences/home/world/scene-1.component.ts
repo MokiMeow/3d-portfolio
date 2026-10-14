@@ -1,6 +1,7 @@
 import { portraitFramingScale } from "~/utils/viewport-framing";
 import {
 	Color,
+	DoubleSide,
 	Material,
 	Mesh,
 	MeshBasicMaterial,
@@ -21,6 +22,7 @@ import {
 } from "three";
 import gsap from "gsap";
 import { clipSceneryToWindow } from "./window-portal";
+import { createWindowSky } from "./window-sky";
 
 // BLUEPRINTS
 import { SceneComponentBlueprint } from "../blueprints/scene-component.blueprint";
@@ -171,6 +173,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 	private readonly _companionState = useState<CompanionState>('labCompanion', initialCompanionState);
 	private readonly _ready = useState<boolean>('isExperienceReady',()=>false);
 	public companion?: ReturnType<typeof createCompanion>;
+	private _windowSky?: ReturnType<typeof createWindowSky>;
 	public lightsOn = true;
 	/** Shared by the room and wood materials: 0 by day, 1 with the lights off. */
 	private readonly _night = { value: 0 };
@@ -395,7 +398,8 @@ export class Scene1Component extends SceneComponentBlueprint {
 			availableMaterials.scene_container =
 				this._world?.commonMaterials.scene_container;
 		if (this._world?.commonMaterials.scene_container)
-			availableMaterials.glass = this._world?.commonMaterials.glass;
+			// This window looks out at a real sky, so its glass is clear rather than smoked.
+			availableMaterials.glass = new MeshBasicMaterial({ color: new Color(0x0b1220), opacity: 0.14, transparent: true, side: DoubleSide, depthWrite: false });
 
 		availableMaterials.pc_screen = new MeshBasicMaterial({
 			map: this.pcScreenWebglTexture?.texture,
@@ -519,6 +523,8 @@ export class Scene1Component extends SceneComponentBlueprint {
 				renderer: this._experience.app.renderer.instance,
 			});
 			this._atelier.refresh(this._atelierState.value);
+			this._windowSky?.dispose();
+			this._windowSky = createWindowSky(this.modelScene);
 			this._coatWorkstation(this._atelier.reflectionTexture);
 			this.companion = createCompanion(this.modelScene,this._atelier.reflectionTexture,this._night,this._companionState.value,
 				()=>{this.initSelectableObjects();this._warmUp();if(this._ready.value&&this._experience.router?.currentRouteKey===pages.HOME_PAGE&&!this._experience.cameraAnimation?.enabled)
@@ -841,6 +847,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 	public destruct() {
 		this._loader?.off(CHANGED, this._syncScreenTextures);
 		this.companion?.dispose();this.companion=undefined;
+		this._windowSky?.dispose();this._windowSky=undefined;
 		window.removeEventListener("resize", this._fitHomeCamera);
 		this._atelier?.dispose();
 		this._atelier = undefined;
@@ -1085,6 +1092,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 	public update(): void {
 		if (this._experience.router?.currentRouteKey === pages.HOME_PAGE) {
 			this.companion?.setMusic(!!this._experience.sound?.musicPlaying);
+			this._windowSky?.update(this._appTime.delta);
 			if(this._camera?.instance)this.companion?.update(this._appTime.delta,this._camera.instance);
 		}
 		if (
