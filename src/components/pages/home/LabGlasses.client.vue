@@ -5,8 +5,10 @@ import { VISION, VISION_APPS, VISION_ENVIRONMENTS, type VisionAppId, type Vision
 import { createAmbience } from './vision/ambience';
 import VisionEnvironment from './vision/VisionEnvironment.vue';
 import VisionIcon from './vision/VisionIcon.vue';
+import SpatialWidgets from './vision/SpatialWidgets.vue';
+import SiriOrb from './vision/SiriOrb.vue';
 
-type Win = { id: VisionAppId; x: number; y: number; w: number; h: number; z: number; full?: { x: number; y: number; w: number; h: number } };
+type Win = { id: VisionAppId; x: number; y: number; w: number; h: number; z: number; locked?: boolean; full?: { x: number; y: number; w: number; h: number } };
 // Apps load on first open, so the headset itself starts quickly; each window shows its glass until the app arrives.
 const VIEWS: Record<VisionAppId, Component> = {
   tv: defineAsyncComponent(() => import('./vision/apps/TV.vue')),
@@ -54,6 +56,7 @@ const TIPS = [
   { key: 'move', title: 'Move, resize and close', text: 'Drag the bar under a window to move it. Drag a corner to resize. The × beside the bar closes it.' },
   { key: 'home', title: 'Go back Home', text: 'Press Home in the dock, press the Digital Crown, or hit Esc. Esc closes the front window first.' },
   { key: 'place', title: 'Step into a place', text: 'Pick an Environment, then turn the Digital Crown or scroll on it for more or less of it. Drag the scenery to look around.' },
+  { key: 'siri', title: 'Widgets and Siri', text: 'Pin widgets to your room from Control Center. Hold the Digital Crown, or press Alt+Space, and ask Siri for anything.' },
 ];
 /** Space kept clear at the bottom for the dock, so a window's bar never hides behind it. */
 const DOCK = 96;
@@ -73,6 +76,14 @@ const reduceTransparency = ref(false);
 const dark = ref(false);
 const sound = ref(false);
 const control = ref(false);
+// Control Center switches. Most are the headset's own modes; Focus also holds back notification banners.
+const focusMode = ref(false);
+const guest = ref(false);
+const travel = ref(false);
+const wifi = ref(true);
+const bluetooth = ref(true);
+const mirroring = ref(false);
+const volume = ref(0.7);
 const help = ref(false);
 const note = ref('');
 const flash = ref(false);
@@ -158,6 +169,38 @@ function back() {
   if (tab.value !== 'apps') { tab.value = 'apps'; return true; }
   return false;
 }
+/* Notifications arrive as compact glass banners at the top of the view and expand when you look at them. */
+type Notice = { id: number; app: VisionAppId; title: string; body: string; at: Date };
+const notices = ref<Notice[]>([]);
+const history = ref<Notice[]>([]);
+let noticeId = 0;
+const noticeTimers = new Map<number, number>();
+function notify(app: VisionAppId, title: string, body: string) {
+  const item = { id: ++noticeId, app, title, body, at: new Date() };
+  // Focus keeps the history but holds the banner back.
+  if (focusMode.value) { history.value = [item, ...history.value].slice(0, 20); return; }
+  notices.value = [item, ...notices.value].slice(0, 2);
+  history.value = [item, ...history.value].slice(0, 20);
+  noticeTimers.set(item.id, window.setTimeout(() => dismissNotice(item.id), 7000));
+}
+function dismissNotice(id: number) {
+  clearTimeout(noticeTimers.get(id));
+  noticeTimers.delete(id);
+  notices.value = notices.value.filter(item => item.id !== id);
+}
+function holdNotice(id: number, on: boolean) {
+  clearTimeout(noticeTimers.get(id));
+  if (!on) noticeTimers.set(id, window.setTimeout(() => dismissNotice(id), 3500));
+}
+function openNotice(item: Notice) { dismissNotice(item.id); open(item.app); }
+// A few gentle, fictional messages turn up while someone is exploring, the way a real headset gets interrupted.
+const SCRIPT: [number, VisionAppId, string, string][] = [
+  [45, 'messages', 'Amma', 'Are you wearing that thing again? Blink twice if you have eaten.'],
+  [140, 'clock', 'Timer', 'Chai is ready. It has been ready. It is now cold.'],
+  [260, 'arcade', 'Arcade', 'Pinball misses you. Space Cadet is still awaiting deployment.'],
+  [420, 'weather', 'Weather', 'Demo forecast: 100% chance of staying in here a bit longer.'],
+];
+let scriptTimers: number[] = [];
 function toast(text: string) {
   note.value = text;
   clearTimeout(noteTimer);
@@ -186,11 +229,25 @@ function turnCrown(by: number) {
   if (environment.value === 'room') environment.value = lastPlace;
   immersion.value = Math.max(0, Math.min(1, immersion.value + by));
 }
+function toggleMode(which: 'focus' | 'guest' | 'travel' | 'wifi' | 'bluetooth' | 'mirroring') {
+  const switches = { focus: focusMode, guest, travel, wifi, bluetooth, mirroring };
+  const flag = switches[which];
+  flag.value = !flag.value;
+  const lines: Record<typeof which, [string, string]> = {
+    focus: ['Focus on. Banners will wait quietly.', 'Focus off.'],
+    guest: ['Guest User on. Your stuff is politely hidden.', 'Guest User off. Welcome back.'],
+    travel: ['Travel Mode on. The view will hold still on bumpy rides.', 'Travel Mode off.'],
+    wifi: ['Wi-Fi on.', 'Wi-Fi off. Bold choice for a website.'],
+    bluetooth: ['Bluetooth on.', 'Bluetooth off.'],
+    mirroring: ['Mirroring to the room TV. Everyone can see your tabs now.', 'Mirroring stopped.'],
+  };
+  toast(lines[which][flag.value ? 0 : 1]);
+}
 function toggleSound() { sound.value = !sound.value; toast(sound.value ? 'Ambient sound on.' : 'Ambient sound off.'); }
 watch(environment, value => { if (value === 'room') glideTo(0); else { lastPlace = value; if (immersion.value < 0.05) glideTo(1); } });
 // The ambience follows the place and fades with immersion.
-watch([sound, environment, () => Math.round(immersion.value * 10)], () => {
-  ambience.set(sound.value && inside.value ? here.value.sound : 'none', immersion.value);
+watch([sound, environment, () => Math.round(immersion.value * 10), () => Math.round(volume.value * 10)], () => {
+  ambience.set(sound.value && inside.value ? here.value.sound : 'none', immersion.value * volume.value);
 });
 provide(VISION, { now, environment, immersion, dim, reduceTransparency, dark, sound, open, close, toast });
 
@@ -202,7 +259,7 @@ function capture() {
 }
 function recenter() {
   const fit = room();
-  windows.value.forEach((win, index) => { win.full = undefined; win.w = Math.min(win.w, fit.w); win.h = Math.min(win.h, fit.h); win.x = Math.max(6, (view.w - win.w) / 2 + (index % 4) * 28); win.y = Math.max(TOP, TOP + (fit.h - win.h) / 2 + (index % 4) * 18); });
+  windows.value.forEach((win, index) => { if (win.locked) return; win.full = undefined; win.w = Math.min(win.w, fit.w); win.h = Math.min(win.h, fit.h); win.x = Math.max(6, (view.w - win.w) / 2 + (index % 4) * 28); win.y = Math.max(TOP, TOP + (fit.h - win.h) / 2 + (index % 4) * 18); });
   place.value?.recentre();
   control.value = false; toast('View recentred.');
 }
@@ -215,9 +272,11 @@ function zoom(win: Win) {
 }
 
 // Dragging a window by its bar, or resizing it from the corner.
-let drag: { win: Win; mode: 'move' | 'size'; x: number; y: number; left: number; top: number; w: number; h: number } | null = null;
-function grab(event: PointerEvent, win: Win, mode: 'move' | 'size') {
+let drag: { win: Win; mode: 'move' | 'size' | 'size-left'; x: number; y: number; left: number; top: number; w: number; h: number } | null = null;
+function grab(event: PointerEvent, win: Win, mode: 'move' | 'size' | 'size-left') {
   focus(win);
+  // A locked window stays where it was put; its lock is the only thing that moves it.
+  if (win.locked && mode === 'move') { toast(`${NAMES[win.id]} is locked in place. Tap the lock to free it.`); return; }
   drag = { win, mode, x: event.clientX, y: event.clientY, left: win.x, top: win.y, w: win.w, h: win.h };
   (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
 }
@@ -229,10 +288,42 @@ function pull(event: PointerEvent) {
   if (drag.mode === 'move') {
     win.x = Math.max(90 - win.w, Math.min(view.w - 90, drag.left + dx));
     win.y = Math.max(TOP, Math.min(lowest(win), drag.top + dy));
-  } else {
+  } else if (drag.mode === 'size') {
     win.w = Math.max(Math.min(380, view.w - 12), Math.min(view.w - win.x - 6, drag.w + dx));
     win.h = Math.max(300, Math.min(view.h - DOCK - 54 - win.y, drag.h + dy));
+  } else {
+    // The left corner grows the window leftwards, keeping its right edge put.
+    const right = drag.left + drag.w;
+    const w = Math.max(Math.min(380, view.w - 12), Math.min(right - 6, drag.w - dx));
+    win.w = w; win.x = right - w;
+    win.h = Math.max(300, Math.min(view.h - DOCK - 54 - win.y, drag.h + dy));
   }
+}
+
+/* The close control: a resting dot beside the bar that becomes × when you look at it.
+   Holding it opens the visionOS menu: close this, close the others, or lock the window in place. */
+const closeMenu = ref<VisionAppId | null>(null);
+let holdTimer = 0, held = false;
+function closeDown(id: VisionAppId) {
+  held = false;
+  clearTimeout(holdTimer);
+  holdTimer = window.setTimeout(() => { held = true; closeMenu.value = id; }, 480);
+}
+function closeUp() { clearTimeout(holdTimer); }
+function closeClick(id: VisionAppId) {
+  if (held) { held = false; return; }
+  closeMenu.value = null;
+  close(id);
+}
+function closeOthers(id: VisionAppId) {
+  windows.value = windows.value.filter(item => item.id === id);
+  closeMenu.value = null;
+  toast('Other apps closed.');
+}
+function lockWindow(win: Win, on: boolean) {
+  win.locked = on;
+  closeMenu.value = null;
+  toast(on ? `${NAMES[win.id]} locked in place. Recentring will leave it be.` : `${NAMES[win.id]} unlocked.`);
 }
 function drop() { drag = null; }
 
@@ -260,14 +351,43 @@ function lookUp() {
   gaze = null; looking.value = false;
 }
 
-let crownY: number | null = null, crownMoved = false;
-function crownDown(event: PointerEvent) { crownY = event.clientY; crownMoved = false; (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId); }
+let crownY: number | null = null, crownMoved = false, crownHold = 0, crownHeld = false;
+function crownDown(event: PointerEvent) {
+  crownY = event.clientY; crownMoved = false; crownHeld = false;
+  (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  // Holding the Digital Crown calls Siri.
+  clearTimeout(crownHold);
+  crownHold = window.setTimeout(() => { if (!crownMoved && crownY !== null) { crownHeld = true; siri.value?.activate(); } }, 650);
+}
 function crownMove(event: PointerEvent) {
   if (crownY === null) return;
   const by = (crownY - event.clientY) / 160;
   if (Math.abs(by) > 0.02) { crownMoved = true; turnCrown(by); crownY = event.clientY; }
 }
-function crownUp() { if (crownY !== null && !crownMoved) goHome(); crownY = null; }
+function crownUp() { clearTimeout(crownHold); if (crownY !== null && !crownMoved && !crownHeld) goHome(); crownY = null; }
+
+/* Widgets in the room and Siri. */
+const widgets = ref<InstanceType<typeof SpatialWidgets>>();
+const siri = ref<InstanceType<typeof SiriOrb>>();
+const APP_IDS = new Set<string>(VISION_APPS.map(item => item.id));
+type SiriCommand = Parameters<NonNullable<InstanceType<typeof SiriOrb>['$props']['onCommand']>>[0];
+function siriCommand(command: SiriCommand) {
+  switch (command.type) {
+    case 'open': if (APP_IDS.has(command.app)) open(command.app as VisionAppId); break;
+    case 'environment': if (VISION_ENVIRONMENTS.some(item => item.id === command.id)) { homeOpen.value = false; setEnvironment(command.id as VisionEnvironmentId); } break;
+    case 'immersion': if (environment.value === 'room' && command.value > 0) environment.value = lastPlace; glideTo(Math.max(0, Math.min(1, command.value))); break;
+    case 'immersionBy': turnCrown(command.delta); break;
+    case 'home': goHome('apps'); break;
+    case 'closeAll': closeAll(); break;
+    case 'widgets': control.value = false; widgets.value?.openGallery(); break;
+    case 'capture': capture(); break;
+    case 'dark': dark.value = command.on; break;
+  }
+}
+function siriKey(event: KeyboardEvent) {
+  if (event.altKey && event.code === 'Space') { event.preventDefault(); siri.value?.activate(); }
+}
+function openFromWidget(id: string) { if (APP_IDS.has(id)) open(id as VisionAppId); }
 
 function look(event: PointerEvent) {
   if (event.pointerType === 'touch') return;
@@ -298,38 +418,58 @@ onMounted(() => {
   if (visor.value) watcher.observe(visor.value);
   clockTimer = window.setInterval(() => { now.value = new Date(); }, 1000);
   window.addEventListener('keydown', pageKeys);
+  window.addEventListener('keydown', siriKey);
   let welcomed = false;
   try { welcomed = localStorage.getItem('lab-vision-welcomed') === '1'; } catch { /* ignore */ }
   bootTimer = window.setTimeout(() => { booting.value = false; if (!welcomed) help.value = true; }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 2600);
+  scriptTimers = SCRIPT.map(([seconds, app, title, body]) => window.setTimeout(() => notify(app, title, body), seconds * 1000));
 });
 onBeforeUnmount(() => {
   document.documentElement.classList.remove('lab-vision-on');
   if (labDeviceBack.handler === back) labDeviceBack.handler = null;
   watcher?.disconnect();
   window.removeEventListener('keydown', pageKeys);
+  window.removeEventListener('keydown', siriKey);
+  clearTimeout(crownHold);
   ambience.dispose();
+  scriptTimers.forEach(clearTimeout); noticeTimers.forEach(clearTimeout); clearTimeout(holdTimer);
   clearInterval(clockTimer); clearTimeout(bootTimer); clearTimeout(noteTimer); clearTimeout(flashTimer); cancelAnimationFrame(glide);
 });
 </script>
 
 <template>
-  <div ref="visor" class="visor" :class="{ booting, solid: reduceTransparency, compact, inside, looking }" :style="{ '--tx': tilt.x, '--ty': tilt.y }" @pointermove="look">
+  <div ref="visor" class="visor" :class="{ booting, solid: reduceTransparency, compact, inside, looking, 'cc-open': control, 'home-open': homeOpen }" :style="{ '--tx': tilt.x, '--ty': tilt.y }" @pointermove="look">
     <VisionEnvironment :id="environment" ref="place" :immersion="immersion" :dark="dark" class="place" />
     <i class="dimmer" :style="{ opacity: dim }" />
     <i class="gaze" />
 
     <div ref="space" class="space" :class="{ dimmed: (homeOpen && windows.length) || help }" @pointerdown="lookDown" @pointermove="lookMove" @pointerup="lookUp" @pointercancel="lookUp">
+      <!-- Widgets live in the room, behind any open windows. -->
+      <SpatialWidgets v-if="!booting" ref="widgets" :now="now" :compact="compact" :dark="dark" :immersed="inside && immersion > 0.95" @open="openFromWidget" />
       <!-- Windows -->
       <TransitionGroup name="window">
         <section v-for="win in windows" :key="win.id" class="window" :class="{ front: front === win, behind: homeOpen }" :aria-label="NAMES[win.id]"
           :style="{ left: `${win.x}px`, top: `${win.y}px`, width: `${win.w}px`, height: `${win.h}px`, zIndex: win.z }" @pointerdown.capture="focus(win)">
           <div class="glass"><component :is="VIEWS[win.id]" :compact="compact" /></div>
           <div class="grip-row">
-            <button class="shut" :aria-label="`Close ${NAMES[win.id]}`" :title="`Close ${NAMES[win.id]}`" @click="close(win.id)">
-              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m2.500 2.500 7 7m0-7-7 7" stroke="currentColor" stroke-width="1.700" stroke-linecap="round" /></svg><span>Close</span>
+            <button class="shut" :aria-label="`Close ${NAMES[win.id]}. Hold for more.`" :title="`Close ${NAMES[win.id]} (hold for more)`"
+              @pointerdown="closeDown(win.id)" @pointerup="closeUp" @pointerleave="closeUp" @click="closeClick(win.id)" @contextmenu.prevent="closeMenu = win.id">
+              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 3 6 6m0-6-6 6" stroke="currentColor" stroke-width="1.800" stroke-linecap="round" /></svg>
             </button>
-            <button class="bar" :aria-label="`Move ${NAMES[win.id]}. Double-click to fill the view.`" :title="`${NAMES[win.id]}: drag to move, double-click to fill the view`" @pointerdown="grab($event, win, 'move')" @dblclick="zoom(win)"><i /></button>
+            <button v-if="win.locked" class="bar locked" :aria-label="`${NAMES[win.id]} is locked in place. Unlock.`" title="Locked in place. Click to unlock." @click="lockWindow(win, false)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6Z" fill="none" stroke="currentColor" stroke-width="1.900" stroke-linejoin="round" /></svg>
+            </button>
+            <button v-else class="bar" :aria-label="`Move ${NAMES[win.id]}. Double-click to fill the view.`" :title="`${NAMES[win.id]}: drag to move, double-click to fill the view`" @pointerdown="grab($event, win, 'move')" @dblclick="zoom(win)"><i /></button>
+            <Transition name="drop">
+              <div v-if="closeMenu === win.id" class="close-menu" role="menu" @pointerdown.stop>
+                <button role="menuitem" @click="closeMenu = null; close(win.id)">Close Window</button>
+                <button v-if="windows.length > 1" role="menuitem" @click="closeOthers(win.id)">Close Other Apps</button>
+                <button role="menuitem" @click="lockWindow(win, !win.locked)">{{ win.locked ? 'Unlock' : 'Lock in Place' }}</button>
+                <button role="menuitem" class="cancel" @click="closeMenu = null">Cancel</button>
+              </div>
+            </Transition>
           </div>
+          <button class="corner left" :aria-label="`Resize ${NAMES[win.id]} from the left`" title="Drag to resize" @pointerdown="grab($event, win, 'size-left')"><i /></button>
           <button class="corner" :aria-label="`Resize ${NAMES[win.id]}`" title="Drag to resize" @pointerdown="grab($event, win, 'size')"><i /></button>
         </section>
       </TransitionGroup>
@@ -399,26 +539,61 @@ onBeforeUnmount(() => {
       <button class="dock-round" :aria-pressed="help" aria-label="How to use Vision Pro" title="How to use Vision Pro" @click="help = !help; control = false">?</button>
     </nav>
 
+    <SiriOrb v-if="!booting" ref="siri" :apps="VISION_APPS" :environments="VISION_ENVIRONMENTS" :compact="compact" :sound="sound" @command="siriCommand" />
+
     <!-- Control Centre -->
     <button class="status" :aria-expanded="control" aria-label="Control Centre" @click="control = !control; help = false"><b>{{ time }}</b><i /></button>
     <Transition name="drop">
-      <div v-if="control" class="control" role="dialog" aria-label="Control Centre">
-        <header><b>{{ time }}</b><span>{{ day }}</span><em><svg viewBox="0 0 28 13" aria-hidden="true"><rect x=".5" y=".5" width="23.500" height="12" rx="3.800" fill="none" stroke="currentColor" opacity=".5" /><rect x="2" y="2" width="14" height="9" rx="2.400" fill="currentColor" /><path d="M25.500 4.300v4.400c.900-.300 1.500-1.200 1.500-2.200s-.600-1.900-1.500-2.200Z" fill="currentColor" opacity=".5" /></svg>71%</em></header>
-        <div class="quick">
+      <div v-if="control" class="control cc" role="dialog" aria-label="Control Centre">
+        <header class="cc-status">
+          <div><b>{{ time }}</b><span>{{ day }}</span></div>
+          <em>
+            <svg v-if="wifi" viewBox="0 0 24 24" aria-label="Wi-Fi"><path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.6 16a5 5 0 0 1 6.8 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /><circle cx="12" cy="19.2" r="1.5" fill="currentColor" /></svg>
+            <svg viewBox="0 0 28 13" aria-hidden="true"><rect x=".5" y=".5" width="23.500" height="12" rx="3.800" fill="none" stroke="currentColor" opacity=".5" /><rect x="2" y="2" width="14" height="9" rx="2.400" fill="currentColor" /><path d="M25.500 4.300v4.400c.900-.300 1.500-1.200 1.500-2.200s-.600-1.900-1.500-2.200Z" fill="currentColor" opacity=".5" /></svg>71%
+          </em>
+        </header>
+        <div class="cc-grid">
+          <section class="cc-toggles">
+            <button :aria-pressed="wifi" aria-label="Wi-Fi" @click="toggleMode('wifi')"><svg viewBox="0 0 24 24"><path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.6 16a5 5 0 0 1 6.8 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /><circle cx="12" cy="19.2" r="1.5" fill="currentColor" /></svg><span>Wi-Fi</span></button>
+            <button :aria-pressed="bluetooth" aria-label="Bluetooth" @click="toggleMode('bluetooth')"><svg viewBox="0 0 24 24"><path d="m7 7 10 10-5 4V3l5 4L7 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg><span>Bluetooth</span></button>
+            <button :aria-pressed="focusMode" aria-label="Focus" @click="toggleMode('focus')"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" fill="currentColor" /></svg><span>Focus</span></button>
+            <button :aria-pressed="guest" aria-label="Guest User" @click="toggleMode('guest')"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2" /><path d="M4 21a8 8 0 0 1 16 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg><span>Guest</span></button>
+            <button :aria-pressed="travel" aria-label="Travel Mode" @click="toggleMode('travel')"><svg viewBox="0 0 24 24"><path d="M2 15 22 7l-2 5-8 2-4 6-1-5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" /></svg><span>Travel</span></button>
+            <button :aria-pressed="mirroring" aria-label="Mirror my view" @click="toggleMode('mirroring')"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2" /><path d="M8 20h8M12 16v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg><span>Mirror</span></button>
+            <button :aria-pressed="sound" aria-label="Environment sound" @click="toggleSound"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4Z" fill="currentColor" /><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg><span>Sound</span></button>
+            <button :aria-pressed="dark" aria-label="Dark environments" @click="dark = !dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2" /><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" /></svg><span>Dark</span></button>
+            <button :aria-pressed="reduceTransparency" aria-label="Solid glass" @click="reduceTransparency = !reduceTransparency"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4" fill="currentColor" opacity=".9" /></svg><span>Solid</span></button>
+            <button aria-label="Mac Virtual Display" @click="open('mac')"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2" /><path d="M2 19h20" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg><span>Mac</span></button>
+            <button aria-label="Capture" @click="capture"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2" /><circle cx="12" cy="12" r="4.5" fill="#ff453a" /></svg><span>Capture</span></button>
+            <button aria-label="Widgets" @click="control = false; widgets?.openGallery()"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2.5" fill="none" stroke="currentColor" stroke-width="2" /><rect x="13" y="3" width="8" height="8" rx="2.5" fill="none" stroke="currentColor" stroke-width="2" /><rect x="3" y="13" width="18" height="8" rx="2.5" fill="none" stroke="currentColor" stroke-width="2" /></svg><span>Widgets</span></button>
+            <button aria-label="Siri" @click="control = false; siri?.activate()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2" /><path d="M7 12c2-4 3 4 5 0s3 4 5 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg><span>Siri</span></button>
+            <button aria-label="Recentre" @click="recenter"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="currentColor" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg><span>Recentre</span></button>
+          </section>
+          <section class="cc-side">
+            <label class="cc-slider"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4Z" fill="currentColor" /></svg><input type="range" min="0" max="1" step="0.01" :value="volume" :style="{ '--v': volume }" aria-label="Volume" @input="volume = Number(($event.target as HTMLInputElement).value)" /></label>
+            <label class="cc-slider"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 19 6-10 4 6 2.500-3.500L21 19Z" fill="currentColor" /></svg><input type="range" min="0" max="1" step="0.01" :value="immersion" :style="{ '--v': immersion }" aria-label="Immersion" @input="turnCrown(Number(($event.target as HTMLInputElement).value) - immersion)" /></label>
+            <button class="cc-now" @click="open('music')">
+              <i class="cc-art" />
+              <span><small>Now Playing</small><b>After Hours</b><em>The Lab Band</em></span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7Z" fill="currentColor" /></svg>
+            </button>
+          </section>
+        </div>
+        <div class="cc-places">
+          <button v-for="spot in VISION_ENVIRONMENTS" :key="spot.id" :aria-pressed="spot.id === 'room' ? !inside : environment === spot.id && inside" :title="spot.name" @click="setEnvironment(spot.id)">
+            <i v-if="spot.id === 'room'" class="room-thumb" /><img v-else :src="`/vision/env/${spot.id}-thumb.webp`" alt="" loading="lazy" draggable="false" />
+            <span>{{ spot.name }}</span>
+          </button>
+        </div>
+        <section v-if="history.length" class="cc-notes">
+          <h3>Notifications <button @click="history = []">Clear</button></h3>
+          <button v-for="item in history.slice(0, 4)" :key="item.id" @click="open(item.app)"><span class="notice-icon"><VisionIcon :name="item.app" /></span><span><b>{{ item.title }}</b><em>{{ item.body }}</em></span></button>
+        </section>
+        <footer class="cc-foot">
           <button @click="goHome('apps')">Home</button>
-          <button @click="recenter">Recentre</button>
-          <button @click="capture">Capture</button>
-          <button :aria-pressed="sound" @click="toggleSound">Sound</button>
-          <button :aria-pressed="dark" @click="dark = !dark">Dark</button>
-          <button :aria-pressed="reduceTransparency" @click="reduceTransparency = !reduceTransparency">Solid glass</button>
           <button :disabled="!windows.length" @click="closeAll(); control = false">Close all</button>
           <button @click="help = true; control = false">Help</button>
-        </div>
-        <label class="slider"><span>Immersion</span><input type="range" min="0" max="1" step="0.01" :value="immersion" aria-label="Immersion" @input="turnCrown(Number(($event.target as HTMLInputElement).value) - immersion)" /><output>{{ Math.round(immersion * 100) }}%</output></label>
-        <div class="mini-places">
-          <button v-for="spot in VISION_ENVIRONMENTS" :key="spot.id" :aria-pressed="spot.id === 'room' ? !inside : environment === spot.id && inside" @click="setEnvironment(spot.id)">{{ spot.name }}</button>
-        </div>
-        <p>Guest User and Travel Mode are off. Nobody else is wearing this. Probably.</p>
+        </footer>
       </div>
     </Transition>
 
@@ -443,6 +618,19 @@ onBeforeUnmount(() => {
     </Transition>
 
     <Transition name="drop"><p v-if="note" class="toast" role="status">{{ note }}</p></Transition>
+    <TransitionGroup name="notice" tag="div" class="notices" :class="{ below: !!note }" aria-live="polite">
+      <article v-for="item in notices" :key="item.id" class="notice" tabindex="0"
+        @pointerenter="holdNotice(item.id, true)" @pointerleave="holdNotice(item.id, false)" @focus="holdNotice(item.id, true)" @blur="holdNotice(item.id, false)">
+        <button class="notice-main" :aria-label="`${item.title}: ${item.body}. Open ${NAMES[item.app]}.`" @click="openNotice(item)">
+          <span class="notice-icon"><VisionIcon :name="item.app" /></span>
+          <span class="notice-copy"><small>{{ NAMES[item.app] }} · now</small><b>{{ item.title }}</b><em>{{ item.body }}</em></span>
+        </button>
+        <div class="notice-actions">
+          <button @click="openNotice(item)">Open</button>
+          <button @click="dismissNotice(item.id)">Dismiss</button>
+        </div>
+      </article>
+    </TransitionGroup>
     <i class="shutter" :class="{ on: flash }" />
 
     <!-- Putting it on -->
@@ -521,6 +709,18 @@ button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3
 .solid .glass,.solid .tabs,.solid .control,.solid .dock,.solid .help{background:#2b2d33;backdrop-filter:none;-webkit-backdrop-filter:none}
 /* The window bar: a close button that is always in view, and the bar you move the window by. */
 .grip-row{position:absolute;left:0;right:0;top:calc(100% + 8px);display:flex;justify-content:center;align-items:center;gap:10px}
+.grip-row .shut{position:relative;height:34px;width:34px;min-width:0;padding:0;border-radius:50%;background:transparent!important;box-shadow:none!important;backdrop-filter:none!important}
+/* At rest the close control is a small dot; it becomes a round × when targeted. */
+.grip-row .shut::before{content:'';position:absolute;inset:11px;border-radius:50%;background:rgb(255 255 255 / .55);box-shadow:0 2px 8px rgb(0 0 0 / .3);transition:inset .22s cubic-bezier(.2,.9,.3,1.2),background .2s}
+.grip-row .shut svg{position:relative;opacity:0;transform:scale(.6);transition:opacity .18s,transform .22s;color:#fff}
+.grip-row .shut:hover::before,.grip-row .shut:focus-visible::before{inset:0;background:rgb(70 72 80 / .78);backdrop-filter:blur(20px)}
+.grip-row .shut:hover svg,.grip-row .shut:focus-visible svg{opacity:1;transform:none}
+.window:not(.front) .grip-row .shut::before{background:rgb(255 255 255 / .3)}
+.bar.locked{width:46px;height:34px;border-radius:17px;background:rgb(70 72 80 / .62);backdrop-filter:blur(20px);color:#fff;cursor:pointer}.bar.locked svg{width:17px;height:17px}
+.close-menu{position:absolute;bottom:calc(100% + 54px);left:50%;transform:translateX(-50%);display:grid;min-width:220px;padding:8px;border-radius:26px;z-index:2;
+  background:linear-gradient(135deg,rgb(255 255 255 / .2),rgb(255 255 255 / .06)),rgb(48 50 56 / .82);backdrop-filter:blur(40px) saturate(140%);box-shadow:inset 0 1px 0 rgb(255 255 255 / .3),inset 0 0 0 1px rgb(255 255 255 / .14),0 24px 60px rgb(0 0 0 / .4)}
+.close-menu button{height:46px;padding:0 18px;border-radius:18px;text-align:left;font-size:15px;font-weight:500;transition:background .15s}.close-menu button:hover{background:rgb(255 255 255 / .14)}
+.close-menu .cancel{color:rgb(255 255 255 / .6)}
 .shut{height:34px;min-width:34px;padding:0 10px;border-radius:17px;display:flex;align-items:center;justify-content:center;gap:0;font-size:13px;font-weight:600;
   background:rgb(88 90 98 / .72);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:inset 0 0 0 1px rgb(255 255 255 / .22),0 6px 16px rgb(0 0 0 / .3);transition:background .2s,transform .2s,gap .2s}
 .shut svg{width:13px;height:13px;flex:none}
@@ -530,6 +730,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3
 .bar{width:150px;height:34px;display:grid;place-items:center;cursor:grab;touch-action:none}.bar:active{cursor:grabbing}
 .bar i{width:112px;height:9px;border-radius:5px;background:rgb(255 255 255 / .6);box-shadow:0 2px 10px rgb(0 0 0 / .3);transition:background .2s,transform .2s}.bar:hover i{background:#fff;transform:scaleX(1.050)}
 .window:not(.front) .bar i{background:rgb(255 255 255 / .38)}
+.corner.left{right:auto;left:-16px;cursor:nesw-resize}.corner.left i{right:auto;left:8px;border-radius:0 0 0 22px;border-left-color:rgb(255 255 255 / .8);border-right-color:transparent}
 .corner{position:absolute;right:-16px;bottom:-16px;width:54px;height:54px;cursor:nwse-resize;touch-action:none;opacity:0;transition:opacity .2s}
 .window:hover .corner,.corner:focus-visible{opacity:1}
 .corner i{position:absolute;right:8px;bottom:8px;width:26px;height:26px;border:4px solid rgb(255 255 255 / .8);border-left-color:transparent;border-top-color:transparent;border-radius:0 0 22px 0}
@@ -575,6 +776,37 @@ button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3
 .slider{display:flex;align-items:center;gap:14px;margin:16px 0 12px;font-size:15px}.slider input{flex:1;height:44px;accent-color:#fff}.slider output{width:44px;text-align:right;font-variant-numeric:tabular-nums;color:rgb(255 255 255 / .7)}
 .mini-places{display:flex;flex-wrap:wrap;gap:7px}.mini-places button{min-height:42px;padding:0 15px}
 .control p{margin:14px 0 0;font-size:13px;color:rgb(255 255 255 / .55)}
+/* visionOS 27 Control Center: one connected glass surface with status, toggles, sliders, Now Playing, places and notifications. */
+.control.cc{width:min(560px,calc(100vw - 20px));margin-left:calc(min(560px,100vw - 20px) / -2);padding:20px;display:grid;gap:14px}
+.cc-status{display:flex!important;justify-content:space-between;align-items:center;margin:0!important}
+.cc-status b{display:block;font-size:40px;line-height:1;font-weight:600;letter-spacing:-.03em}.cc-status span{font-size:14px;color:rgb(255 255 255 / .65)}
+.cc-status em{display:flex;align-items:center;gap:8px;font-style:normal;font-size:14px}.cc-status svg{width:22px;height:22px}
+.cc-grid{display:grid;grid-template-columns:1.25fr 1fr;gap:14px}
+.cc-toggles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 6px}
+.cc-toggles button{display:grid;justify-items:center;gap:5px;font-size:11px;color:rgb(255 255 255 / .8)}
+.cc-toggles svg{width:52px;height:52px;padding:14px;border-radius:50%;background:rgb(255 255 255 / .12);transition:background .2s,color .2s,transform .2s cubic-bezier(.2,.9,.3,1.3)}
+.cc-toggles button:hover svg{background:rgb(255 255 255 / .22);transform:scale(1.07)}
+.cc-toggles button[aria-pressed=true] svg{background:#fff;color:#111}
+.cc-side{display:grid;gap:10px;align-content:start}
+.cc-slider{position:relative;display:block;height:52px;border-radius:26px;overflow:hidden;background:rgb(255 255 255 / .12)}
+.cc-slider svg{position:absolute;left:16px;top:16px;width:20px;height:20px;z-index:1;color:#fff;mix-blend-mode:difference;pointer-events:none}
+.cc-slider input{appearance:none;-webkit-appearance:none;width:100%;height:100%;margin:0;background:linear-gradient(90deg,#fff calc(var(--v) * 100%),transparent 0);cursor:pointer}
+.cc-slider input::-webkit-slider-thumb{-webkit-appearance:none;width:1px;height:52px;opacity:0}.cc-slider input::-moz-range-thumb{width:1px;height:52px;opacity:0;border:0}
+.cc-now{display:flex;align-items:center;gap:12px;padding:10px;border-radius:24px;background:rgb(255 255 255 / .12);text-align:left;transition:background .2s}.cc-now:hover{background:rgb(255 255 255 / .2)}
+.cc-art{width:46px;height:46px;flex:none;border-radius:12px;background:radial-gradient(circle at 30% 30%,#ff9f6b,#d6336c 45%,#3b1d6e)}
+.cc-now span{display:grid;flex:1;min-width:0}.cc-now small{font-size:11px;color:rgb(255 255 255 / .6);text-transform:uppercase;letter-spacing:.06em}.cc-now b{font-size:15px}.cc-now em{font-style:normal;font-size:13px;color:rgb(255 255 255 / .7)}
+.cc-now svg{width:22px;height:22px;margin-right:6px}
+.cc-places{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:2px}
+.cc-places button{flex:none;display:grid;gap:5px;justify-items:center;width:84px;font-size:11px;color:rgb(255 255 255 / .8)}
+.cc-places .room-thumb{position:relative;inset:auto}
+.cc-places img,.cc-places .room-thumb{width:84px;height:54px;border-radius:14px;object-fit:cover;display:block;transition:transform .2s,box-shadow .2s}
+.cc-places button:hover img{transform:scale(1.05)}.cc-places button[aria-pressed=true] img,.cc-places button[aria-pressed=true] .room-thumb{box-shadow:0 0 0 3px #fff}
+.cc-places span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:84px}
+.cc-notes h3{display:flex;justify-content:space-between;margin:0 0 6px;font-size:13px;font-weight:600;color:rgb(255 255 255 / .7)}.cc-notes h3 button{font-size:13px;color:rgb(255 255 255 / .6)}
+.cc-notes>button{display:flex;align-items:center;gap:10px;width:100%;padding:8px;border-radius:18px;text-align:left}.cc-notes>button:hover{background:rgb(255 255 255 / .1)}
+.cc-notes>button .notice-icon{width:34px}.cc-notes>button span:last-child{display:grid;min-width:0}.cc-notes b{font-size:14px}.cc-notes em{font-style:normal;font-size:13px;color:rgb(255 255 255 / .7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cc-foot{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.cc-foot button{height:44px;border-radius:22px;background:rgb(255 255 255 / .12);font-size:14px;font-weight:500}.cc-foot button:hover{background:rgb(255 255 255 / .2)}.cc-foot button:disabled{opacity:.35}
+.compact .cc-grid{grid-template-columns:1fr}
 
 /* Hardware */
 .crown,.top-button{position:absolute;top:6px;z-index:7001;display:flex;align-items:center;gap:10px;min-height:48px;padding:0 14px 0 6px;font-size:13px;color:rgb(255 255 255 / .9);border-radius:26px;transition:background .2s;
@@ -600,12 +832,38 @@ button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3
 .help .tip-move::after{left:17px;right:17px;top:37px;height:4px;border-radius:2px;background:#fff;animation:slide 2.600s ease-in-out infinite}
 .help .tip-home::before{inset:15px;background:radial-gradient(circle,#fff 2.600px,transparent 3.200px) 0 0/7.330px 7.330px}
 .help .tip-place::before{left:11px;right:11px;bottom:15px;height:16px;background:#fff;clip-path:polygon(0 100%,34% 10%,54% 62%,68% 36%,100% 100%)}
+.help .tip-siri::before{inset:8px;border-radius:50%;background:conic-gradient(from 90deg,#4f8cff,#c14bff,#ff6a3d,#4f8cff);filter:blur(1px);animation:tip-spin 3s linear infinite}
+@keyframes tip-spin{to{transform:rotate(360deg)}}
 .help .tip-place::after{right:14px;top:13px;width:8px;height:8px;border-radius:50%;background:#ffd60a}
 .go{display:block;width:100%;margin-top:18px;height:54px;border-radius:27px;background:#fff;color:#111;font-size:17px;font-weight:600;transition:transform .2s,background .2s}.go:hover{background:#e9e9ee}.go:active{transform:scale(.98)}
 
-.toast{position:absolute;left:50%;top:auto;bottom:calc(96px + 62px);transform:translateX(-50%);margin:0;max-width:calc(100vw - 24px);padding:13px 22px;border-radius:26px;z-index:7500;font-size:15px;text-align:center;pointer-events:none;
+.toast{position:absolute;left:50%;top:62px;bottom:auto;transform:translateX(-50%);margin:0;max-width:calc(100vw - 24px);padding:13px 22px;border-radius:26px;z-index:7500;font-size:15px;text-align:center;pointer-events:none;
   background:rgb(50 52 60 / .78);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);box-shadow:inset 0 1px 0 rgb(255 255 255 / .28),0 16px 40px rgb(0 0 0 / .35)}
 .drop-enter-active,.drop-leave-active{transition:opacity .25s,translate .35s cubic-bezier(.2,.9,.2,1)}.drop-enter-from,.drop-leave-to{opacity:0;translate:0 -18px}
+/* Notification banners: compact at the top of the view; looking at one opens it up. */
+.notices.below{top:118px}
+.cc-open .toast{top:auto;bottom:112px}
+.cc-open .siri-layer{opacity:0;pointer-events:none;transition:opacity .2s}
+.compact .toast{font-size:13px;padding:9px 16px;max-width:min(320px,calc(100vw - 24px))}
+/* The Home View sits in front of the room; widgets fall back while it is open. */
+.widget-layer :deep(.placed){transition:opacity .35s ease,filter .25s}
+.home-open .widget-layer :deep(.placed){opacity:.18;pointer-events:none}
+.home-open .widget-layer :deep(.placed *){pointer-events:none!important}
+.notices{position:absolute;top:62px;transition:top .3s ease;left:50%;transform:translateX(-50%);z-index:7400;display:grid;gap:10px;width:min(420px,calc(100vw - 24px));pointer-events:none}
+.notice{pointer-events:auto;border-radius:30px;overflow:hidden;outline:none;
+  background:linear-gradient(135deg,rgb(255 255 255 / .2),rgb(255 255 255 / .06)),rgb(48 50 56 / .72);backdrop-filter:blur(40px) saturate(140%);-webkit-backdrop-filter:blur(40px) saturate(140%);
+  box-shadow:inset 0 1px 0 rgb(255 255 255 / .3),inset 0 0 0 1px rgb(255 255 255 / .14),0 22px 50px rgb(0 0 0 / .35);transition:transform .3s cubic-bezier(.2,.9,.3,1.1)}
+.notice:hover,.notice:focus-within{transform:scale(1.03)}
+.notice-main{display:flex;align-items:center;gap:12px;width:100%;padding:12px 18px 12px 12px;text-align:left}
+.notice-icon{width:44px;flex:none}
+.notice-copy{display:grid;min-width:0}.notice-copy small{font-size:12px;color:rgb(255 255 255 / .6);text-transform:uppercase;letter-spacing:.06em}
+.notice-copy b{font-size:15px;font-weight:600}.notice-copy em{font-style:normal;font-size:14px;color:rgb(255 255 255 / .85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:all .3s}
+.notice:hover .notice-copy em,.notice:focus-within .notice-copy em{white-space:normal}
+.notice-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 12px;max-height:0;opacity:0;transition:max-height .3s ease,opacity .25s ease,padding .3s ease}
+.notice:hover .notice-actions,.notice:focus-within .notice-actions{max-height:70px;opacity:1;padding:0 12px 12px}
+.notice-actions button{height:42px;border-radius:21px;background:rgb(255 255 255 / .14);font-size:14px;font-weight:600}.notice-actions button:first-child{background:#fff;color:#111}
+.notice-enter-active{transition:opacity .35s,transform .5s cubic-bezier(.2,.9,.3,1.15)}.notice-leave-active{transition:opacity .25s,transform .3s}
+.notice-enter-from{opacity:0;transform:translateY(-24px) scale(.92)}.notice-leave-to{opacity:0;transform:translateY(-12px) scale(.96)}
 .shutter{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:9000;transition:opacity .35s}.shutter.on{opacity:.75;transition:none}
 
 /* Start-up: two lenses close in, Optic ID, then the room. */
