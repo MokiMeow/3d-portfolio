@@ -173,6 +173,7 @@ onBeforeRouteUpdate((route) => {
 		<HomeRecordPlayer />
 		<HomeCompanion />
 		<HomeNewspaper />
+		<HomePlayStation />
 	</main>
 </template>
 

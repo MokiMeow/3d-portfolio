@@ -26,6 +26,7 @@ export class Composer extends ExperienceBasedBlueprint {
 	private readonly _passes: { [name: string]: Pass } = {};
 	private readonly _activeDevice = useState<LabDevice>("activeLabDevice", () => null);
 	private readonly _newspaperOpen = useState<boolean>('isNewspaperOpen', () => false);
+	private readonly _consoleOpen = useState<boolean>('isConsoleOpen', () => false);
 
 	private _effect?: EffectComposer;
 	private _renderPass?: RenderPass;
@@ -105,7 +106,7 @@ export class Composer extends ExperienceBasedBlueprint {
 	public update(): void {
 		// Keep the last room frame beneath the device dialog. The interactive
 		// DOM/YouTube UI does not need a second full WebGL scene every frame.
-		if (this._activeDevice.value || this._newspaperOpen.value || document.hidden) {
+		if (this._activeDevice.value || this._newspaperOpen.value || this._consoleOpen.value || document.hidden) {
 			this._appRender.enabled = false;
 			return;
 		}

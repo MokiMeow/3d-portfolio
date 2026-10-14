@@ -341,6 +341,11 @@ export class Scene1Component extends SceneComponentBlueprint {
 					content: t("lightSwitch"),
 					position: LIGHT_SWITCH_POSITION.clone().add(new Vector3(0.05, 0.36, 0)),
 				},
+				{
+					icon: "🎮",
+					content: t("playStation"),
+					position: new Vector3(4.72, 2.16, 5.07),
+				},
 			],
 			onTraverseModelScene: (child) => {
 				this._setSceneObjects(child);
@@ -809,6 +814,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 		if (action === "lamp") state.lamp = !state.lamp;
 		if (action === "sound") this._music.value.open = true;
 		if (action === "newspaper") useState<boolean>('isNewspaperOpen', () => false).value = true;
+		if (action === "console") useState<boolean>('isConsoleOpen', () => false).value = true;
 		if (action === "print" && !state.printing) {
 			state.printing = true;
 			this._atelier.print(() => { state.printing = false; state.printed = true; });

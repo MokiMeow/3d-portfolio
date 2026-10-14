@@ -44,6 +44,7 @@ export class Renderer extends ExperienceBasedBlueprint {
 	private readonly _appSizes = this._experience.app.sizes;
 	private readonly _activeDevice = useState<LabDevice>("activeLabDevice", () => null);
 	private readonly _newspaperOpen = useState<boolean>('isNewspaperOpen', () => false);
+	private readonly _consoleOpen = useState<boolean>('isConsoleOpen', () => false);
 	private readonly _renderPortalAssets: {
 		[callbackName: string]: PortalAssets;
 	} = {};
@@ -149,7 +150,7 @@ export class Renderer extends ExperienceBasedBlueprint {
 		this._appSizes.on(quickEvents.RESIZED, this._onResize);
 
 		this._app.on(quickEvents.PRE_UPDATED, () => {
-			if (this._activeDevice.value || this._newspaperOpen.value || document.hidden) return;
+			if (this._activeDevice.value || this._newspaperOpen.value || this._consoleOpen.value || document.hidden) return;
 			this.enableCssRender && this._mixerContext?.update();
 			this._updateFocusedScreen();
 

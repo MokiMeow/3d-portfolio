@@ -45,6 +45,7 @@ import roomTile from "./room-tile.json";
 import { RECORD_ARM } from "~/utils/room-mechanics";
 import { createRecordCue } from "~/utils/record-cue";
 import { NEWSPAPER_COVER } from "~/static/newspaper.static";
+import { buildGameCorner } from "./scene-1.game-corner";
 
 // Surveyed from the baked room, including its tile thickness.
 const FLOOR = 0.339813;
@@ -926,35 +927,6 @@ export function createAtelier(
     "#ded2b7",
     23,
   );
-  box(
-    console,
-    [0.47, 0.5, 0.025],
-    [.45, 1.584, -.46],
-    "#c2b096",
-    0.01,
-  );
-  const sleeveArt = canvasTexture(256, 256, (ctx) => {
-    ctx.fillStyle = "#c5b291";
-    ctx.fillRect(0, 0, 256, 256);
-    ctx.fillStyle = "#38453a";
-    ctx.beginPath();
-    ctx.arc(128, 116, 80, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#b76947";
-    ctx.beginPath();
-    ctx.arc(128, 116, 28, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.font = "19px Georgia";
-    ctx.fillStyle = "#343a32";
-    ctx.fillText("after hours", 72, 224);
-  });
-  panel(
-    console,
-    0.43,
-    0.45,
-    [.45, 1.584, -.444],
-    textured(sleeveArt),
-  );
 
   // Upholstery: a woven bump and a soft sheen, so the cushions read as cloth rather than painted blocks.
   const weave = canvasTexture(64, 64, (ctx) => {
@@ -1229,7 +1201,23 @@ export function createAtelier(
   furniture.add(bookcase);
   for (const z of [-1.42, 1.42]) box(bookcase, [.39, 1.3, .065], [0, .65, z], walnut);
   for (const y of [.06, .65, 1.3]) box(bookcase, [.42, .055, 2.9], [0, y, 0], walnut);
-  box(bookcase, [.038, 1.28, 2.86], [.17, .66, 0], "#2a2725");
+  // The room-facing side is a fluted walnut back; the game corner adds cubbies to it.
+  const flutes = canvasTexture(512, 64, ctx => {
+    for (let x = 0; x < 512; x += 16) {
+      const slat = ctx.createLinearGradient(x, 0, x + 16, 0);
+      slat.addColorStop(0, "#3e2a1f"); slat.addColorStop(.25, "#8a5f45"); slat.addColorStop(.6, "#7a5139"); slat.addColorStop(1, "#2c1d15");
+      ctx.fillStyle = slat; ctx.fillRect(x, 0, 16, 64);
+    }
+  });
+  flutes.wrapS = flutes.wrapT = RepeatWrapping;
+  flutes.repeat.set(9, 1);
+  const fluted = lightMaterial(new MeshStandardMaterial({ map: flutes, bumpMap: flutes, bumpScale: .004,
+    roughness: .62, envMap: probe.texture, envMapIntensity: .2 }));
+  box(bookcase, [.02, 1.24, 2.82], [.12, .66, 0], "#2a2725").material = fluted;
+  const gameCorner = buildGameCorner(bookcase, {
+    geo, lightMaterial, own: material => { materials.add(material); }, box, cylinder, ball, panel, canvasTexture, textured,
+    clickable: mesh => clickable(mesh, "console"), envMap: probe.texture, walnut,
+  });
   for (let row = 0; row < 2; row++) {
     for (let i = 0; i < 12; i++) {
       const h = .29 + (i % 4) * .042;
@@ -1410,6 +1398,7 @@ export function createAtelier(
     },
     update(delta: number) {
       recordCue.update(delta);
+      gameCorner.update(delta);
       if (recordOn && !reduced.matches && !document.hidden)
         platter.rotation.y += Math.min(delta, 50) * 0.00349;
     },
@@ -1431,6 +1420,7 @@ export function createAtelier(
       pillowAnimation?.pause();
       stoolAnimation?.pause();
       root.removeFromParent();
+      gameCorner.dispose();
       geometries.forEach((g) => g.dispose());
       materials.forEach((m) => m.dispose());
       textures.forEach((t) => t.dispose());

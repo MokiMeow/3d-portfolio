@@ -82,7 +82,7 @@ test('ordinary room rendering keeps native antialiasing; outlines use the compos
   subject._appRender = { enabled: true, instance: { setRenderTarget() {}, setViewport() {}, render() { direct++; } } };
   subject._appCamera = { instance: {} }; subject._appSizes = { width: 1280, height: 720 };
   subject._experience = { app: { scene: {} } }; subject._activeDevice = { value: null };
-  subject._newspaperOpen = { value: false };
+  subject._newspaperOpen = { value: false }; subject._consoleOpen = { value: false };
   subject._passes = { outline: { enabled: false } };
   subject._effect = { passes: [{}], render() { effects++; } };
   subject.update(); assert.equal(direct, 1); assert.equal(effects, 0);
@@ -92,6 +92,8 @@ test('ordinary room rendering keeps native antialiasing; outlines use the compos
   subject.update(); assert.equal(direct, 1); assert.equal(effects, 1);
   subject._activeDevice.value = null; subject._newspaperOpen.value = true;
   subject.update(); assert.equal(direct, 1); assert.equal(effects, 1);
-  subject._newspaperOpen.value = false;
+  subject._newspaperOpen.value = false; subject._consoleOpen.value = true;
+  subject.update(); assert.equal(direct, 1); assert.equal(effects, 1);
+  subject._consoleOpen.value = false;
   subject.update(); assert.equal(effects, 2);
 });
