@@ -12,6 +12,7 @@ import {
   Matrix4,
   Mesh,
   MeshBasicMaterial,
+  Material,
   Object3D,
   PlaneGeometry,
   SphereGeometry,
@@ -46,6 +47,7 @@ import { RECORD_ARM } from "~/utils/room-mechanics";
 import { createRecordCue } from "~/utils/record-cue";
 import { NEWSPAPER_COVER } from "~/static/newspaper.static";
 import { buildGameCorner } from "./scene-1.game-corner";
+import { mergeStatic } from "./merge-static";
 
 // Surveyed from the baked room, including its tile thickness.
 const FLOOR = 0.339813;
@@ -1312,6 +1314,15 @@ export function createAtelier(
     }
   };
   animatedRoots.forEach(batchStatic);
+
+  // Everything that never moves becomes one mesh per material: hundreds of draw calls become a few dozen.
+  // Whatever animates, toggles, recolours or answers a click stays its own object.
+  const live = new Set<Object3D>([frame, tabletop, platter, armPivot, printPaper, pool, bulb, accentPillow, stool,
+    ...inkWells, ...selectables.map(item => item.object)]);
+  const own = (item: BufferGeometry | Material) => { if (item instanceof BufferGeometry) geometries.add(item); else materials.add(item as SurfaceMaterial); };
+  for (const part of [furniture, architecture, floor]) mergeStatic(part, live, own);
+  // Groups that move as a whole (the drawing table, the platter, the stool) can still merge their own insides.
+  for (const group of live) if (!(group instanceof Mesh)) mergeStatic(group, new Set([...live].filter(item => item !== group)), own);
 
   const refresh = (state: AtelierState) => {
     if (

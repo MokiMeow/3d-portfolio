@@ -3,6 +3,8 @@ import { Group, Mesh, Vector3 } from "three";
 import type { SelectableObject } from "~/common/models/experience-interaction.model";
 import { splitMeshParts } from "./mesh-parts";
 import { addDrawerCollectibles } from "./drawer-collectibles";
+import { mergeStatic } from "./merge-static";
+import type { BufferGeometry, Material } from "three";
 import type { Marker } from "~/common/models/experience-ui.model";
 
 export function createInteractiveDrawers(scene: Group) {
@@ -56,6 +58,10 @@ export function createInteractiveDrawers(scene: Group) {
 		}
 	}
 	const collectibles = addDrawerCollectibles(groups[0], groups[1]);
+	// The little things inside each drawer ride with it; merged, each drawer costs a handful of draw calls.
+	const merged = new Set<BufferGeometry | Material>();
+	const fronts = new Set(selectables.map(item => item.object));
+	groups.forEach(group => mergeStatic(group, fronts, item => merged.add(item)));
 	// Contents follow the same drawer interaction as its front and handle.
 	groups.forEach((object, i) => selectables.push({ object, onSelect: () => toggle(i), outline: false }));
 	return {
@@ -64,6 +70,7 @@ export function createInteractiveDrawers(scene: Group) {
 		toggle,
 		dispose() {
 			collectibles.dispose();
+			merged.forEach(item => item.dispose());
 			groups.forEach((group) => {
 				gsap.killTweensOf(group.position);
 				group.removeFromParent();

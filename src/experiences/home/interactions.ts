@@ -134,8 +134,13 @@ export class Interactions extends ExperienceBasedBlueprint {
 				this._pointerDownMoved = true;
 		}
 
-		this._checkIntersection();
+		// Pointers can report 120+ moves a second; hover picking needs at most one ray per frame.
+		if (!this._hoverFrame) this._hoverFrame = requestAnimationFrame(() => {
+			this._hoverFrame = 0;
+			this._checkIntersection();
+		});
 	};
+	private _hoverFrame = 0;
 	private readonly _onPointerUp = (e: PointerEvent) => {
 		if (e.isPrimary && this.controls) {
 			this._updatePointerCoordinates(e);
