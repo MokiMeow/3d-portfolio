@@ -7,6 +7,7 @@ import VisionEnvironment from './vision/VisionEnvironment.vue';
 import VisionIcon from './vision/VisionIcon.vue';
 import SpatialWidgets from './vision/SpatialWidgets.vue';
 import SiriOrb from './vision/SiriOrb.vue';
+import Spotlight, { type SpotlightResult } from './vision/Spotlight.vue';
 
 type Win = { id: VisionAppId; x: number; y: number; w: number; h: number; z: number; locked?: boolean; full?: { x: number; y: number; w: number; h: number } };
 // Apps load on first open, so the headset itself starts quickly; each window shows its glass until the app arrives.
@@ -56,7 +57,7 @@ const TIPS = [
   { key: 'move', title: 'Move, resize and close', text: 'Drag the bar under a window to move it. Drag a corner to resize. The × beside the bar closes it.' },
   { key: 'home', title: 'Go back Home', text: 'Press Home in the dock, press the Digital Crown, or hit Esc. Esc closes the front window first.' },
   { key: 'place', title: 'Step into a place', text: 'Pick an Environment, then turn the Digital Crown or scroll on it for more or less of it. Drag the scenery to look around.' },
-  { key: 'siri', title: 'Widgets and Siri', text: 'Pin widgets to your room from Control Center. Hold the Digital Crown, or press Alt+Space, and ask Siri for anything.' },
+  { key: 'siri', title: 'Search, widgets and Siri', text: 'Press Ctrl + Space or / to search anything. Pin widgets from Control Center. Hold the Digital Crown, or press Alt + Space, for Siri.' },
 ];
 /** Space kept clear at the bottom for the dock, so a window's bar never hides behind it. */
 const DOCK = 96;
@@ -160,6 +161,7 @@ function goHome(which: 'apps' | 'people' | 'environments' = 'apps') {
 }
 /** Escape: step back one level. Returns false when there is nothing left to step back from. */
 function back() {
+  if (spotlight.value?.open) { spotlight.value.hide(); return true; }
   if (help.value) { help.value = false; return true; }
   if (control.value) { control.value = false; return true; }
   if (homeOpen.value && windows.value.length) { homeOpen.value = false; return true; }
@@ -385,7 +387,30 @@ function siriCommand(command: SiriCommand) {
   }
 }
 function siriKey(event: KeyboardEvent) {
-  if (event.altKey && event.code === 'Space') { event.preventDefault(); siri.value?.activate(); }
+  if (event.altKey && event.code === 'Space') { event.preventDefault(); siri.value?.activate(); return; }
+  // Spotlight: Ctrl or Command + Space, or / when nothing is being typed.
+  const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || (event.target as HTMLElement | null)?.isContentEditable;
+  if (((event.ctrlKey || event.metaKey) && event.code === 'Space') || (event.key === '/' && !typing)) { event.preventDefault(); openSpotlight(); }
+}
+const spotlight = ref<InstanceType<typeof Spotlight>>();
+function openSpotlight() { control.value = false; help.value = false; spotlight.value?.show(); }
+function spotlightPick(result: SpotlightResult) {
+  switch (result.kind) {
+    case 'app': open(result.id); break;
+    case 'place': homeOpen.value = false; setEnvironment(result.id as VisionEnvironmentId); break;
+    case 'person': open('messages'); break;
+    case 'web': open('safari'); toast(`Searching the web for “${result.id}”.`); break;
+    case 'action':
+      if (result.id === 'dark') dark.value = !dark.value;
+      else if (result.id === 'solid') reduceTransparency.value = !reduceTransparency.value;
+      else if (result.id === 'sound') toggleSound();
+      else if (result.id === 'capture') capture();
+      else if (result.id === 'recentre') recenter();
+      else if (result.id === 'closeAll') closeAll();
+      else if (result.id === 'widgets') widgets.value?.openGallery();
+      else if (result.id === 'siri') siri.value?.activate();
+      else goHome('apps');
+  }
 }
 function openFromWidget(id: string) { if (APP_IDS.has(id)) open(id as VisionAppId); }
 
@@ -477,6 +502,9 @@ onBeforeUnmount(() => {
       <!-- Home View -->
       <Transition name="home">
         <div v-if="homeOpen && !booting" class="home" :style="{ '--s': homeScale }">
+          <button class="home-search" aria-label="Search (Ctrl + Space)" title="Search · Ctrl + Space" @click="openSpotlight">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm4.8 11.3L20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg><span>Search</span>
+          </button>
           <nav class="tabs" aria-label="Home View">
             <button :aria-pressed="tab === 'apps'" aria-label="Apps" @click="tab = 'apps'"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><circle cx="7" cy="7" r="2.600" /><circle cx="17" cy="7" r="2.600" /><circle cx="7" cy="17" r="2.600" /><circle cx="17" cy="17" r="2.600" /><circle cx="12" cy="12" r="2.600" /></g></svg><span>Apps</span></button>
             <button :aria-pressed="tab === 'people'" aria-label="People" @click="tab = 'people'"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.500" r="3.800" fill="currentColor" /><path d="M4.500 20a7.500 7.500 0 0 1 15 0Z" fill="currentColor" /></svg><span>People</span></button>
@@ -539,6 +567,7 @@ onBeforeUnmount(() => {
       <button class="dock-round" :aria-pressed="help" aria-label="How to use Vision Pro" title="How to use Vision Pro" @click="help = !help; control = false">?</button>
     </nav>
 
+    <Spotlight ref="spotlight" :apps="VISION_APPS" :environments="VISION_ENVIRONMENTS" :people="PEOPLE" :compact="compact" @pick="spotlightPick" />
     <SiriOrb v-if="!booting" ref="siri" :apps="VISION_APPS" :environments="VISION_ENVIRONMENTS" :compact="compact" :sound="sound" @command="siriCommand" />
 
     <!-- Control Centre -->
@@ -565,6 +594,7 @@ onBeforeUnmount(() => {
             <button :aria-pressed="reduceTransparency" aria-label="Solid glass" @click="reduceTransparency = !reduceTransparency"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4" fill="currentColor" opacity=".9" /></svg><span>Solid</span></button>
             <button aria-label="Mac Virtual Display" @click="open('mac')"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2" /><path d="M2 19h20" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg><span>Mac</span></button>
             <button aria-label="Capture" @click="capture"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2" /><circle cx="12" cy="12" r="4.5" fill="#ff453a" /></svg><span>Capture</span></button>
+            <button aria-label="Search" @click="openSpotlight"><svg viewBox="0 0 24 24"><path d="M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm4.8 11.3L20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg><span>Search</span></button>
             <button aria-label="Widgets" @click="control = false; widgets?.openGallery()"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2.5" fill="none" stroke="currentColor" stroke-width="2" /><rect x="13" y="3" width="8" height="8" rx="2.5" fill="none" stroke="currentColor" stroke-width="2" /><rect x="3" y="13" width="18" height="8" rx="2.5" fill="none" stroke="currentColor" stroke-width="2" /></svg><span>Widgets</span></button>
             <button aria-label="Siri" @click="control = false; siri?.activate()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2" /><path d="M7 12c2-4 3 4 5 0s3 4 5 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg><span>Siri</span></button>
             <button aria-label="Recentre" @click="recenter"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="currentColor" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg><span>Recentre</span></button>
@@ -671,6 +701,13 @@ button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3
 .honeycomb button{position:absolute;left:50%;top:50%;width:132px;margin:-64px 0 0 -66px;display:flex;flex-direction:column;align-items:center;gap:9px;transform:translate(var(--x),var(--y));animation:bloom .7s cubic-bezier(.2,.9,.3,1.150) both;animation-delay:calc(var(--i) * 26ms)}
 /* Pages slide sideways and the icons bloom in again, like turning a page of the real Home View. */
 /* The page sits in the same plane as its icons inside the tilting 3D Home View; it must never win the hit test. */
+/* The Home View's search pill floats just above the icons. */
+.home-search{position:absolute;left:50%;top:-74px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;height:44px;padding:0 20px 0 16px;border-radius:22px;font-size:15px;color:rgb(255 255 255 / .82);
+  background:rgb(60 62 70 / .42);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);box-shadow:inset 0 0 0 1px rgb(255 255 255 / .16);transition:background .2s,transform .2s cubic-bezier(.2,.9,.3,1.2)}
+.home-search:hover{background:rgb(100 102 110 / .6);transform:translateX(-50%) scale(1.04)}
+.home-search svg{width:18px;height:18px}
+.compact .home-search{position:relative;left:auto;top:auto;transform:none;margin:0 auto 10px;width:calc(100% - 24px);justify-content:flex-start}
+.compact .home-search:hover{transform:none}
 .page{position:absolute;inset:0;pointer-events:none}.page button{pointer-events:auto}
 .page-next-enter-active,.page-back-enter-active,.page-next-leave-active,.page-back-leave-active{transition:opacity .28s ease,transform .38s cubic-bezier(.2,.8,.2,1)}
 .page-next-enter-from,.page-back-leave-to{opacity:0;transform:translateX(140px)}
