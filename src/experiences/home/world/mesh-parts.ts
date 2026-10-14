@@ -1,13 +1,16 @@
 import { Box3, BufferGeometry, Mesh, Sphere, Vector3 } from "three";
 
-/** Split disconnected pieces of a baked mesh while keeping its UVs and normals. */
-export function splitMeshParts(
+/**
+ * Group a baked mesh's triangles by which disconnected piece they belong to.
+ * `classify` sees each piece's world bounds and names its group; -1 means "leave it".
+ * Nothing is changed: the result is index lists into the mesh's own attributes.
+ */
+export function meshPartIndices(
 	source: Mesh,
 	classify: (bounds: Box3) => number,
 ) {
-	const original = source.geometry;
-	const positions = original.getAttribute("position");
-	const index = original.index;
+	const positions = source.geometry.getAttribute("position");
+	const index = source.geometry.index;
 	const count = positions.count;
 	const parents = new Int32Array(count);
 	for (let i = 0; i < count; i++) parents[i] = i;
@@ -54,6 +57,18 @@ export function splitMeshParts(
 		if (!triangles.has(group)) triangles.set(group, []);
 		triangles.get(group)!.push(vertexAt(i), vertexAt(i + 1), vertexAt(i + 2));
 	}
+	return triangles;
+}
+
+/** Split disconnected pieces of a baked mesh while keeping its UVs and normals. */
+export function splitMeshParts(
+	source: Mesh,
+	classify: (bounds: Box3) => number,
+) {
+	const original = source.geometry;
+	const positions = original.getAttribute("position");
+	const triangles = meshPartIndices(source, classify);
+	const point = new Vector3();
 	const owned: BufferGeometry[] = [];
 	const makeGeometry = (indices: number[]) => {
 		const geometry = new BufferGeometry();

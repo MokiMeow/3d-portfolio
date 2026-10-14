@@ -141,9 +141,10 @@ export class Scene3Component extends SceneComponentBlueprint {
 				gamepad_led: "gamepad_led",
 			},
 			markers: [
-				{ icon: "💡", content: "Pick up the phone. Camera, Chrome, and a very opinionated inbox.", position: new Vector3(0.68, 1.88, -0.55) },
-				{ icon: "💡", content: "Put on the smart glasses. There is something you should see.", position: new Vector3(0.43, 1.84, -0.17) },
+				{ icon: "💡", content: "Pick up the iPhone. Eighteen apps, and a very opinionated inbox.", position: new Vector3(0.63, 1.88, -0.55) },
+				{ icon: "💡", content: "Put on the Vision Pro. Turn the Digital Crown and leave the room.", position: new Vector3(-0.47, 2.52, -0.545) },
 				{ icon: "💡", content: "A pocket terminal. Try help, projects, or coffee.", position: new Vector3(-0.27, 1.68, 0.99) },
+				{ icon: "💡", content: "Apple Watch Ultra. Close your rings, or at least look at them.", position: new Vector3(0.45, 1.86, -0.19) },
 			],
 			onTraverseModelScene: (child: Object3D<Object3DEventMap>) => {
 				this._setObjects(child);
@@ -422,7 +423,7 @@ export class Scene3Component extends SceneComponentBlueprint {
 	public construct(): void {
 		super.construct();
 		this._initPcScreenIframe();
-		if (this.modelScene) this._contactProps = createContactProps(this.modelScene);
+		if (this.modelScene) this._contactProps = createContactProps(this.modelScene, this._experience.app.renderer.instance);
 		this.initSelectableObjects();
 		this._guidedPicker = createGuidedObjectPicker({
 			active: () => !!this._experience.cameraAnimation?.enabled && this._experience.router?.currentRouteKey === pages.CONTACT_PAGE && !this._experience.navigation?.timeline.isActive() && !this._experience.world?.manager?.timeline.isActive(),
@@ -513,6 +514,7 @@ export class Scene3Component extends SceneComponentBlueprint {
 
 	public update() {
 		this._uTime = this._appTime.elapsed * 0.001;
+		this._contactProps?.update(this._uTime);
 		this._uTimestamps = this._currentDayTimestamp * 0.001 + this._uTime;
 		if (
 			this.phoneScreen?.material instanceof ShaderMaterial &&

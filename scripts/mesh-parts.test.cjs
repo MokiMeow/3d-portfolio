@@ -113,3 +113,14 @@ test("an unselected mesh keeps every triangle and is restored on cleanup", () =>
 	split.dispose();
 	assert.equal(mesh.geometry, geometry);
 });
+
+test("pieces can be listed for an overlay without touching the source mesh", () => {
+	const { mesh, geometry } = fixture();
+	const { meshPartIndices } = compiled.exports;
+	const parts = meshPartIndices(mesh, (box) => (box.min.x > 1 ? 0 : -1));
+	assert.equal(parts.get(0).length, 36);
+	assert.equal(parts.get(-1).length, 36);
+	assert.equal(mesh.geometry, geometry);
+	assert.equal(mesh.geometry.index.count, 72);
+	assert.equal(mesh.parent.children.length, 1);
+});
