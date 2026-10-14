@@ -943,7 +943,9 @@ button.card:hover { background: #22232ae6; transform: translateY(-3px); }
 .collection-row .cover.square img { object-position: center 30%; }
 .explore-foot { margin: 36px 0 0; color: #7d818c; font-size: 13px; }
 .phone .explore { inset: calc(max(14px, env(safe-area-inset-top)) + 52px) 0 0; padding: 6px 16px 40px; }
-.phone .spotlight { height: 240px; border-radius: 16px; }
+.phone .spotlight { height: 300px; border-radius: 16px; }
+.phone .spotlight::after { background: linear-gradient(180deg, #0000 25%, #000c 62%, #000f); }
+.phone .collection h3 { display: grid; gap: 2px; }
 .phone .spot-copy { left: 20px; bottom: 22px; right: 20px; }
 .phone .spot-copy em { font-size: 14px; }
 .phone .collection-row .cover { width: 200px; height: 125px; }
@@ -976,7 +978,7 @@ button.card:hover { background: #22232ae6; transform: translateY(-3px); }
 .player { position: absolute; inset: 0; z-index: 20; background: #000; }
 .player iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #000; }
 /* PICO-8 carts are square: frame them in the middle like a handheld held up to the screen. */
-.player iframe.square { left: 50%; right: auto; width: min(100vw, calc(100dvh * 1.08)); transform: translateX(-50%); }
+.player iframe.square { left: 50%; right: auto; top: 50%; bottom: auto; width: min(100vw, calc(100dvh * 1.08)); height: min(100%, calc(100vw / 1.08)); transform: translate(-50%, -50%); }
 .player:has(iframe.square) { background: radial-gradient(70% 90% at 50% 50%, #1d1a2b, #000 70%); }
 .veil { position: absolute; inset: 0; display: grid; place-items: center; background: #000; }
 .veil img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(30px) brightness(.45); transform: scale(1.1); }
