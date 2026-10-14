@@ -17,6 +17,17 @@ export const NEWSPAPER_PAGES = [
       'His manager praised the initiative, then asked whether tomorrow he could simply arrive yesterday. The commuter has requested a work-from-signal arrangement. Negotiations are currently at a standstill.',
     ],
     caption: 'At the signal: enough time for a cutting chai, a full conversation and a second cutting chai.',
+    commute: {
+      title: 'The Commute Index',
+      note: 'Promised arrival vs. actual arrival, in minutes. Surveyed in one friend group, with love.',
+      rows: [
+        { phrase: '“Five minutes away”', promised: 5, actual: 26, truth: 'still at home' },
+        { phrase: '“On the way”', promised: 10, actual: 41, truth: 'choosing a shirt' },
+        { phrase: '“Just leaving”', promised: 2, actual: 35, truth: 'looking for keys' },
+        { phrase: '“Almost there”', promised: 3, actual: 18, truth: 'wrong gate' },
+        { phrase: '“Reached”', promised: 0, actual: 12, truth: 'parking' },
+      ],
+    },
     briefs: [
       { title: 'Chai stall rejects app, retains customers', text: 'The owner says his recommendation engine already knows everyone’s order. “You look tired. Strong tea.” Investors have described the system as suspiciously efficient.' },
       { title: '“On the way” gets a new definition', text: 'A neighbourhood friend group has voted to interpret the phrase as “currently choosing a shirt”. “Almost there” will continue to mean “looking for keys”.' },
@@ -39,6 +50,36 @@ export const NEWSPAPER_PAGES = [
       'Meanwhile, the office printer has become the first machine to achieve complete independence. It refuses all instructions, prints only when nobody is watching, and has asked the team to respect its creative process.',
     ],
     caption: 'Our laboratory assistant has solved the problem by moving it to a different folder.',
+    review: {
+      kicker: 'THE GADGET DESK · HANDS-ON REVIEW',
+      title: 'Reviewed: one browser,\n214 open tabs.',
+      subtitle: 'Fast, beautiful, and completely certain you will read every single one of them later.',
+      byline: 'Our reviewer, who has 61 tabs open right now',
+      paragraphs: [
+        'REVIEW — The browser opens instantly, which is impressive, because it is carrying two hundred and fourteen tabs, eleven of them quietly playing something nobody can find. A recipe from March is still open. Nobody has cooked it. Nobody will close it.',
+        'In testing, the tab bar grew so dense that the icons became a single shimmering line. Our reviewer found the tab they needed in nine minutes, by closing the browser and searching for the page again. It reopened all 214. It always does. It is very loyal.',
+      ],
+      pros: ['Restores every tab after a crash, without being asked', 'Dark mode so dark the bugs hide', 'Tab groups called “misc”, “misc 2” and “IMPORTANT”'],
+      cons: ['Treats memory like an all-you-can-eat buffet', 'Battery drains during intentions to read', 'The tab playing music is never the one you close'],
+      specs: [
+        ['Open tabs', '214'],
+        ['Tabs actually read', '3'],
+        ['Memory used', 'Yes'],
+        ['Battery life', 'Briefly'],
+        ['Price', 'Free. Emotionally, not.'],
+      ],
+      score: '4.5',
+      verdict: 'Buy it. Then close something. Anything.',
+      caption: 'Our reviewer, filing tabs into folders named after feelings.',
+    },
+    patch: {
+      title: 'Patch notes · Real life 26.10',
+      columns: [
+        { label: 'Fixed', items: ['Sunday no longer ends at 4 p.m. without warning.', 'Snooze is now limited to six. Okay, seven.', 'Charger cable now reaches the bed.'] },
+        { label: 'Improved', items: ['Chai is 12% stronger after 3 p.m.', 'Small talk in lifts loads faster.', '“Reply later” now actually schedules a reply.'] },
+        { label: 'Known issues', items: ['Monday still ships every week.', 'Socks keep vanishing in the wash. Investigating.', 'Tabs.'] },
+      ],
+    },
     briefs: [
       { title: 'Password demands one happy memory', text: 'After uppercase, lowercase, symbols and numbers, the form now wants “something meaningful”. The user entered the day before passwords existed. Rejected: too predictable.' },
       { title: 'Bug disappears during screen share', text: 'A defect that appeared 47 times before the call is now behaving impeccably. Engineers have proposed keeping a manager on video permanently. Nobody has volunteered.' },
@@ -61,6 +102,27 @@ export const NEWSPAPER_PAGES = [
       'Play was suspended when the only person who owned a bat went home. Analysts called this a dramatic shift in the balance of power. Both sides have appealed to his mother.',
     ],
     caption: 'Decision pending. The upstairs review system is checking whether that was her window.',
+    scorecard: {
+      title: 'Street XI v Lane XI',
+      match: 'Gully Test · Day 1 · Between two scooters',
+      batting: [
+        ['Bat owner', '31', 'retired: called for dinner'],
+        ['Tall cousin', '18', 'c Aunty (review) b Wind'],
+        ['Ravi (overarm)', '12', 'run out, chappal came off'],
+        ['New kid', '0*', 'wanted to bowl instead'],
+        ['Neighbour’s dog', '—', 'took the ball, unbeaten'],
+      ],
+      extras: ['Extras (scooter fours)', '23'],
+      total: ['Total', '84/3', '11.2 overs · ball lost'],
+      bowling: 'Bowling: Ravi 2–14 (all no-balls, all disputed). Player of the match: Aunty, second floor.',
+    },
+    commentary: [
+      { over: '10.4', text: 'FOUR. Off the scooter. The scooter’s owner appears at a window. Applause stops.' },
+      { over: '10.6', text: 'Appeal for LBW. Batter argues this format has no legs.' },
+      { over: '11.1', text: 'Huge hit into the locked house. Search party formed. Search party goes for chai.' },
+      { over: '11.2', text: 'Aunty reviews from the balcony: OUT. Also, who broke the pot?' },
+      { over: 'Stumps', text: 'Bat owner called inside. Both teams claim victory. Rematch after homework.' },
+    ],
     briefs: [
       { title: 'Playlist friend skips his own song', text: 'After saying “wait for the good part” for three minutes, he has quietly moved to the next track. The group has placed his aux-cable privileges under review.' },
       { title: 'Dosa survives photograph, barely', text: 'A breakfast spent eleven minutes posing beside a filter coffee. Witnesses say it was finally eaten after the caption “simple joys” required six drafts.' },

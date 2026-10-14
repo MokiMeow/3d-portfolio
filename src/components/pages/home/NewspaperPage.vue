@@ -46,7 +46,76 @@ const showNext = computed(() => props.index < NEWSPAPER_PAGES.length - 1 && (pro
       </header>
       <div class="section-band"><strong>{{ current.kind === 'back' ? 'Classifieds' : current.short }}</strong><span>{{ current.section }}</span></div>
 
-      <template v-if="'title' in current">
+      <template v-if="current.kind === 'tech'">
+        <div class="lead-heading">
+          <p class="kicker"><span>{{ current.review.kicker }}</span></p>
+          <h1>{{ current.review.title }}</h1>
+          <p class="deck">{{ current.review.subtitle }}</p>
+        </div>
+        <figure class="picture short">
+          <div class="plate"><HomeNewspaperIllustration kind="tech" /></div>
+          <figcaption>{{ current.review.caption }}</figcaption>
+        </figure>
+        <div class="review">
+          <div class="review-copy">
+            <p class="byline">By {{ current.review.byline }}</p>
+            <p v-for="paragraph in current.review.paragraphs" :key="paragraph">{{ paragraph }}</p>
+            <div class="pros-cons">
+              <section><p class="box-label">Good</p><ul><li v-for="item in current.review.pros" :key="item">{{ item }}</li></ul></section>
+              <section><p class="box-label">Less good</p><ul><li v-for="item in current.review.cons" :key="item">{{ item }}</li></ul></section>
+            </div>
+          </div>
+          <aside class="verdict">
+            <p class="box-label">Verdict</p>
+            <p class="score"><b>{{ current.review.score }}</b><span>/ 5</span></p>
+            <p class="stars" aria-label="Four and a half stars">★★★★<span>★</span></p>
+            <p class="verdict-line">{{ current.review.verdict }}</p>
+            <table class="specs"><tbody><tr v-for="[label, value] in current.review.specs" :key="label"><th>{{ label }}</th><td>{{ value }}</td></tr></tbody></table>
+            <p class="badge">EDITOR’S PICK<br><small>for later</small></p>
+          </aside>
+        </div>
+        <section class="patch-notes">
+          <h2>{{ current.patch.title }}</h2>
+          <div><section v-for="column in current.patch.columns" :key="column.label"><p class="box-label">{{ column.label }}</p><ul><li v-for="item in column.items" :key="item">{{ item }}</li></ul></section></div>
+        </section>
+        <p class="ribbon"><b>{{ ribbon.label }}</b>{{ ribbon.text }}</p>
+      </template>
+
+      <template v-else-if="current.kind === 'sport'">
+        <div class="lead-heading">
+          <p class="kicker"><span>{{ current.kicker }}</span></p>
+          <h1>{{ current.title }}</h1>
+          <p class="deck">{{ current.subtitle }}</p>
+        </div>
+        <figure class="picture short">
+          <div class="plate"><HomeNewspaperIllustration kind="sport" /></div>
+          <figcaption>{{ current.caption }}</figcaption>
+        </figure>
+        <div class="match">
+          <div class="story single">
+            <p class="byline">By {{ current.byline }}</p>
+            <p>{{ current.paragraphs[0] }}</p>
+            <h3>{{ current.subhead }}</h3>
+            <p>{{ current.paragraphs[2] }}</p>
+          </div>
+          <section class="scorecard">
+            <header><b>{{ current.scorecard.title }}</b><span>{{ current.scorecard.match }}</span></header>
+            <table><tbody>
+              <tr v-for="[name, runs, how] in current.scorecard.batting" :key="name"><th>{{ name }}<small>{{ how }}</small></th><td>{{ runs }}</td></tr>
+              <tr class="extras"><th>{{ current.scorecard.extras[0] }}</th><td>{{ current.scorecard.extras[1] }}</td></tr>
+              <tr class="total"><th>{{ current.scorecard.total[0] }}<small>{{ current.scorecard.total[2] }}</small></th><td>{{ current.scorecard.total[1] }}</td></tr>
+            </tbody></table>
+            <p class="bowling">{{ current.scorecard.bowling }}</p>
+          </section>
+        </div>
+        <section class="commentary">
+          <h2>Ball by ball</h2>
+          <ol><li v-for="ball in current.commentary" :key="ball.over"><b>{{ ball.over }}</b><span>{{ ball.text }}</span></li></ol>
+        </section>
+        <p class="ribbon"><b>{{ ribbon.label }}</b>{{ ribbon.text }}</p>
+      </template>
+
+      <template v-else-if="'title' in current">
         <div class="lead-heading">
           <p class="kicker"><span>{{ current.kicker }}</span></p>
           <h1>{{ current.title }}</h1>
@@ -68,9 +137,22 @@ const showNext = computed(() => props.index < NEWSPAPER_PAGES.length - 1 && (pro
             <blockquote><span aria-hidden="true">“</span><p>{{ current.quote }}</p></blockquote>
           </aside>
         </div>
-        <div class="article-bottom">
-          <section v-for="brief in current.briefs" :key="brief.title" class="brief"><h2>{{ brief.title }}</h2><p>{{ brief.text }}</p></section>
+        <div class="article-bottom index-row">
+          <section class="commute">
+            <h2>{{ current.commute.title }}</h2>
+            <p class="commute-note">{{ current.commute.note }}</p>
+            <div v-for="row in current.commute.rows" :key="row.phrase" class="commute-row">
+              <span class="phrase">{{ row.phrase }}</span>
+              <span class="bars">
+                <i class="promised" :style="{ width: Math.max(1.5, row.promised / 60 * 100) + '%' }"><em>{{ row.promised }}</em></i>
+                <i class="actual" :style="{ width: row.actual / 60 * 100 + '%' }"><em>{{ row.actual }} <small>· {{ row.truth }}</small></em></i>
+              </span>
+            </div>
+            <p class="commute-key"><i class="promised" /> promised <i class="actual" /> actual</p>
+          </section>
+          <section class="brief"><h2>{{ current.briefs[2].title }}</h2><p>{{ current.briefs[2].text }}</p></section>
         </div>
+
         <p class="ribbon"><b>{{ ribbon.label }}</b>{{ ribbon.text }}</p>
       </template>
 
@@ -89,8 +171,14 @@ const showNext = computed(() => props.index < NEWSPAPER_PAGES.length - 1 && (pro
             <details><summary>Turn for the answer</summary><p>COFFEE. The newspaper accepts chai as a lifestyle, but not as a six-letter answer.</p></details>
           </section>
           <section>
-            <p class="box-label">ONE FOR THE ROAD</p><h2>I have keys, but no locks.</h2>
-            <p>A space, but no room. You can enter, but you can’t go inside. What am I?</p>
+            <p class="box-label">SPOT THE BUG</p><h2>One line. One problem.</h2>
+            <pre class="bug"><code>for (let i = 0; i &lt;= cups.length; i++)
+  drink(cups[i]);</code></pre>
+            <details><summary>Show the fix</summary><p>It drinks one cup too many: <code>&lt;=</code> should be <code>&lt;</code>. The last cup is undefined, much like the afternoon.</p></details>
+          </section>
+          <section>
+            <p class="box-label">ONE FOR THE ROAD</p><h2>Keys, but no locks.</h2>
+            <p>Space, but no room. You can enter, but never go inside. What am I?</p>
             <details><summary>Reveal the answer</summary><p>A keyboard. Please stop dropping biscuit crumbs into mine.</p></details>
           </section>
         </div>
@@ -178,10 +266,78 @@ blockquote p{font-size:23px;line-height:1.04;font-weight:800;font-stretch:58%;te
 .article-bottom .brief+.brief{border-left:1px solid var(--rule);padding-left:15px;margin-left:-1px}
 .brief h2{font-size:21px;line-height:1.02;font-weight:800;font-stretch:58%;margin-bottom:5px;text-wrap:balance}
 .brief p{font-size:12.5px;line-height:1.4}
+/* City: the commute index, a small bar chart set like a newspaper graphic. */
+.index-row{grid-template-columns:minmax(0,1.9fr) minmax(0,1fr)}
+.index-row .brief{border-left:1px solid var(--rule);padding-left:15px}
+.index-row .brief .second{margin-top:10px;padding-top:9px;border-top:1px solid var(--rule)}
+.commute h2{font-size:22px;line-height:1;font-weight:900;font-stretch:56%;text-transform:uppercase;letter-spacing:.02em}
+.commute-note{font-size:10.5px;line-height:1.3;margin:3px 0 7px;font-style:italic}
+.commute-row{display:grid;grid-template-columns:112px minmax(0,1fr);align-items:center;gap:8px;padding:2px 0;border-top:1px dotted var(--rule)}
+.phrase{font-size:11.5px;line-height:1.1;font-weight:700;white-space:nowrap}
+.bars em small{font-size:9px;font-weight:400;font-style:italic;white-space:nowrap}
+.bars{display:grid;gap:2px}
+.bars i,.commute-key i{display:block;height:7px;position:relative}
+.bars .promised,.commute-key .promised{border:1px solid var(--ink);background:repeating-linear-gradient(135deg,transparent 0 2px,rgb(28 27 24 / .35) 2px 3px)}
+.bars .actual,.commute-key .actual{background:var(--ink)}
+.bars em{position:absolute;left:calc(100% + 4px);top:50%;transform:translateY(-50%);font-style:normal;font-size:9.5px;font-weight:700;line-height:1;white-space:nowrap}
+.commute-key{display:flex;align-items:center;gap:5px;margin-top:6px;font-size:9px;letter-spacing:.06em;text-transform:uppercase}.commute-key i{width:18px;margin-left:6px}
+
+/* Tech: a hands-on review. */
+.picture.short{flex:0 0 172px}.picture.short .plate{min-height:0}
+.review{display:grid;grid-template-columns:minmax(0,1fr) 214px;gap:16px;margin-top:10px;padding-top:10px;border-top:1px solid var(--rule);flex:1;min-height:0}
+.review-copy p{font-size:13px;text-align:justify;hyphens:auto;margin-bottom:6px}
+.review-copy .byline,.match .byline{font-size:9px;line-height:1.3;font-weight:700;letter-spacing:.08em;text-transform:uppercase;text-align:left;padding-bottom:5px;margin-bottom:7px;border-bottom:1px solid var(--rule);font-stretch:92%}
+.review-copy .byline+p::first-letter,.match .byline+p::first-letter{float:left;font-size:44px;line-height:.82;font-weight:800;font-stretch:62%;padding:3px 5px 0 0}
+.pros-cons{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;padding-top:8px;border-top:3px double var(--ink)}
+.pros-cons ul,.patch-notes ul{margin:0;padding:0;list-style:none}
+.pros-cons li,.patch-notes li{position:relative;padding-left:14px;font-size:12px;line-height:1.3;margin-bottom:4px}
+.pros-cons section:first-child li::before{content:'+';position:absolute;left:0;font-weight:900}
+.pros-cons section:last-child li::before{content:'–';position:absolute;left:0;font-weight:900}
+.verdict{position:relative;border-left:1px solid var(--rule);padding-left:15px;display:flex;flex-direction:column}
+.score{display:flex;align-items:baseline;gap:5px;border-top:3px solid var(--ink);padding-top:4px}.score b{font-size:64px;line-height:.86;font-weight:900;font-stretch:50%}.score span{font-size:16px;font-weight:700}
+.stars{font-size:21px;letter-spacing:2px;margin:2px 0 6px}.stars span{opacity:.3}
+.verdict-line{font-size:17px;line-height:1.05;font-weight:800;font-stretch:60%;padding-bottom:8px;border-bottom:1px solid var(--ink);text-wrap:balance}
+.specs{width:100%;border-collapse:collapse;margin-top:6px}
+.specs th,.specs td{font-size:11px;line-height:1.25;padding:4px 0;border-bottom:1px dotted var(--rule);text-align:left;vertical-align:top}
+.specs th{font-weight:400;font-style:italic;padding-right:6px;white-space:nowrap}.specs td{font-weight:800;text-align:right}
+.badge{position:absolute;right:0;top:20px;width:66px;height:66px;font-size:9px!important;border-radius:50%;border:2px solid var(--ink);display:grid;place-content:center;text-align:center;font-size:11px;line-height:1.05;font-weight:900;letter-spacing:.06em;transform:rotate(-9deg);box-shadow:inset 0 0 0 3px var(--paper),inset 0 0 0 4px var(--ink)}
+.badge small{font-size:9px;font-weight:600;font-style:italic;letter-spacing:0}
+.patch-notes{margin-top:10px;padding-top:9px;border-top:3px double var(--ink)}
+.patch-notes h2{font-size:22px;line-height:1;font-weight:900;font-stretch:56%;text-transform:uppercase;margin-bottom:6px}
+.patch-notes>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.patch-notes>div>section+section{border-left:1px solid var(--rule);padding-left:13px}
+.patch-notes li::before{content:'·';position:absolute;left:3px;font-weight:900}
+
+/* Weekend: a match report with a scorecard. */
+.match{display:grid;grid-template-columns:minmax(0,1fr) 262px;gap:16px;margin-top:10px;padding-top:10px;border-top:1px solid var(--rule);flex:1;min-height:0}
+.story.single{columns:1}
+.scorecard{border:1px solid var(--ink);padding:8px 10px;align-self:start}
+.scorecard header{display:flex;flex-direction:column;border-bottom:3px solid var(--ink);padding-bottom:5px;margin-bottom:3px}
+.scorecard header b{font-size:21px;line-height:1;font-weight:900;font-stretch:56%;text-transform:uppercase}
+.scorecard header span{font-size:9px;letter-spacing:.08em;text-transform:uppercase;margin-top:2px}
+.scorecard table{width:100%;border-collapse:collapse}
+.sport .picture.short{flex-basis:205px}
+.scorecard th,.scorecard td{text-align:left;padding:2px 0;border-bottom:1px dotted var(--rule);vertical-align:top}
+.scorecard th{font-size:12px;font-weight:700;line-height:1.1}.scorecard th small{display:block;font-size:9.5px;font-weight:400;font-style:italic}
+.scorecard td{font-size:17px;font-weight:900;font-stretch:60%;text-align:right;padding-left:6px}
+.scorecard .extras th{font-weight:400}
+.scorecard .total th,.scorecard .total td{border-top:2px solid var(--ink);border-bottom:0;padding-top:5px}.scorecard .total td{font-size:24px}
+.bowling{font-size:10.5px;line-height:1.3;margin-top:6px;padding-top:5px;border-top:1px solid var(--rule)}
+.commentary{margin-top:10px;padding-top:8px;border-top:3px double var(--ink)}
+.commentary h2{font-size:22px;line-height:1;font-weight:900;font-stretch:56%;text-transform:uppercase;margin-bottom:5px}
+.commentary ol{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.commentary li{display:flex;flex-direction:column;gap:3px;font-size:11.5px;line-height:1.3}
+.commentary li+li{border-left:1px solid var(--rule);padding-left:9px}
+.commentary b{font-size:18px;line-height:1;font-weight:900;font-stretch:56%}
+
+.bug,.puzzle-extras code{font-variant-ligatures:none;font-feature-settings:"calt" 0,"liga" 0}
+.bug{margin:4px 0 2px;padding:7px 8px;border:1px dashed var(--ink);font:600 11px/1.35 'Cascadia Code',Consolas,monospace;white-space:pre;overflow:hidden}
+.puzzle-extras code{font-family:'Cascadia Code',Consolas,monospace;font-size:.95em}
+
 .ribbon{margin-top:12px;padding-top:7px;border-top:1px solid var(--ink);font-size:9px;line-height:1.4;letter-spacing:.07em;text-transform:uppercase;font-stretch:96%;text-align:center}
 .ribbon b{margin-right:8px}
 
-.puzzle-heading h1{font-size:45px;white-space:normal}.back-heading h1{font-size:58px;white-space:normal}
+.puzzle-heading{padding:10px 0 8px}.puzzle-heading h1{font-size:42px;white-space:normal}.back-heading h1{font-size:58px;white-space:normal}
 .puzzle-board{flex:1;min-height:0;border-top:1px solid var(--ink);padding-top:10px}
 /* On the printed sheet the crossword is set tighter than its phone layout. */
 .np-page:not(.compact) .puzzle-board :deep(.puzzle-layout){grid-template-columns:388px minmax(0,1fr);gap:18px}
@@ -193,12 +349,14 @@ blockquote p{font-size:23px;line-height:1.04;font-weight:800;font-stretch:58%;te
 .np-page:not(.compact) .puzzle-board :deep(.clue-columns){gap:9px}
 .np-page:not(.compact) .puzzle-board :deep(.clue-columns h3){font-size:16px;padding:3px 0;margin-bottom:3px}
 .np-page:not(.compact) .puzzle-board :deep(.clue-columns button){font-size:12.5px;line-height:1.25;min-height:0;padding:5px 4px}
-.puzzle-extras{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px;padding-top:12px;border-top:3px double var(--ink)}
-.puzzle-extras section{border:1px solid var(--ink);padding:9px 12px 4px}
+.puzzle-extras{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:16px;margin-top:10px;padding-top:12px;border-top:3px double var(--ink)}
+.puzzle-extras section{border:1px solid var(--ink);padding:7px 10px 0}
 .box-label{display:block;font-size:9px;line-height:1.3;font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-stretch:96%;margin-bottom:5px}
+.puzzle-extras h2{font-size:18px!important}
 .puzzle-extras h2,.classifieds h2,.letters-desk h2{font-size:22px;line-height:1.02;font-weight:800;font-stretch:58%;margin-bottom:5px}
-.puzzle-extras p{font-size:12.5px;line-height:1.38}
-.letter-jumble{display:flex;gap:4px;margin:6px 0 7px}.letter-jumble span{width:25px;height:25px;border:1px solid var(--ink);display:grid;place-items:center;font-size:15px;font-weight:800;font-stretch:80%}
+.puzzle-extras p{font-size:11.5px;line-height:1.3}
+.puzzle-extras details summary{min-height:26px;padding:5px 0}
+.letter-jumble{display:flex;gap:3px;margin:4px 0 5px}.letter-jumble span{width:22px;height:22px;border:1px solid var(--ink);display:grid;place-items:center;font-size:15px;font-weight:800;font-stretch:80%}
 details summary{font-size:11.5px;min-height:32px;padding:8px 0;cursor:pointer;font-weight:600;text-decoration:underline;text-underline-offset:3px}
 details summary:focus-visible,.corner:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .puzzle-extras details p{padding-bottom:8px}
@@ -263,6 +421,16 @@ details summary:focus-visible,.corner:focus-visible{outline:2px solid var(--ink)
 .compact .classifieds{grid-template-columns:1fr}.compact .classifieds section{padding:14px 0!important;border-left:0!important}.compact .classifieds section+section{border-top:1px solid var(--rule)}
 .compact .comic{padding:16px 0}.compact .comic-heading{display:block}.compact .comic-heading span{display:block;margin-top:5px;font-size:8px}
 .compact .letters-desk>section+section{border-left:0;border-top:1px solid var(--rule);padding:14px 0 0}.compact .last-word .closing-line{font-size:38px}
+.compact .index-row,.compact .review,.compact .match,.compact .pros-cons,.compact .patch-notes>div{display:block}
+.compact .index-row .brief,.compact .verdict{border-left:0;padding:14px 0 0;margin-top:12px;border-top:1px solid var(--rule)}
+.compact .commute-row{grid-template-columns:120px minmax(0,1fr)}.compact .phrase{font-size:14px}.compact .commute-note{font-size:13px}
+.compact .picture.short{flex:none}
+.compact .review-copy p{font-size:15.5px;text-align:left;hyphens:manual}
+.compact .pros-cons li,.compact .patch-notes li{font-size:15px}.compact .pros-cons section+section,.compact .patch-notes>div>section+section{border-left:0;padding:10px 0 0}
+.compact .specs th,.compact .specs td{font-size:14px}.compact .badge{margin-top:14px}
+.compact .scorecard{margin-top:14px}.compact .scorecard th{font-size:15px}.compact .scorecard th small{font-size:12px}
+.compact .commentary ol{grid-template-columns:1fr}.compact .commentary li{font-size:15px}.compact .commentary li+li{border-left:0;padding:8px 0 0;border-top:1px solid var(--rule)}
+.compact .bug{font-size:13px;white-space:pre-wrap}
 .compact .corner{display:none}
 @media(prefers-reduced-motion:reduce){.half.lower,.half.lower::after{animation:none}.corner::before{transition:none}}
 </style>
