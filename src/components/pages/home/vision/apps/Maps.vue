@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, onBeforeUnmount, onMounted, ref, useId } from 'vue';
+import CityPreview from './maps/CityPreview.vue';
+import AppSheet from './arcade/AppSheet.vue';
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
 const props = defineProps<{ compact?: boolean }>();
@@ -27,13 +29,19 @@ const modeData: Record<TravelMode, { eta: number; color: string; label: string }
   Drive: { eta: 4, color: '#438dff', label: 'Head along' }, Walk: { eta: 12, color: '#c780ff', label: 'Walk along' },
   Cycle: { eta: 6, color: '#29be95', label: 'Ride along' }, Transit: { eta: 8, color: '#f2a647', label: 'Take the Pocket Loop along' },
 };
+const lookAround = ref(false), guideOpen = ref<'slow' | 'water' | null>(null);
+const guidePlaces = computed(() => places.filter(p => guideOpen.value==='water' ? ['lake','park','bakery'].includes(p.id) : ['coffee','books','chai'].includes(p.id)));
+const savedPlaces = ref<string[]>([]);
+const trees = Array.from({length:52},(_,i)=>({x:90+(i*167%1190),y:95+(i*113%720),r:6+i%5})).filter(t=>!((t.x>900 && t.y>400) || [160,360,600,840,1120].some(x=>Math.abs(t.x-x)<24) || [160,360,580,800].some(y=>Math.abs(t.y-y)<24)));
 const query = ref(''), category = ref<Category | null>(null), selected = ref<Place | null>(null);
 const style = ref<MapStyle>('Explore'), mode = ref<TravelMode>('Walk');
-const threeD = ref(false), styleSheet = ref(false), panel = ref(true), directions = ref(false), navigating = ref(false), arrived = ref(false);
+const threeD = ref(true), styleSheet = ref(false), panel = ref(true), directions = ref(false), navigating = ref(false), arrived = ref(false);
 const map = ref<SVGSVGElement>();
 const mapRoot = ref<HTMLElement>();
 const viewport = ref({ width:1080, height:660 });
 let mapObserver: ResizeObserver | undefined;
+let visibilityObserver: IntersectionObserver | undefined;
+const appVisible=ref(true), pageHidden=ref(false);
 const markerScale = computed(() => 1 / (Math.min(viewport.value.width * 1.2 / 1400, viewport.value.height * 1.2 / 1000) * camera.value.zoom * (threeD.value ? .8 : 1)));
 const camera = ref({ x: 690, y: 500, zoom: 1, bearing: 0 });
 const progress = ref(0);
@@ -60,9 +68,9 @@ const streets: Record<number, string> = { 160:'Chapter Lane', 360:'Coffee Street
 const street = (x: number): string => streets[x] ?? 'Pocket Lane';
 const steps = computed(() => [modeData[mode.value].label + ' Lantern Boulevard', 'Turn onto ' + street(selected.value?.x ?? 600), 'Arrive at ' + (selected.value?.name ?? 'your destination')]);
 const transform = computed(() => 'translate(700 500) rotate(' + camera.value.bearing + ') scale(' + camera.value.zoom + ') translate(' + -camera.value.x + ' ' + -camera.value.y + ')');
-const buildings = Array.from({ length: 92 }, (_, i) => {
-  const col = i % 12, row = Math.floor(i / 12), x = 72 + col * 104, y = 92 + row * 104;
-  return { x, y, w: 36 + i % 3 * 9, h: 28 + i % 4 * 6, height: 6 + i % 5 * 3, color: ['#d6c7b5', '#cbc9ce', '#dbc6b6', '#bbc8c5'][i % 4] };
+const buildings = Array.from({ length: 168 }, (_, i) => {
+  const col = i % 14, row = Math.floor(i / 14), x = 42 + col * 93, y = 40 + row * 76;
+  return { x, y, w: 36 + i % 3 * 9, h: 28 + i % 4 * 6, height: 16 + i % 7 * 8, color: ['#d6c7b5', '#cbc9ce', '#dbc6b6', '#bbc8c5'][i % 4] };
 }).filter(b => ![160, 360, 600, 840, 1120].some(x => b.x < x + 32 && b.x + b.w > x - 30)
   && ![160, 360, 580, 800].some(y => b.y < y + 32 && b.y + b.h > y - 30)
   && !(b.x > 900 && b.y > 400 && b.y < 770) && !(b.x < 420 && b.y > 670));
@@ -73,15 +81,8 @@ let navigationStart = 0;
 const clamp = (n: number, low: number, high: number): number => Math.max(low, Math.min(high, n));
 function stopNavigation(): void { clearInterval(navigationTimer); navigating.value = false; }
 function fly(point: Point, zoom = 1.7): void {
-  cancelAnimationFrame(frame);
-  const from = { ...camera.value }, start = performance.now();
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function tick(now: number): void {
-    const t = reduced ? 1 : Math.min(1, (now - start) / 650), eased = 1 - (1 - t) ** 3;
-    camera.value = { ...from, x: from.x + (point.x - from.x) * eased, y: from.y + (point.y - from.y) * eased, zoom: from.zoom + (zoom - from.zoom) * eased };
-    if (t < 1) frame = requestAnimationFrame(tick);
-  }
-  frame = requestAnimationFrame(tick);
+  // Event-driven camera updates; no reactive state is written in an animation loop.
+  camera.value = { ...camera.value, x: point.x, y: point.y, zoom };
 }
 function choose(place: Place): void {
   stopNavigation(); progress.value = 0; arrived.value = false; directions.value = false;
@@ -91,10 +92,16 @@ function showRoute(): void { directions.value = true; progress.value = 0; arrive
 function go(): void {
   stopNavigation(); progress.value = 0; navigating.value = true; arrived.value = false; navigationStart = performance.now();
   if (props.compact) panel.value = false;
-  navigationTimer = setInterval(() => {
-    progress.value = Math.min(1, (performance.now() - navigationStart) / 24000);
-    if (progress.value === 1) { stopNavigation(); arrived.value = true; vision.toast('You have arrived. Your fictional adventure was a success.'); }
-  }, 100);
+  scheduleNavigation();
+}
+function scheduleNavigation(): void {
+  clearInterval(navigationTimer); navigationTimer=undefined;
+  if(!navigating.value || !appVisible.value || document.hidden) return;
+  navigationStart=performance.now()-progress.value*24000;
+  navigationTimer=setInterval(() => {
+    progress.value=Math.min(1,(performance.now()-navigationStart)/24000);
+    if(progress.value===1) { stopNavigation(); arrived.value=true; vision.toast('You have arrived. Your fictional adventure was a success.'); }
+  },1000);
 }
 function zoom(amount: number): void { cancelAnimationFrame(frame); camera.value.zoom = clamp(camera.value.zoom * amount, .55, 3.2); }
 function pointerDown(event: PointerEvent): void {
@@ -123,6 +130,7 @@ function pointerMove(event: PointerEvent): void {
 }
 function pointerUp(event: PointerEvent): void { pointers.delete(event.pointerId); gestureDistance = 0; }
 function wheel(event: WheelEvent): void { if (event.shiftKey) camera.value.bearing += event.deltaY / 6; else zoom(Math.exp(-event.deltaY * .0015)); }
+function sheetKeys(event:KeyboardEvent):void { if(event.key==='Escape' && (lookAround.value || guideOpen.value || styleSheet.value)) { event.stopPropagation(); lookAround.value=false; guideOpen.value=null; styleSheet.value=false; } }
 function mapKeys(event: KeyboardEvent): void {
   const moves: Record<string, Point> = { ArrowLeft: { x: -70, y: 0 }, ArrowRight: { x: 70, y: 0 }, ArrowUp: { x: 0, y: -70 }, ArrowDown: { x: 0, y: 70 } };
   const move = moves[event.key];
@@ -137,12 +145,15 @@ onMounted(() => {
     if (size && size.width > 0 && size.height > 0) viewport.value = { width:size.width, height:size.height };
   });
   mapObserver.observe(mapRoot.value);
+  visibilityObserver=new IntersectionObserver(entries=>{appVisible.value=entries[0]?.isIntersecting ?? false; scheduleNavigation();});visibilityObserver.observe(mapRoot.value);
+  document.addEventListener('visibilitychange',mapVisibility);
 });
-onBeforeUnmount(() => { cancelAnimationFrame(frame); clearInterval(navigationTimer); mapObserver?.disconnect(); pointers.clear(); });
+function mapVisibility():void { pageHidden.value=document.hidden; scheduleNavigation(); }
+onBeforeUnmount(() => { visibilityObserver?.disconnect(); document.removeEventListener('visibilitychange',mapVisibility); cancelAnimationFrame(frame); clearInterval(navigationTimer); mapObserver?.disconnect(); pointers.clear(); });
 </script>
 
 <template>
-<section ref="mapRoot" class="maps-app" :class="[{ compact, 'three-d': threeD, solid: vision.reduceTransparency.value }, style.toLowerCase()]" aria-label="Maps — fictional Pocket District">
+<section ref="mapRoot" class="maps-app" :class="[{ compact, paused:!appVisible || pageHidden, 'three-d': threeD, solid: vision.reduceTransparency.value }, style.toLowerCase()]" aria-label="Maps — fictional Pocket District" @keydown="sheetKeys">
   <div class="map-stage">
     <svg ref="map" class="city" viewBox="0 0 1400 1000" tabindex="0" role="group" aria-label="Pocket District map. Drag to pan; pinch or scroll to zoom. Arrow keys pan; plus and minus zoom."
       @pointerdown="pointerDown" @pointermove="pointerMove" @pointerup="pointerUp" @pointercancel="pointerUp" @lostpointercapture="pointerUp" @wheel.prevent="wheel" @dblclick.prevent="zoom(1.4)" @keydown="mapKeys">
@@ -167,11 +178,16 @@ onBeforeUnmount(() => { cancelAnimationFrame(frame); clearInterval(navigationTim
         <path d="M110 747q130-95 265-8m-185-44 70 113m714-666q89-45 185 12" fill="none" stroke="#c5d6a3" stroke-width="9"/>
         <g fill="#67946b"><circle v-for="i in 20" :key="i" :cx="100 + (i * 57 % 280)" :cy="695 + (i * 41 % 145)" :r="8 + i % 4"/></g>
         <g class="minor-roads" fill="none" stroke-width="12"><path v-for="x in [70,260,480,720,970,1260]" :key="x" :d="'M'+x+' 40V880'"/><path v-for="y in [75,260,465,685,860]" :key="y" :d="'M40 '+y+'H900'"/></g>
-        <g v-for="b in buildings" :key="b.x + '-' + b.y" class="building">
-          <path :d="'M'+b.x+' '+b.y+'h'+b.w+'v'+b.h+'l'+(threeD ? b.height : 4)+' '+(threeD ? b.height : 4)+'h-'+b.w+'Z'" class="building-side"/>
-          <rect :x="b.x" :y="b.y - (threeD ? b.height : 0)" :width="b.w" :height="b.h" rx="4" :fill="b.color"/>
-          <path :d="'M'+(b.x+5)+' '+(b.y+5-(threeD ? b.height : 0))+'h'+(b.w-10)" stroke="#fff" opacity=".45" stroke-width="2"/>
+        <g v-for="b in buildings" :key="b.x+'-'+b.y" class="building">
+          <path :d="'M'+b.x+' '+(b.y+b.h)+'h'+b.w+'l'+(threeD ? b.height*.65 : 5)+' '+(threeD ? b.height*.4 : 5)+'h-'+b.w+'Z'" fill="#4f5f5933"/>
+          <rect :x="b.x" :y="b.y + b.h - (threeD ? b.height : 0)" :width="b.w" :height="threeD ? b.height : 4" :fill="b.color" class="building-facade"/>
+          <path v-if="threeD" :d="'M'+(b.x+b.w)+' '+(b.y-b.height)+'l10 7v'+(b.h+b.height)+'l-10-7Z'" class="building-side"/>
+          <rect :x="b.x" :y="b.y-(threeD ? b.height : 0)" :width="b.w" :height="b.h" rx="2" :fill="b.color" stroke="#ffffff50" stroke-width="1.5"/>
+          <rect :x="b.x+7" :y="b.y+7-(threeD ? b.height : 0)" :width="b.w-14" :height="Math.max(8,b.h-14)" rx="2" fill="#647c7425" stroke="#ffffff40"/>
+          <path v-for="floor in (threeD ? Math.max(1,Math.floor(b.height/12)) : 0)" :key="floor" :d="'M'+(b.x+5)+' '+(b.y+b.h-b.height+floor*10)+'h'+(b.w-10)" stroke="#5d7476" opacity=".6" stroke-width="4" stroke-dasharray="4 5"/>
         </g>
+        <g v-for="(tree,i) in trees" :key="'tree'+i" :transform="'translate('+tree.x+' '+tree.y+')'"><ellipse :rx="tree.r+3" :ry="tree.r*.6" cy="3" fill="#3a583c26"/><path v-if="threeD" d="M0 0v-12" stroke="#7f805a" stroke-width="2"/><circle :cy="threeD ? -12 : 0" :r="tree.r" fill="#648d65"/><circle cx="-2" :cy="threeD ? -15 : -3" :r="tree.r*.65" fill="#92b582"/></g>
+        <g class="water-shimmer" fill="none" stroke="#dbf5ed" opacity=".35" stroke-linecap="round"><path v-for="i in 12" :key="i" :d="'M'+(965+i*13%145)+' '+(450+i*17)+'h'+(18+i%4*8)" stroke-width="2"/></g>
         <g class="road-border" fill="none" stroke-linecap="round" stroke-width="32"><path v-for="x in [160,360,600,840,1120]" :key="x" :d="'M'+x+' -40V1000'"/><path v-for="y in [160,360,580,800]" :key="y" :d="'M-40 '+y+'H1440'"/></g>
         <g class="major-roads" fill="none" stroke-linecap="round" stroke-width="26"><path v-for="x in [160,360,600,840,1120]" :key="x" :d="'M'+x+' -40V1000'"/><path v-for="y in [160,360,580,800]" :key="y" :d="'M-40 '+y+'H1440'"/></g>
         <g class="road-labels" font-size="13" text-anchor="middle"><text v-for="x in [160,360,600,840,1120]" :key="x" :transform="'translate('+x+' 475) rotate(-90)'">{{ street(x) }}</text><text x="760" y="164">Station Road</text><text x="460" y="364">Kindred Street</text><text x="990" y="584">Lantern Boulevard</text><text x="655" y="804">Slow Sunday Road</text><text x="260" y="272" font-size="10">Tiny Terrace</text><text x="475" y="467" font-size="10">Acorn Alley</text></g>
@@ -186,15 +202,15 @@ onBeforeUnmount(() => { cancelAnimationFrame(frame); clearInterval(navigationTim
       </g>
     </svg>
   </div>
-  <aside v-if="panel" class="search-panel vk-platter vk-scroll">
+  <aside v-if="panel" class="search-panel vk-platter">
     <header><div><h1 class="vk-title">Maps</h1><p class="vk-footnote vk-secondary">Pocket District · Fictional city</p></div><button v-hover class="vk-icon" aria-label="Hide places panel" @click="panel=false"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button></header>
     <label class="search"><svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input v-model="query" class="vk-field" type="search" placeholder="Search Pocket District" aria-label="Search places" @input="selected=null; directions=false; stopNavigation(); arrived=false; progress=0"/></label>
     <div class="categories"><button v-for="item in categories" :key="item" v-hover class="vk-chip" :aria-pressed="category===item" @click="category=category===item ? null : item; selected=null; directions=false; stopNavigation(); arrived=false; progress=0">{{ item }}</button></div>
-    <template v-if="selected">
+    <div class="panel-content vk-scroll"><template v-if="selected">
       <button v-hover class="vk-button back" @click="selected=null; directions=false; stopNavigation(); arrived=false; progress=0">All places</button>
       <div class="place-art" :style="{ '--place-color': selected.color }" aria-hidden="true"><span class="sun"/><span class="hill"/><div class="shop"><i/><i/><i/><span>{{ selected.category === 'Parks' ? 'TAKE A BREATH' : selected.category === 'Transit' ? 'POCKET CENTRAL' : selected.category === 'Books' ? 'ONE MORE CHAPTER' : 'A LITTLE GOOD THING' }}</span></div><div class="art-water" v-if="selected.id==='lake'"/></div>
       <h2 class="vk-title place-title">{{ selected.name }}</h2><p class="vk-footnote vk-secondary">{{ selected.category }} · {{ selected.rating }} / 5 · Demo ratings</p><p class="vk-body">{{ selected.detail }}</p><p class="vk-footnote hours">{{ selected.hours }}</p>
-      <div class="place-actions"><button v-hover class="vk-button tinted" @click="showRoute">Directions</button><button v-hover class="vk-button" @click="vision.toast('Demo call: the imaginary phone is ringing.')">Call</button><button v-hover class="vk-button" @click="vision.toast('This lovely place exists only in Pocket District.')">Website</button></div>
+      <button v-hover class="look-card" aria-label="Open illustrated Look Around" @click="lookAround=true"><CityPreview :title="selected.name"/><span>Look Around <svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></span></button><div class="place-actions"><button v-hover class="vk-button tinted" @click="showRoute">Directions</button><button v-hover class="vk-button" :aria-pressed="savedPlaces.includes(selected.id)" @click="savedPlaces.includes(selected.id) ? savedPlaces=savedPlaces.filter(id=>id!==selected!.id) : savedPlaces.push(selected.id)">{{ savedPlaces.includes(selected.id) ? 'Saved' : 'Save' }}</button><button v-hover class="vk-button" @click="vision.toast('This lovely place exists only in Pocket District.')">Website</button></div>
       <div v-if="directions" class="route-card vk-well">
         <div class="vk-segmented modes" aria-label="Travel mode"><button v-for="m in modes" :key="m" :aria-pressed="mode===m" :disabled="navigating" @click="mode=m">{{ m }}</button></div>
         <div class="route-summary"><strong class="vk-title">{{ modeData[mode].eta }} min</strong><span class="vk-footnote vk-secondary">{{ (total / 500).toFixed(1) }} km · Demo route</span></div>
@@ -202,14 +218,16 @@ onBeforeUnmount(() => { cancelAnimationFrame(frame); clearInterval(navigationTim
         <button v-hover class="vk-button primary" @click="navigating ? stopNavigation() : go()">{{ navigating ? 'Stop navigation' : arrived ? 'Go again' : 'Go' }}</button>
       </div>
     </template>
-    <template v-else><p class="vk-footnote vk-secondary list-heading">{{ query ? 'Search suggestions' : 'A few good places to get lost' }}</p><button v-for="place in results" :key="place.id" v-hover class="vk-row" @click="choose(place)"><span class="result-marker" :style="{background:place.color}"><svg viewBox="0 0 24 24"><use :href="'#'+uid+'-'+place.category.toLowerCase()"/></svg></span><span><strong class="vk-headline">{{ place.name }}</strong><small class="vk-footnote vk-secondary">{{ place.category }} · {{ place.rating }}</small></span></button><p v-if="!results.length" class="vk-secondary empty">No places found. Try “chai” or clear a filter.</p></template>
+    <template v-else><section v-if="!query && !category" class="guides"><div class="section-heading"><h2>Curated Guides</h2><span>Demo collection</span></div><button v-hover class="guide-card slow-guide" @click="guideOpen='slow'"><span class="guide-art"><svg viewBox="0 0 80 70"><path d="M17 23h36v22a13 13 0 0 1-13 13H30a13 13 0 0 1-13-13Zm36 3h7a9 9 0 0 1 0 18h-7M29 8v7m12-7v7"/></svg></span><span><small>A POCKET DISTRICT GUIDE</small><strong>The slow morning</strong><em>Coffee, books & one more chai · 3 stops</em></span></button><button v-hover class="guide-card water-guide" @click="guideOpen='water'"><span class="guide-art"><svg viewBox="0 0 80 70"><path d="M9 43q13-12 26 0t26 0M9 56q13-12 26 0t26 0M40 8l14 20H26Zm0 20v9"/></svg></span><span><small>TAKE THE SCENIC ROUTE</small><strong>A little blue, a little green</strong><em>By the lake & through the park · 3 stops</em></span></button></section><p class="vk-footnote vk-secondary list-heading">{{ query ? 'Search suggestions' : 'A few good places to get lost' }}</p><button v-for="place in results" :key="place.id" v-hover class="vk-row" @click="choose(place)"><span class="result-marker" :style="{background:place.color}"><svg viewBox="0 0 24 24"><use :href="'#'+uid+'-'+place.category.toLowerCase()"/></svg></span><span><strong class="vk-headline">{{ place.name }}</strong><small class="vk-footnote vk-secondary">{{ place.category }} · {{ place.rating }}</small></span></button><p v-if="!results.length" class="vk-secondary empty">No places found. Try “chai” or clear a filter.</p></template>
+    </div>
   </aside>
   <div class="map-controls vk-ornament"><button v-hover class="vk-icon compass" aria-label="Reset map to north" @click="camera.bearing=0"><svg viewBox="0 0 24 24" :style="{transform:'rotate('+camera.bearing+'deg)'}"><path d="m12 2 5 10-5-2-5 2Z" fill="#ff6c66" stroke="#ff6c66"/><path d="m12 22 5-10-5 2-5-2Z"/><text x="12" y="14" fill="currentColor" stroke="none" text-anchor="middle" font-size="5">N</text></svg></button><button v-hover class="vk-button" :aria-pressed="threeD" @click="threeD=!threeD">{{ threeD ? '3D' : '2D' }}</button><button v-hover class="vk-icon" aria-label="Locate me" @click="fly(location,1.5)"><svg viewBox="0 0 24 24"><path d="m20 4-6 16-3-7-7-3Z"/></svg></button><button v-hover class="vk-icon" :aria-expanded="styleSheet" aria-label="Map styles" @click="styleSheet=!styleSheet"><svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5"/></svg></button></div>
   <div class="zoom-controls vk-ornament"><button v-hover class="vk-icon" aria-label="Zoom in" @click="zoom(1.25)"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button><button v-hover class="vk-icon" aria-label="Zoom out" @click="zoom(.8)"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button><button v-hover class="vk-icon" aria-label="Rotate map clockwise" @click="camera.bearing+=30"><svg viewBox="0 0 24 24"><path d="M19 8a8 8 0 1 0 1 8M19 3v5h-5"/></svg></button></div>
   <button v-if="!panel" v-hover class="vk-button vk-ornament reveal" @click="panel=true">Search & places</button>
   <div v-if="styleSheet" class="style-sheet vk-sheet" role="group" aria-label="Map style"><h2 class="vk-headline">Choose your view</h2><button v-for="s in styles" :key="s" v-hover class="vk-row" :class="{selected:style===s}" :aria-pressed="style===s" @click="style=s; styleSheet=false"><span class="style-swatch" :class="s.toLowerCase()"/>{{ s }}<span v-if="style===s" class="selected-dot"/></button><button class="vk-button" @click="styleSheet=false">Done</button></div>
   <div v-if="navigating || arrived" class="navigation-banner vk-ornament" role="status"><svg viewBox="0 0 24 24"><path :d="arrived ? 'm5 12 4 4L20 5' : step===0 ? 'M12 21V3m-6 6 6-6 6 6' : 'M6 21V9h14m-6-6 6 6-6 6'"/></svg><div><strong>{{ arrived ? 'You have arrived' : steps[step] }}</strong><small>{{ arrived ? selected?.name : 'Simulated navigation · ' + Math.ceil((1-progress)*24) + ' seconds remaining' }}</small></div><button v-if="navigating" class="vk-button" @click="stopNavigation">Stop</button></div>
-  <span class="map-credit">Pocket District · Hand-drawn demo map</span>
+  <button v-if="!compact && !selected && !navigating" v-hover class="floating-look vk-platter" aria-label="Open illustrated street view" @click="lookAround=true"><CityPreview title="Kindred Street"/><span>Look Around <svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></span></button><span class="map-credit">Pocket District · Hand-drawn demo map</span>
+<AppSheet v-if="lookAround" title="Look Around" @close="lookAround=false"><CityPreview :title="selected?.name || 'Kindred Street'" interactive/><p class="sheet-description">A hand-drawn street-level preview of our fictional district. Use the arrows to look along the street.</p><button v-hover class="vk-button primary" @click="lookAround=false">Back to map</button></AppSheet><AppSheet v-if="guideOpen" :title="guideOpen==='slow' ? 'The slow morning' : 'A little blue, a little green'" @close="guideOpen=null"><CityPreview :title="guideOpen==='slow' ? 'Kindred Street' : 'Lake Drive'"/><p class="sheet-description">{{ guideOpen==='slow' ? 'A small ritual for a morning with nowhere urgent to be.' : 'A gentle loop along the water, with a bakery on the way home.' }} Three fictional stops, chosen with care.</p><button v-for="(place,i) in guidePlaces" :key="place.id" v-hover class="vk-row" @click="guideOpen=null; choose(place)"><span class="guide-stop">{{ i+1 }}</span><span><strong>{{ place.name }}</strong><small class="vk-secondary">{{ place.category }} · {{ place.detail }}</small></span><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></button></AppSheet>
 </section>
 </template>
 
@@ -727,4 +745,10 @@ header {
     transition: none!important;
   }
 }
+
+.maps-app{container-type:size;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif}.three-d .city{transform:rotateX(32deg) scale(1.16)}.ground{fill:#dce4d7}.building-facade{filter:brightness(.83)}.building-side{fill:#7e8f89}.search-panel{width:312px;bottom:24px;padding:20px;gap:14px;background:linear-gradient(140deg,#6f837438,#ffffff08),#293c3cc9;overflow:hidden}.search-panel>header,.search-panel>.search,.categories{flex:none}.search-panel .vk-title{font-size:24px}.panel-content{min-height:0;flex:1;display:flex;flex-direction:column;gap:14px;padding-bottom:4px}.categories{flex-wrap:nowrap;gap:5px}.categories .vk-chip{font-size:12px;padding:0 10px;flex:1;justify-content:center}.section-heading{display:flex;align-items:center;justify-content:space-between;margin:2px 0 12px}.section-heading h2{font-size:16px;font-weight:600}.section-heading span{font-size:9px;color:#fff8}.guides{flex:none}.guide-card{display:flex;text-align:left;gap:12px;width:100%;padding:12px;border-radius:20px;margin-bottom:10px;background:linear-gradient(120deg,#d0b39430,#ffffff0b);color:inherit;min-height:94px;align-items:center}.water-guide{background:linear-gradient(120deg,#9bcdcf2c,#ffffff0b)}.guide-art{height:60px;width:60px;display:grid;place-items:center;border-radius:15px;background:#af927643;flex:none}.water-guide .guide-art{background:#6dabb333}.guide-art svg{width:48px;height:48px;stroke:#e5d5b7;stroke-width:1.8}.water-guide .guide-art svg{stroke:#d1e8de}.guide-card strong,.guide-card small,.guide-card em{display:block}.guide-card small{font-size:7px;letter-spacing:1px;color:#fff9}.guide-card strong{font-size:14px;font-weight:600;line-height:1.3;margin:5px 0}.guide-card em{font-size:9px;font-style:normal;color:#fffa;line-height:1.4}.panel-content>.vk-row{padding:9px 8px;min-height:64px}.list-heading{font-size:12px}.look-card{border-radius:22px;overflow:hidden;display:block;padding:0;background:#ffffff12;text-align:left;color:inherit;flex:none}.look-card>span,.floating-look>span{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:9px 14px;min-height:44px}.look-card>span svg,.floating-look>span svg{width:16px;height:16px}.floating-look{position:absolute;bottom:28px;right:100px;width:232px;padding:8px;color:#fff;text-align:left;background:#283c3ab8;backdrop-filter:blur(24px);border-radius:26px;box-shadow:0 15px 36px #0002}.floating-look :deep(.street-preview){border-radius:19px}.floating-look :deep(.street-caption){font-size:10px;left:12px;right:12px}.floating-look :deep(.street-caption small){display:none}.floating-look>span{padding:5px 8px;min-height:36px}.map-credit{font-size:9px;background:#ffffff94;bottom:10px}.sheet-description{font-size:14px;color:#ffffffb8;line-height:1.6;margin:18px 0}.guide-stop{width:34px;height:34px;border-radius:50%;background:#ffffff16;display:grid;place-items:center;flex:none}.water-shimmer{opacity:.3}.navigation-banner{left:350px;right:270px;top:96px;z-index:3;min-width:0}.navigation-banner strong{font-size:13px}.navigation-banner small{font-size:10px}.style-sheet{max-height:calc(100% - 115px);overflow:auto}.place-art{height:110px}.panel-content .back{min-height:44px}.style-sheet .vk-row{min-height:56px}
+@container(max-height:560px) and (min-width:701px){.search-panel{top:20px;left:20px;bottom:20px}.guide-card{min-height:78px;padding:10px}.guide-art{width:48px;height:48px}.guide-art svg{width:39px;height:39px}.floating-look{width:212px;bottom:22px}.floating-look :deep(.street-preview){min-height:108px}.map-controls{top:20px;right:20px}.zoom-controls{right:20px;bottom:40px}}
+@container(max-width:700px){.search-panel{top:auto;bottom:18px;left:16px;right:16px;width:auto;height:52%;max-height:52%;padding:16px;gap:12px}.categories .vk-chip{font-size:11px;padding:0 8px}.panel-content{gap:12px}.search-panel>header{min-height:44px}.search-panel>header .vk-title{font-size:23px}.floating-look{display:none}.navigation-banner{top:140px;left:16px;right:16px}.map-controls{right:16px;top:16px}.zoom-controls{top:82px;right:16px;bottom:auto;flex-direction:row}.map-credit{bottom:3px;font-size:8px}.style-sheet{right:16px;top:82px;max-height:calc(100% - 110px)}.guides{display:grid;grid-template-columns:1fr}.guide-card{min-height:80px}.guide-art{height:50px;width:50px}.city{transform-origin:50% 25%}.three-d .city{transform:rotateX(26deg) scale(1.2)}.panel-content .place-title{font-size:20px}}
+
+.paused *{animation-play-state:paused!important}
 </style>

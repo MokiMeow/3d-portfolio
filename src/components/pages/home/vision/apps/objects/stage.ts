@@ -3,6 +3,8 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { createContactShadow } from '~/experiences/home/world/scene-3.devices';
 import { WindowRenderer, disposeTree } from '../nightsky/runtime';
 import { loadModel, type Model, type ObjectId } from './models';
+export type StageFinish = 'Original' | 'Porcelain' | 'Graphite' | 'Copper';
+export interface StageBounds { width: number; height: number; depth: number }
 export interface StageSettings {
     rotate: boolean;
     explode: boolean;
@@ -40,6 +42,8 @@ export class ObjectStage {
     private rim = new THREE.DirectionalLight('#b9ccff', 3);
     private fill = new THREE.HemisphereLight('#dae8ff', '#443629', 1.6);
     private settings: StageSettings;
+    private finish: StageFinish = 'Original';
+    private surfaceOriginals = new WeakMap<THREE.MeshStandardMaterial, { color: THREE.Color; metalness: number; roughness: number; map: THREE.Texture | null }>();
     private yaw = .35;
     private targetYaw = .35;
     private pitch = .17;
@@ -182,6 +186,7 @@ export class ObjectStage {
             this.fade = this.view.motion.matches ? 1 : 0;
             this.fadeVelocity = 0;
             this.set(this.settings);
+            this.setFinish(this.finish);
             this.reset();
             this.status('');
             this.view.wake();
@@ -204,6 +209,25 @@ export class ObjectStage {
             for (const { material } of entry.materials)
                 if (material instanceof THREE.MeshStandardMaterial || material instanceof THREE.MeshBasicMaterial)
                     material.wireframe = settings.wireframe;
+        this.view.wake();
+    }
+    bounds(): StageBounds | undefined {
+        if (!this.current) return;
+        const box = new THREE.Box3().setFromObject(this.current.model.root);
+        const size = box.getSize(new THREE.Vector3());
+        return { width: size.x, height: size.y, depth: size.z };
+    }
+    setFinish(finish: StageFinish): void {
+        this.finish = finish;
+        const looks = { Porcelain: { color: '#ebe7dc', metalness: .08, roughness: .3 }, Graphite: { color: '#4f565c', metalness: .45, roughness: .38 }, Copper: { color: '#ba805c', metalness: .82, roughness: .27 } };
+        for (const entry of this.cache.values()) for (const { material, opacity } of entry.materials) {
+            if (!(material instanceof THREE.MeshStandardMaterial) || opacity < .85) continue;
+            if (!this.surfaceOriginals.has(material)) this.surfaceOriginals.set(material, { color: material.color.clone(), metalness: material.metalness, roughness: material.roughness, map: material.map });
+            const original = this.surfaceOriginals.get(material)!;
+            if (finish === 'Original') { material.color.copy(original.color); material.metalness = original.metalness; material.roughness = original.roughness; material.map = original.map; }
+            else { const look = looks[finish]; material.color.set(look.color); material.metalness = look.metalness; material.roughness = look.roughness; material.map = null; }
+            material.needsUpdate = true;
+        }
         this.view.wake();
     }
     reset = (): void => { this.targetYaw = this.yaw + Math.atan2(Math.sin(.35 - this.yaw), Math.cos(.35 - this.yaw)); this.targetPitch = .17; this.targetDistance = 5.5; this.resetVelocity.set(0, 0, 0); this.view.wake(); };

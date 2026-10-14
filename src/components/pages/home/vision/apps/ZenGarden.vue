@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { inject, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
+import { KoiPond } from './zen/pond';
 import { GardenAudio } from './zen/audio';
 import { SandTray, type Point, type Tool } from './zen/sand';
 
@@ -15,6 +16,12 @@ const cursorElement = ref<HTMLElement>();
 const tool = ref<Tool>('rake');
 const stone = ref(0);
 const plant = ref(0);
+type Season='Spring' | 'Summer' | 'Autumn' | 'Winter';
+const season=ref<Season>('Autumn'), pondEnabled=ref(false);
+const seasons: Season[]=['Spring','Summer','Autumn','Winter'];
+const seasonLine=computed(() => ({Spring:'Soft green. A new beginning.',Summer:'Warm light. Nowhere to hurry.',Autumn:'Amber leaves. Let a little go.',Winter:'Still air. A quiet pause.'})[season.value]);
+let pond: KoiPond | undefined;
+let seeded=false;
 const rain = ref(false);
 const sound = ref(false);
 const caption = ref('Nothing here needs fixing.');
@@ -103,6 +110,7 @@ function pointFrom(event: PointerEvent): Point {
 }
 function place(point: Point): void {
   cancelSettle();
+  if(pondEnabled.value && pond?.contains(point.x,point.y)) { announce('The koi are keeping this little corner. Place stones on the sand beside them.'); return; }
   if (tool.value === 'stone') {
     if (tray?.placeStone(point, stone.value)) {
       if (sound.value && vision.sound.value) audio?.tok();
@@ -120,6 +128,7 @@ function pointerDown(event: PointerEvent): void {
   pointerBox = canvas.value.getBoundingClientRect();
   const point = pointFrom(event);
   cursor = point;
+  if(pondEnabled.value && pond?.contains(point.x,point.y)) { announce('Three koi, taking the scenic route. Rake the sand around their pond.'); pointerBox=undefined; return; }
   if (tool.value === 'stone' || tool.value === 'plant') { place(point); pointerBox = undefined; return; }
   pointerId = event.pointerId;
   canvas.value.setPointerCapture(event.pointerId);
@@ -130,7 +139,7 @@ function pointerMove(event: PointerEvent): void {
   // Coalesced hardware samples preserve silky paths without a reactive pointer state.
   const events = typeof event.getCoalescedEvents === 'function' ? event.getCoalescedEvents() : [];
   const samples = events.length ? events : [event];
-  for (const sample of samples.slice(-16)) tray.move(pointFrom(sample), false);
+  for (const sample of samples.slice(-16)) { const point=pointFrom(sample); if(!pondEnabled.value || !pond?.contains(point.x,point.y)) tray.move(point,false); else tray.finish(); }
   tray.render();
 }
 function pointerEnd(event: PointerEvent): void { if (event.pointerId === pointerId) finishPointer(); }
@@ -181,7 +190,11 @@ function saveImage(): void {
   const image = canvas.value;
   if (!image) return;
   try {
-    image.toBlob(blob => {
+    const composite=document.createElement('canvas');composite.width=image.width;composite.height=image.height;
+    const context=composite.getContext('2d');if(!context)return;
+    context.drawImage(image,0,0);if(weather.value)context.drawImage(weather.value,0,0);
+    composite.toBlob(blob => {
+      composite.width=0;composite.height=0;
       if (!blob || disposed) { if (!disposed) announce('The image could not be saved. Try once more.'); return; }
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
       downloadUrl = URL.createObjectURL(blob);
@@ -206,6 +219,8 @@ function animate(now: number): void {
     const ctx = weatherContext;
     if (ctx) {
       ctx.clearRect(0, 0, width, height);
+      if(pondEnabled.value) pond?.draw(ctx,now,!reduced);
+      if(season.value==='Autumn' && !reduced) drawLeaves(ctx,now);
       if (rain.value && !reduced) {
         if (now - lastDrop > 150 && drops.length < 16) {
           lastDrop = now; drops.push({ x: Math.random() * width, y: Math.random() * height, born: now, radius: 2 + Math.random() * 2 });
@@ -225,10 +240,20 @@ function animate(now: number): void {
       }
     }
   }
-  if (settling || (rain.value && !reduced)) frame = requestAnimationFrame(animate);
+  if (settling || animatedAtmosphere()) frame = requestAnimationFrame(animate);
 }
+function animatedAtmosphere(): boolean { return !reduced && (rain.value || pondEnabled.value || season.value==='Autumn'); }
+function drawLeaves(ctx:CanvasRenderingContext2D,time:number): void {
+ for(let i=0;i<9;i++) {
+  const t=time/1000, x=((i*.137*width + Math.sin(t*.17+i)*35 + t*6)%(width+40)+width+40)%(width+40)-20;
+  const y=(i*.19*height+t*(9+i%3*3))%(height+50)-25;
+  ctx.save();ctx.translate(x,y);ctx.rotate(t*.25+i);ctx.globalAlpha=.55;ctx.fillStyle=['#b57e42','#c69553','#a36d3f'][i%3]!;
+  ctx.beginPath();ctx.moveTo(0,-8);ctx.lineTo(3,-3);ctx.lineTo(7,-4);ctx.lineTo(5,1);ctx.lineTo(8,4);ctx.lineTo(2,5);ctx.lineTo(0,9);ctx.lineTo(-2,5);ctx.lineTo(-7,4);ctx.lineTo(-5,0);ctx.lineTo(-7,-4);ctx.lineTo(-3,-3);ctx.closePath();ctx.fill();ctx.strokeStyle='#e9c78755';ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(0,-6);ctx.lineTo(0,9);ctx.stroke();ctx.restore();
+ }
+}
+function paintStillAtmosphere(): void { if(!weatherContext)return;clearWeather();if(pondEnabled.value)pond?.draw(weatherContext,0,false); }
 function startFrames(): void {
-  if (!frame && visible && !document.hidden && !disposed && (settling || (rain.value && !reduced))) frame = requestAnimationFrame(animate);
+  if (!frame && visible && !document.hidden && !disposed && (settling || animatedAtmosphere())) frame = requestAnimationFrame(animate);
 }
 function startCaption(): void {
   if (captionTimer || !visible || document.hidden || disposed) return;
@@ -243,21 +268,21 @@ function visibility(): void {
     clearWeather(); clearChime(); audioOperation++; audio?.suspend();
   } else {
     if (settling) { settleStart = performance.now() - settleElapsed; lastSettle = performance.now(); }
-    startCaption(); startFrames(); if (audio) void updateAudio();
+    paintStillAtmosphere(); startCaption(); startFrames(); if (audio) void updateAudio();
   }
 }
 function motionChanged(): void {
   reduced = motion?.matches ?? false;
-  if (reduced) { if (settling) { tray?.reset(); cancelSettle(); } clearWeather(); cancelAnimationFrame(frame); frame = 0; }
+  if (reduced) { if (settling) { tray?.reset(); cancelSettle(); } paintStillAtmosphere(); cancelAnimationFrame(frame); frame = 0; }
   else startFrames();
 }
-watch([rain, sound, vision.sound], () => {
-  if (!rain.value) clearWeather();
+watch([rain, sound, vision.sound, season, pondEnabled], () => {
+  paintStillAtmosphere();
   startFrames(); void updateAudio();
 });
 onMounted(() => {
   if (!canvas.value || !stage.value || !app.value) return;
-  try { tray = new SandTray(canvas.value); }
+  try { tray = new SandTray(canvas.value); pond=new KoiPond(); }
   catch { announce('The sand needs a browser with canvas support.'); return; }
   motion = matchMedia('(prefers-reduced-motion: reduce)'); motionChanged(); motion.addEventListener('change', motionChanged);
   resize = new ResizeObserver(entries => {
@@ -265,13 +290,15 @@ onMounted(() => {
     finishPointer();
     width = Math.max(1, entry.contentRect.width); height = Math.max(1, entry.contentRect.height);
     tray?.resize(width, height);
+    pond?.resize(width,height);
+    if(!seeded) { tray?.random(); seeded=true; }
     const overlay = weather.value;
     if (overlay) {
       const dpr = Math.min(devicePixelRatio || 1, 2);
       overlay.width = Math.round(width * dpr); overlay.height = Math.round(height * dpr);
       weatherContext = overlay.getContext('2d'); weatherContext?.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
-    cursor = { x: width / 2, y: height / 2 }; drawCursor();
+    cursor = { x: width / 2, y: height / 2 }; drawCursor(); paintStillAtmosphere(); startFrames();
   });
   resize.observe(stage.value);
   intersection = new IntersectionObserver(entries => { visible = entries[0]?.isIntersecting ?? false; visibility(); }, { threshold: .01 });
@@ -288,14 +315,14 @@ onBeforeUnmount(() => {
   motion?.removeEventListener('change', motionChanged);
   document.removeEventListener('visibilitychange', visibility);
   window.removeEventListener('blur', finishPointer);
-  audio?.close(); tray?.destroy();
+  audio?.close(); tray?.destroy(); pond?.dispose();
   if (weather.value) { weather.value.width = 0; weather.value.height = 0; }
   if (downloadUrl) URL.revokeObjectURL(downloadUrl);
 });
 </script>
 
 <template>
-  <div ref="app" class="zen-app" :class="{ compact }">
+  <div ref="app" class="zen-app vk-scroll" :class="[season.toLowerCase(),{ compact, 'has-pond':pondEnabled }]">
     <header class="intro">
       <div><p class="eyebrow vk-tertiary">A LITTLE SPACE TO JUST BE</p><h1 class="vk-large-title">Zen Garden</h1></div>
       <div class="garden-actions">
@@ -304,6 +331,7 @@ onBeforeUnmount(() => {
         <button v-hover class="vk-icon" aria-label="Save garden as PNG" title="Save image" @click="saveImage"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4" /></svg></button>
       </div>
     </header>
+    <div class="mood-bar"><label class="season-control"><svg viewBox="0 0 24 24"><path d="M20 4C8 2 3 7 5 15c2 7 12 6 15-11ZM5 20 16 9"/></svg><select v-model="season" aria-label="Seasonal garden mood"><option v-for="item in seasons" :key="item">{{ item }}</option></select><svg class="chevron" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></label><p>{{ seasonLine }}</p><div class="vk-segmented" aria-label="Garden scene"><button v-hover :aria-pressed="!pondEnabled" @click="pondEnabled=false">Sand garden</button><button v-hover :aria-pressed="pondEnabled" @click="pondEnabled=true">Koi pond</button></div></div>
     <div class="garden-body">
       <nav class="tools vk-tabbar vk-scroll" aria-label="Garden tools">
         <button v-for="item in tools" :key="item.id" v-hover class="tool vk-icon" :aria-pressed="tool === item.id" :aria-label="item.name" @click="choose(item.id)"><svg viewBox="0 0 24 24" aria-hidden="true"><path :d="item.icon" /></svg><span>{{ item.name }}</span></button>
@@ -312,7 +340,7 @@ onBeforeUnmount(() => {
         <canvas ref="canvas" class="sand-canvas" tabindex="0" role="application" aria-label="Interactive sand garden" aria-describedby="zen-instructions" @pointerdown.prevent="pointerDown" @pointermove.prevent="pointerMove" @pointerup="pointerEnd" @pointercancel="pointerEnd" @lostpointercapture="pointerEnd" @keydown="canvasKeys" @keyup="endKeyboard" @blur="finishPointer" />
         <canvas ref="weather" class="weather-canvas" aria-hidden="true" />
         <span ref="cursorElement" class="keyboard-cursor" aria-hidden="true" />
-        <div class="tray-label" aria-hidden="true"><span>{{ tools.find(item => item.id === tool)?.name }}</span><span>Made of pixels. Still a little peaceful.</span></div>
+        <div class="tray-label" aria-hidden="true"><span>{{ tools.find(item => item.id === tool)?.name }}</span><span>{{ pondEnabled ? 'Three koi. No particular destination.' : seasonLine }}</span></div>
       </div>
     </div>
     <footer class="garden-footer">
@@ -330,7 +358,7 @@ onBeforeUnmount(() => {
       </div>
       <p class="caption vk-body">{{ caption }}</p>
       <p class="status vk-footnote vk-secondary" role="status">{{ status }}</p>
-      <p id="zen-instructions" class="keyboard-help vk-footnote vk-tertiary">Touch or drag the sand. Keyboard: focus the tray, move with arrows, hold Space to rake; Enter places a stone or plant.</p>
+      <details class="garden-help"><summary>Keyboard controls <svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></summary><p id="zen-instructions" class="keyboard-help vk-footnote vk-tertiary">Touch or drag the sand. Keyboard: focus the tray, move with arrows, hold Space to rake; Enter places a stone or plant.</p></details>
     </footer>
   </div>
 </template>

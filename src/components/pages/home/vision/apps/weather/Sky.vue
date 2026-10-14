@@ -9,6 +9,8 @@ const golden = computed(() => !night.value && (props.hour < 7.5 || props.hour >=
 const stars = Array.from({ length: 24 }, (_, index) => ({ left: noise(7, index) * 100 + '%', top: noise(8, index) * 60 + '%', animationDelay: -(index % 7) + 's' }));
 let context: CanvasRenderingContext2D | null = null;
 let observer: ResizeObserver | undefined;
+let intersection: IntersectionObserver | undefined;
+let visible=true;
 let preference: MediaQueryList | undefined;
 let frame = 0;
 let width = 0, height = 0, last = 0;
@@ -28,13 +30,13 @@ function draw(time: number): void {
   }
 }
 function animate(time: number): void {
-  if (disposed || document.hidden || preference?.matches) return;
+  if (disposed || !visible || document.hidden || preference?.matches) return;
   if (time - last > 33) { draw(time); last = time; }
   frame = requestAnimationFrame(animate);
 }
 function start(): void {
-  cancelAnimationFrame(frame); hidden.value = document.hidden;
-  if (disposed || document.hidden) return;
+  cancelAnimationFrame(frame); hidden.value = document.hidden || !visible;
+  if (disposed || !visible || document.hidden) return;
   draw(0);
   if (!preference?.matches && ['rain', 'storm', 'snow'].includes(props.condition)) frame = requestAnimationFrame(animate);
 }
@@ -47,8 +49,8 @@ function resize(): void {
   context.setTransform(ratio, 0, 0, ratio, 0, 0); draw(0);
 }
 watch(() => [props.condition, props.seed], start);
-onMounted(() => { context = canvas.value?.getContext('2d') ?? null; observer = new ResizeObserver(resize); if (canvas.value) observer.observe(canvas.value); preference = matchMedia('(prefers-reduced-motion: reduce)'); preference.addEventListener('change', start); document.addEventListener('visibilitychange', start); resize(); start(); });
-onBeforeUnmount(() => { disposed = true; cancelAnimationFrame(frame); observer?.disconnect(); preference?.removeEventListener('change', start); document.removeEventListener('visibilitychange', start); });
+onMounted(() => { context = canvas.value?.getContext('2d') ?? null; observer = new ResizeObserver(resize); if (canvas.value) observer.observe(canvas.value); intersection=new IntersectionObserver(entries=>{visible=entries[0]?.isIntersecting ?? false;start();});if(canvas.value)intersection.observe(canvas.value); preference = matchMedia('(prefers-reduced-motion: reduce)'); preference.addEventListener('change', start); document.addEventListener('visibilitychange', start); resize(); start(); });
+onBeforeUnmount(() => { disposed = true; cancelAnimationFrame(frame); observer?.disconnect(); intersection?.disconnect(); preference?.removeEventListener('change', start); document.removeEventListener('visibilitychange', start); });
 </script>
 <template><div class="sky" :class="[condition, { night, golden, paused: hidden }]" aria-hidden="true"><div v-if="night" class="stars"><i v-for="(star, index) in stars" :key="index" :style="star" /></div><span v-if="condition === 'clear'" class="orb" /><div v-if="condition !== 'clear'" class="cloud cloud-one" /><div v-if="condition !== 'clear'" class="cloud cloud-two" /><div v-if="condition === 'fog'" class="fog-layer" /><div v-if="condition === 'storm'" class="flash" /><canvas ref="canvas" /><div class="scrim" /></div></template>
 <style scoped>
