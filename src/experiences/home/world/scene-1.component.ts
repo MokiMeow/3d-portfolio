@@ -17,7 +17,7 @@ import {
 	PlaneGeometry,
 	Raycaster,
 	SRGBColorSpace,
-	type Texture,
+	Texture,
 } from "three";
 import gsap from "gsap";
 import { clipSceneryToWindow } from "./window-portal";
@@ -521,9 +521,69 @@ export class Scene1Component extends SceneComponentBlueprint {
 			this._atelier.refresh(this._atelierState.value);
 			this._coatWorkstation(this._atelier.reflectionTexture);
 			this.companion = createCompanion(this.modelScene,this._atelier.reflectionTexture,this._night,this._companionState.value,
-				()=>{this.initSelectableObjects();if(this._ready.value&&this._experience.router?.currentRouteKey===pages.HOME_PAGE&&!this._experience.cameraAnimation?.enabled)
+				()=>{this.initSelectableObjects();this._warmUp();if(this._ready.value&&this._experience.router?.currentRouteKey===pages.HOME_PAGE&&!this._experience.cameraAnimation?.enabled)
 					this._experience.interactions?.start(this.selectableObjects,this.modelScene);});
 		}
+	}
+
+	/**
+	 * "Show me around": WALL·E narrates while the camera visits the room's best corners.
+	 * Any click, scroll or key takes the camera back immediately.
+	 */
+	private _tourTimers: number[] = [];
+	private _tourStop?: () => void;
+	public startTour() {
+		const nav = this._experience.navigation, scene = this.modelScene, robot = this.companion;
+		if (!nav || !scene || !robot) return;
+		this.stopTour();
+		const local = (x: number, y: number, z: number) => scene.localToWorld(new Vector3(x, y, z));
+		const centre = new Vector3(2.6, 0, 2.2);
+		// A stop is a target plus a viewpoint pulled back toward the middle of the room.
+		const view = (name: string, fallback: Vector3, distance: number, lift: number) => {
+			const object = scene.getObjectByName(name);
+			const target = object ? scene.worldToLocal(object.getWorldPosition(new Vector3())) : fallback;
+			const away = centre.clone().setY(target.y).sub(target).setY(0).normalize();
+			return { target: local(target.x, target.y, target.z), from: local(target.x + away.x * distance, target.y + lift, target.z + away.z * distance) };
+		};
+		const stops: { text: string; target: Vector3; from: Vector3 }[] = [
+			{ text: "Follow me! This is where the code gets written. And rewritten.", target: local(-0.7, 2.35, -2.0), from: local(0.4, 4.3, 0.7) },
+			{ text: "The notes board. Every sticky note opens something.", target: local(0.5, 3.45, -2.8), from: local(0.8, 3.6, 0.1) },
+			{ text: "The drawing table. Tap the frame for a new study.", ...view("atelier_study", new Vector3(4.4, 1.6, -1.2), 2.6, 1.2) },
+			{ text: "Records, a TV and a PlayStation. Forty-nine games. I checked.", target: local(4.9, 1.7, 5.95), from: local(8.4, 2.5, 5.95) },
+			{ text: "The couch and today's paper. The crossword is hard. I tried.", ...view("atelier_newspaper", new Vector3(4.0, 1.0, 3.6), 3.1, 1.7) },
+		];
+		let index = 0;
+		const next = () => {
+			const stop = stops[index++];
+			if (!stop) {
+				robot.say("That's the tour. Thanks for following a small robot.");
+				this.focusCompanion();
+				this.stopTour(false);
+				return;
+			}
+			nav.updateCameraPosition(stop.from, stop.target, 1.6);
+			robot.say(stop.text);
+			this._tourTimers.push(window.setTimeout(next, 5600));
+		};
+		const interrupt = () => this.stopTour();
+		window.addEventListener("pointerdown", interrupt, { once: true, capture: true });
+		window.addEventListener("wheel", interrupt, { once: true, capture: true });
+		window.addEventListener("keydown", interrupt, { once: true, capture: true });
+		this._tourStop = () => {
+			window.removeEventListener("pointerdown", interrupt, { capture: true });
+			window.removeEventListener("wheel", interrupt, { capture: true });
+			window.removeEventListener("keydown", interrupt, { capture: true });
+		};
+		robot.say("A tour? Follow me.");
+		this._tourTimers.push(window.setTimeout(next, 1200));
+	}
+	public stopTour(say = true) {
+		if (!this._tourTimers.length && !this._tourStop) return;
+		this._tourTimers.forEach(clearTimeout);
+		this._tourTimers = [];
+		this._tourStop?.();
+		this._tourStop = undefined;
+		if (say) this.companion?.say("Tour paused. You drive.");
 	}
 
 	public focusCompanion() {
@@ -537,6 +597,30 @@ export class Scene1Component extends SceneComponentBlueprint {
 	 * monitors, the laptop, the tower and the keyboards gain a physically shaded
 	 * layer that answers the camera and the room's lamps.
 	 */
+	// Shaders compile and textures upload in idle moments once the room is complete, so the first hover,
+	// lamp switch or camera turn never stalls while the GPU catches up.
+	private _warmUp() {
+		const renderer = this._experience.app.renderer.instance;
+		const idle = (task: () => void) => "requestIdleCallback" in window
+			? window.requestIdleCallback(task, { timeout: 2500 })
+			: globalThis.setTimeout(task, 300);
+		const camera = this._experience.app.camera.instance;
+		if (camera) idle(() => { void renderer.compileAsync(this._experience.app.scene, camera).catch(() => undefined); });
+		const pending = new Set<Texture>();
+		this.modelScene?.traverse(object => {
+			const material = (object as Mesh).material;
+			for (const item of Array.isArray(material) ? material : material ? [material] : [])
+				for (const value of Object.values(item)) if (value instanceof Texture) pending.add(value);
+		});
+		const queue = [...pending];
+		const upload = () => {
+			const start = performance.now();
+			while (queue.length && performance.now() - start < 6) renderer.initTexture(queue.pop()!);
+			if (queue.length) idle(upload);
+		};
+		idle(upload);
+	}
+
 	private _coatWorkstation(reflection: Texture) {
 		if (!this.modelScene || this._gloss) return;
 		const gloss = (this._gloss = createGlossCoat(reflection));
@@ -815,6 +899,9 @@ export class Scene1Component extends SceneComponentBlueprint {
 		if (action === "sound") this._music.value.open = true;
 		if (action === "newspaper") useState<boolean>('isNewspaperOpen', () => false).value = true;
 		if (action === "console") useState<boolean>('isConsoleOpen', () => false).value = true;
+		if (action === "console" || action === "newspaper") this.companion?.react(action);
+		if (action === "study" || action === "palette") this.companion?.react("art");
+		if (action === "sound") this.companion?.react("music");
 		if (action === "print" && !state.printing) {
 			state.printing = true;
 			this._atelier.print(() => { state.printing = false; state.printed = true; });
@@ -997,6 +1084,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 
 	public update(): void {
 		if (this._experience.router?.currentRouteKey === pages.HOME_PAGE) {
+			this.companion?.setMusic(!!this._experience.sound?.musicPlaying);
 			if(this._camera?.instance)this.companion?.update(this._appTime.delta,this._camera.instance);
 		}
 		if (

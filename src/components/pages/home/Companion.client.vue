@@ -8,6 +8,11 @@ const state = useState<CompanionState>("labCompanion", initialCompanionState);
 const route = useRoute();
 const ready = useState<boolean>("isExperienceReady");
 const robot = () => new HomeExperience().world?.scene1?.companion;
+// The tour moves the camera, so the menu steps out of the way first.
+const tour = () => {
+  state.value.panel = false;
+  new HomeExperience().world?.scene1?.startTour();
+};
 const close = () => {
   state.value.panel = false;
 };
@@ -42,8 +47,17 @@ function togglePanel(){
       class="robot-menu"
       aria-label="WALL-E companion controls"
     >
+      <button :disabled="!state.ready" @click="tour()">
+        Show me around <span aria-hidden="true">→</span>
+      </button>
       <button :disabled="!state.ready" @click="robot()?.greet()">
         Say hello <span aria-hidden="true">↗</span>
+      </button>
+      <button :disabled="!state.ready" @click="robot()?.dance()">
+        Dance <span aria-hidden="true">♪</span>
+      </button>
+      <button :disabled="!state.ready" @click="robot()?.compact()">
+        Make a cube <span aria-hidden="true">▣</span>
       </button>
       <button :disabled="!state.ready" @click="robot()?.dock()">
         Back to dock <span aria-hidden="true">↙</span>
