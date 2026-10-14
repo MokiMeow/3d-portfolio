@@ -17,6 +17,7 @@ import {
 	PlaneGeometry,
 	Raycaster,
 	SRGBColorSpace,
+	type Texture,
 } from "three";
 import gsap from "gsap";
 import { clipSceneryToWindow } from "./window-portal";
@@ -57,7 +58,9 @@ import { initialAtelierState, type AtelierAction, type AtelierState } from "~/co
 import type { LabDevice } from "~/common/models/lab-device.model";
 import { initialMusicState, type MusicState } from "~/common/models/music.model";
 import { createCompanion } from './scene-1.companion';
-import { splitMeshParts } from './mesh-parts';
+import { meshPartIndices, splitMeshParts } from './mesh-parts';
+import { createGlossCoat, type Finish } from './gloss-coat';
+import { ATELIER_PALETTES, ATELIER_STUDIES } from './atelier-art';
 import { initialCompanionState, type CompanionState } from '~/common/models/companion.model';
 
 export class Scene1Component extends SceneComponentBlueprint {
@@ -161,6 +164,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 	private _lightSwitch?: ReturnType<typeof createWallLightSwitch>;
 	private _drawers?: ReturnType<typeof createInteractiveDrawers>;
 	private _replacedProps?: ReturnType<typeof splitMeshParts>;
+	private _gloss?: ReturnType<typeof createGlossCoat>;
 	private _atelier?: ReturnType<typeof createAtelier>;
 	private readonly _atelierState = useState<AtelierState>("atelierState", initialAtelierState);
 	private readonly _music = useState<MusicState>('labMusic', initialMusicState);
@@ -510,6 +514,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 				renderer: this._experience.app.renderer.instance,
 			});
 			this._atelier.refresh(this._atelierState.value);
+			this._coatWorkstation(this._atelier.reflectionTexture);
 			this.companion = createCompanion(this.modelScene,this._atelier.reflectionTexture,this._night,this._companionState.value,
 				()=>{this.initSelectableObjects();if(this._ready.value&&this._experience.router?.currentRouteKey===pages.HOME_PAGE&&!this._experience.cameraAnimation?.enabled)
 					this._experience.interactions?.start(this.selectableObjects,this.modelScene);});
@@ -520,6 +525,39 @@ export class Scene1Component extends SceneComponentBlueprint {
 		const position=this.companion?.root.children[0]?.position;
 		if (!position) return;
 		this._experience.navigation?.updateCameraPosition(new Vector3(position.x+2.4,position.y+2.3,position.z+3.7),new Vector3(position.x,position.y+.6,position.z),.65);
+	}
+
+	/**
+	 * Live reflections for the workstation. The bake stays as it is; the two
+	 * monitors, the laptop, the tower and the keyboards gain a physically shaded
+	 * layer that answers the camera and the room's lamps.
+	 */
+	private _coatWorkstation(reflection: Texture) {
+		if (!this.modelScene || this._gloss) return;
+		const gloss = (this._gloss = createGlossCoat(reflection));
+		const mesh = (name: string) => {
+			const found = this.modelScene?.getObjectByName(name);
+			return found instanceof Mesh ? found : undefined;
+		};
+		for (const [name, finish] of [["monitor_a_screen", "glass"], ["monitor_b_screen", "glass"], ["pc_top", "aluminium"]] as const) {
+			const target = mesh(name);
+			if (target) gloss.add(target, finish);
+		}
+		const room = mesh("scene_1_room");
+		if (!room) return;
+		// Each device is a handful of loose pieces inside the merged room; these boxes fence them in.
+		const zones: { finish: Finish; min: number[]; max: number[] }[] = [
+			{ finish: "gloss", min: [-3.1, 1.85, -0.9], max: [-2.55, 3.15, 1] }, // left monitor
+			{ finish: "gloss", min: [-1.6, 1.85, -2.5], max: [0.25, 3.15, -2] }, // right monitor
+			{ finish: "aluminium", min: [-2.55, 1.85, -2], max: [-1.1, 2.3, -0.5] }, // laptop and its stand
+			{ finish: "gloss", min: [-0.3, 0.3, -2.6], max: [0.72, 1.36, -2.05] }, // tower under the desk
+			{ finish: "satin", min: [-2.05, 1.84, -1.5], max: [-0.4, 1.9, 0.1] }, // both keyboards
+		];
+		const pieces = meshPartIndices(room, (box) =>
+			zones.findIndex((zone) =>
+				zone.min.every((edge, axis) => box.min.getComponent(axis) > edge) &&
+				zone.max.every((edge, axis) => box.max.getComponent(axis) < edge)));
+		zones.forEach((zone, index) => gloss.add(room, zone.finish, pieces.get(index)));
 	}
 
 	private _createLightSwitch() {
@@ -537,7 +575,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 		if(on)this.companion?.wake();else this.companion?.farewell();
 		const tween = { duration: 1.1, ease: "power2.inOut" };
 
-		gsap.to(this._night, { value: on ? 0 : 1, ...tween });
+		gsap.to(this._night, { value: on ? 0 : 1, ...tween, onUpdate: () => this._gloss?.setLevel(1 - this._night.value * 0.82) });
 		// The machine under the desk stays on, so its blue light is what is left.
 		gsap.to(this.lightsBakedTextureStrength, { r: on ? 0.5 : 0, g: on ? 1 : 0, b: on ? 1.8 : 1.1, ...tween });
 		gsap.to(this.woodsLightsBakedTextureStrength, { r: on ? 0.7 : 0, g: on ? 0.7 : 0, b: on ? 1.5 : 0.6, ...tween });
@@ -736,6 +774,8 @@ export class Scene1Component extends SceneComponentBlueprint {
 				for (const geometry of this._boardNoteGeometries) geometry.dispose();
 				this._deskProps?.dispose();
 				this._deskProps = undefined;
+				this._gloss?.dispose();
+				this._gloss = undefined;
 				this._replacedProps?.dispose();
 				this._replacedProps = undefined;
 				this._drawers?.dispose();
@@ -763,8 +803,8 @@ export class Scene1Component extends SceneComponentBlueprint {
 	public actAtelier(action: AtelierAction) {
 		const state = this._atelierState.value;
 		if (!this._atelier || this._experience.router?.currentRouteKey !== pages.HOME_PAGE) return;
-		if (action === "study") state.study = (state.study + 1) % 3;
-		if (action === "palette") state.palette = (state.palette + 1) % 3;
+		if (action === "study") state.study = (state.study + 1) % ATELIER_STUDIES.length;
+		if (action === "palette") state.palette = (state.palette + 1) % ATELIER_PALETTES.length;
 		if (action === "wireframe") state.wireframe = !state.wireframe;
 		if (action === "lamp") state.lamp = !state.lamp;
 		if (action === "sound") this._music.value.open = true;

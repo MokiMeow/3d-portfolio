@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { HomeExperience } from "~/experiences/home";
 import { initialAtelierState, type AtelierAction, type AtelierState } from "~/common/models/atelier.model";
+import { ATELIER_PALETTES, ATELIER_STUDIES } from "~/experiences/home/world/atelier-art";
 
 const route = useRoute();
 const menu = ref<HTMLDetailsElement>();
 const state = useState<AtelierState>("atelierState", initialAtelierState);
-const studies = ["Orbit", "Rhythm", "Field"];
-const palettes = ["Clay & ink", "Moss & cream", "Blue hour"];
+const studies = ATELIER_STUDIES;
+const palettes = ATELIER_PALETTES.map((palette) => palette.name);
 const close = () => { if (menu.value) menu.value.open = false; };
 const act = (action: AtelierAction) => new HomeExperience().world?.scene1?.actAtelier(action);
 const save = () => new HomeExperience().world?.scene1?.saveAtelierPrint();

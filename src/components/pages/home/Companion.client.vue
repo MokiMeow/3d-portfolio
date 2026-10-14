@@ -60,18 +60,23 @@ function togglePanel(){
       aria-label="WALL-E companion"
       title="WALL-E companion"
     >
-      <svg
-        viewBox="0 0 34 22"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.2"
-      >
-        <path
-          d="M3 3Q9 0 16 6L14 14Q7 18 2 12ZM31 3Q25 0 18 6L20 14Q27 18 32 12Z"
-        />
-        <circle cx="9" cy="9" r="3" />
-        <circle cx="25" cy="9" r="3" />
-        <path d="M14 17h6v4h-6z" /></svg
+      <svg viewBox="0 0 44 34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <!-- WALL-E: two tilted binocular eyes on a thin neck, over the boxy body and its treads. -->
+        <g transform="rotate(-9 11.500 11)">
+          <path d="M20.800 12.400C20.300 6.600 15.800 2.700 10.300 3 5.300 3.300 1.900 7.100 2.300 11.500c.4 4.600 4.400 7.500 9.200 6.900 4.100-.5 8.100-2.500 9.300-6Z" />
+          <circle cx="11" cy="10.900" r="4.500" />
+          <circle cx="11" cy="10.900" r="1.900" fill="currentColor" stroke="none" />
+        </g>
+        <g transform="rotate(9 32.500 11)">
+          <path d="M23.200 12.400C23.700 6.600 28.200 2.700 33.700 3c5 .3 8.400 4.100 8 8.500-.4 4.600-4.400 7.500-9.200 6.900-4.100-.5-8.100-2.500-9.300-6Z" />
+          <circle cx="33" cy="10.900" r="4.500" />
+          <circle cx="33" cy="10.900" r="1.900" fill="currentColor" stroke="none" />
+        </g>
+        <path d="M20.600 13.200h2.800M22 14.600v6" />
+        <path d="M18.200 20.600h7.600l1.400 2.800H16.800Z" />
+        <path d="M13 23.400h18v6.800a1.300 1.300 0 0 1-1.300 1.300H14.300a1.300 1.300 0 0 1-1.300-1.300Z" />
+        <path d="M7.200 26.200 10 23.600h3v8H7.600a1.600 1.600 0 0 1-1.500-2.200ZM36.800 26.200 34 23.600h-3v8h5.400a1.600 1.600 0 0 0 1.500-2.200Z" />
+        <path d="M17.500 27.400h4.200M25 27.400h2" opacity=".75" /></svg
       ><span>WALL·E</span>
     </button>
   </div>
@@ -131,8 +136,8 @@ function togglePanel(){
   padding: 10px 0;
 }
 .robot-toggle svg {
-  width: 30px;
-  height: 23px;
+  width: 34px;
+  height: 26px;
 }
 button {
   transition: opacity 0.16s;

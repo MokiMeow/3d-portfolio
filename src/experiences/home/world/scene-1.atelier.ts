@@ -19,6 +19,7 @@ import {
   Texture,
   TextureLoader,
   MeshStandardMaterial,
+  MeshPhysicalMaterial,
   HemisphereLight,
   DirectionalLight,
   PMREMGenerator,
@@ -955,24 +956,59 @@ export function createAtelier(
     textured(sleeveArt),
   );
 
-  // Walnut sling frame, full back cushions and one gently slouched accent pillow.
+  // Upholstery: a woven bump and a soft sheen, so the cushions read as cloth rather than painted blocks.
+  const weave = canvasTexture(64, 64, (ctx) => {
+    ctx.fillStyle = "#808080";
+    ctx.fillRect(0, 0, 64, 64);
+    for (let i = 0; i < 64; i += 4) {
+      ctx.fillStyle = i % 8 ? "#9a9a9a" : "#646464";
+      ctx.fillRect(i, 0, 2, 64);
+      ctx.fillStyle = i % 8 ? "#6e6e6e" : "#929292";
+      ctx.fillRect(0, i, 64, 1);
+    }
+  });
+  weave.wrapS = weave.wrapT = RepeatWrapping;
+  weave.repeat.set(14, 14);
+  const fabrics = new Map<string, MeshPhysicalMaterial>();
+  const fabric = (color: string, map?: Texture) => {
+    const key = color + (map?.uuid ?? "");
+    let cloth = fabrics.get(key);
+    if (!cloth) {
+      const base = new Color(color).convertLinearToSRGB();
+      cloth = lightMaterial(new MeshPhysicalMaterial({
+        color: map ? new Color(1, 1, 1) : base, ...(map ? { map } : {}),
+        roughness: .96, metalness: 0,
+        sheen: .85, sheenRoughness: .5, sheenColor: base.clone().lerp(new Color(1, 1, 1), .4),
+        bumpMap: weave, bumpScale: .0032,
+        envMap: probe.texture, envMapIntensity: .1,
+      }));
+      fabrics.set(key, cloth);
+    }
+    return cloth;
+  };
+  const upholster = (mesh: Mesh, color: string, map?: Texture) => { mesh.material = fabric(color, map); return mesh; };
+
+  // Walnut sling frame, full back cushions, tufting buttons, a striped lumbar pillow and one slouched accent pillow.
   const sofa = new Group();
   sofa.position.set(5.12, FLOOR, 5.3);
   sofa.scale.setScalar(1.2);
   furniture.add(sofa);
   shadow(furniture, 5.12, 5.3, 2.05, 3.65);
   for (const x of [-0.5, 0.5])
-    for (const z of [-1.01, 1.01])
+    for (const z of [-1.01, 1.01]) {
       cylinder(sofa, 0.038, 0.24, [x, 0.12, z], walnut);
+      // Brass ferrules where the legs meet the floor.
+      cylinder(sofa, 0.041, 0.045, [x, 0.0225, z], brass);
+    }
   box(sofa, [1.37, 0.12, 2.6], [0, 0.29, 0], walnut, 0.045);
   box(sofa, [1.22, 0.065, 2.4], [-.025, .368, 0], "#363832", .025);
   for(const y of [.55,.79,1.06])box(sofa,[.07,.105,2.46],[.615,y,0],walnut,.024);
   for (const z of [-1.19, 1.19]) {
     tube(sofa,[[-.59,.27,z],[-.61,.65,z],[-.49,.79,z],[.51,.79,z],[.61,.71,z],[.615,.3,z]],.043,walnut);
-    box(sofa,[1.19,.19,.245],[-.035,.79,z],"#9b9d85",.085);
+    upholster(box(sofa,[1.19,.19,.245],[-.035,.79,z],"#9b9d85",.085), "#9b9d85");
   }
   for (const z of [-0.55, 0.55]) {
-    box(sofa, [1.12, 0.27, 1.035], [-0.065, 0.515, z], "#b6ad98", 0.11);
+    upholster(box(sofa, [1.12, 0.27, 1.035], [-0.065, 0.515, z], "#b6ad98", 0.11), "#b6ad98");
     const seatSeam = seam(sofa, .94, .85, .09, "#c0b6a0");
     seatSeam.rotation.x = -Math.PI / 2; seatSeam.position.set(-.065, .651, z);
     const cushion = box(
@@ -983,11 +1019,25 @@ export function createAtelier(
       0.12,
     );
     cushion.rotation.z = -0.12;
+    upholster(cushion, "#b6ad98");
+    // Two covered buttons pull each back cushion in, the way a real one is tufted.
+    for (const along of [-.24, .24]) ball(sofa, [.012, .024, .024], [.222, .99, z + along], "#a39a86");
     // Welt follows the pillow's softened perimeter and tilts with it.
     const welt = seam(sofa, .82, .46, .09, "#c0b6a0");
     welt.geometry.rotateY(-Math.PI / 2).translate(-.146, 0, 0).rotateZ(-.12).translate(.365, .95, z);
   }
-  const accentPillow=box(sofa,[.25,.44,.48],[.08,.89,-.77],"#687562",.105);
+  const accentPillow=upholster(box(sofa,[.25,.44,.48],[.08,.89,-.77],"#687562",.105), "#687562");
+  // A small striped lumbar pillow in the print's clay and ink, leaning in the other corner.
+  const stripes = canvasTexture(128, 128, (ctx) => {
+    ctx.fillStyle = "#e6dcc8";
+    ctx.fillRect(0, 0, 128, 128);
+    for (const [y, h, colour] of [[14, 10, "#b96345"], [30, 3, "#292c28"], [60, 16, "#b96345"], [82, 3, "#292c28"], [104, 10, "#b96345"]] as const) {
+      ctx.fillStyle = colour;
+      ctx.fillRect(0, y, 128, h);
+    }
+  });
+  const lumbar = upholster(box(sofa, [.17, .3, .56], [.17, .82, .66], "#e6dcc8", .075), "#e6dcc8", stripes);
+  lumbar.rotation.set(-.06, .07, -.2);
   accentPillow.rotation.set(.17,-.1,.13);
   let pillowTurned = false, stoolTurned = false;
   selectables.push({ object: accentPillow, onSelect: () => {
@@ -1016,7 +1066,7 @@ export function createAtelier(
     blanketPos.setXYZ(i, x, y, .2 + v * .68 + u * .045);
   }
   blanketGeo.computeVertexNormals();
-  sofa.add(new Mesh(blanketGeo, mat("#c0b6a0")));
+  sofa.add(new Mesh(blanketGeo, fabric("#c0b6a0")));
   for (let i = 0; i < 16; i++) {
     const z = .245 + i * .043;
     tube(sofa, [[-.756, .263 + Math.sin(i) * .012, z], [-.77, .205, z + .004], [-.757, .187, z + .006]], .003, "#ad9f85");
