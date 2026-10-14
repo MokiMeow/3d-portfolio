@@ -87,6 +87,8 @@ const bluetooth = ref(true);
 const mirroring = ref(false);
 const volume = ref(0.7);
 const help = ref(false);
+// Just the view: every window, the Home View and the chrome step aside so only the place is left.
+const viewOnly = ref(false);
 const note = ref('');
 const flash = ref(false);
 const looking = ref(false);
@@ -156,12 +158,14 @@ function pageKeys(event: KeyboardEvent) {
   else if (event.key === 'ArrowLeft' || event.key === 'PageUp') turnPage(-1);
 }
 function goHome(which: 'apps' | 'people' | 'environments' = 'apps') {
+  if (viewOnly.value) { setViewOnly(false); return; }
   control.value = false; help.value = false;
   if (homeOpen.value && tab.value === which && windows.value.length) { homeOpen.value = false; return; }
   tab.value = which; homeOpen.value = true;
 }
 /** Escape: step back one level. Returns false when there is nothing left to step back from. */
 function back() {
+  if (viewOnly.value) { setViewOnly(false); return true; }
   if (spotlight.value?.open) { spotlight.value.hide(); return true; }
   if (help.value) { help.value = false; return true; }
   if (control.value) { control.value = false; return true; }
@@ -219,6 +223,21 @@ function glideTo(target: number) {
     glide = requestAnimationFrame(tick);
   };
   glide = requestAnimationFrame(tick);
+}
+let viewHinted = false;
+function setViewOnly(on: boolean) {
+  if (viewOnly.value === on) return;
+  viewOnly.value = on;
+  document.documentElement.classList.toggle('lab-vision-view', on);
+  if (!on) return;
+  control.value = false; help.value = false; closeMenu.value = null; spotlight.value?.hide();
+  if (!viewHinted) { viewHinted = true; toast('Just the view. Tap the bar below, or press V, to bring everything back.'); }
+}
+/** Picking a place from the Home View steps into it, the way the headset does, instead of leaving the grid in the way. */
+function pickPlace(id: VisionEnvironmentId) {
+  setEnvironment(id);
+  if (id !== 'room' && windows.value.length === 0) window.setTimeout(() => { if (environment.value === id) homeOpen.value = false; }, 420);
+  else if (id !== 'room') homeOpen.value = false;
 }
 function setEnvironment(id: VisionEnvironmentId) {
   if (id === 'room') { glideTo(0); toast('Back in the room.'); return; }
@@ -391,6 +410,7 @@ function siriKey(event: KeyboardEvent) {
   if (event.altKey && event.code === 'Space') { event.preventDefault(); siri.value?.activate(); return; }
   // Spotlight: Ctrl or Command + Space, or / when nothing is being typed.
   const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || (event.target as HTMLElement | null)?.isContentEditable;
+  if (!typing && !event.ctrlKey && !event.metaKey && !event.altKey && (event.key === 'v' || event.key === 'V') && !booting.value) { event.preventDefault(); setViewOnly(!viewOnly.value); return; }
   if (((event.ctrlKey || event.metaKey) && event.code === 'Space') || (event.key === '/' && !typing)) { event.preventDefault(); openSpotlight(); }
 }
 const spotlight = ref<InstanceType<typeof Spotlight>>();
@@ -451,7 +471,7 @@ onMounted(() => {
   scriptTimers = SCRIPT.map(([seconds, app, title, body]) => window.setTimeout(() => notify(app, title, body), seconds * 1000));
 });
 onBeforeUnmount(() => {
-  document.documentElement.classList.remove('lab-vision-on');
+  document.documentElement.classList.remove('lab-vision-on', 'lab-vision-view');
   if (labDeviceBack.handler === back) labDeviceBack.handler = null;
   watcher?.disconnect();
   window.removeEventListener('keydown', pageKeys);
@@ -464,12 +484,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="visor" class="visor" :class="{ booting, solid: reduceTransparency, compact, inside, looking, 'cc-open': control, 'home-open': homeOpen }" :style="{ '--tx': tilt.x, '--ty': tilt.y }" @pointermove="look">
+  <div ref="visor" class="visor" :class="{ booting, solid: reduceTransparency, compact, inside, looking, 'cc-open': control, 'home-open': homeOpen, 'view-only': viewOnly }" :style="{ '--tx': tilt.x, '--ty': tilt.y }" @pointermove="look">
     <VisionEnvironment :id="environment" ref="place" :immersion="immersion" :dark="dark" class="place" />
     <i class="dimmer" :style="{ opacity: dim }" />
     <i class="gaze" />
 
-    <div ref="space" class="space" :class="{ dimmed: (homeOpen && windows.length) || help }" @pointerdown="lookDown" @pointermove="lookMove" @pointerup="lookUp" @pointercancel="lookUp">
+    <div ref="space" class="space" :class="{ dimmed: !viewOnly && ((homeOpen && windows.length) || help) }" @pointerdown="lookDown" @pointermove="lookMove" @pointerup="lookUp" @pointercancel="lookUp">
       <!-- Widgets live in the room, behind any open windows. -->
       <SpatialWidgets v-if="!booting" ref="widgets" :now="now" :compact="compact" :dark="dark" :immersed="inside && immersion > 0.95" @open="openFromWidget" />
       <!-- Windows -->
@@ -531,7 +551,7 @@ onBeforeUnmount(() => {
             </button>
           </div>
           <div v-else class="shelf places">
-            <button v-for="spot in VISION_ENVIRONMENTS" :key="spot.id" :aria-pressed="spot.id === 'room' ? !inside : environment === spot.id && inside" @click="setEnvironment(spot.id)">
+            <button v-for="spot in VISION_ENVIRONMENTS" :key="spot.id" :aria-pressed="spot.id === 'room' ? !inside : environment === spot.id && inside" @click="pickPlace(spot.id)">
               <span class="thumbnail"><i v-if="spot.id === 'room'" class="room-thumb" /><img v-else :src="`/vision/env/${spot.id}-thumb.webp`" alt="" loading="lazy" draggable="false" /></span>
               <b>{{ spot.name }}</b><small>{{ spot.line }}</small>
             </button>
@@ -565,8 +585,19 @@ onBeforeUnmount(() => {
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 19 6-10 4 6 2.500-3.500L21 19Z" fill="currentColor" /><circle cx="17" cy="6.500" r="2.200" fill="currentColor" /></svg>
         <span>{{ inside ? here.name : 'Environments' }}</span><em v-if="inside">{{ Math.round(immersion * 100) }}%</em>
       </button>
+      <button class="dock-round" aria-label="Just the view (V)" title="Just the view · V" @click="setViewOnly(true)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" /><circle cx="12" cy="12" r="3.2" fill="currentColor" /></svg>
+      </button>
       <button class="dock-round" :aria-pressed="help" aria-label="How to use Vision Pro" title="How to use Vision Pro" @click="help = !help; control = false">?</button>
     </nav>
+
+    <!-- Just the view: one quiet bar brings everything back. -->
+    <Transition name="view-return">
+      <button v-if="viewOnly" class="view-return" aria-label="Show everything (V)" title="Show everything · V" @click="setViewOnly(false)">
+        <i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" /><circle cx="12" cy="12" r="3.2" fill="currentColor" /></svg></i>
+        <span>Show everything</span>
+      </button>
+    </Transition>
 
     <Spotlight ref="spotlight" :apps="VISION_APPS" :environments="VISION_ENVIRONMENTS" :people="PEOPLE" :compact="compact" @pick="spotlightPick" />
     <SiriOrb v-if="!booting" ref="siri" :apps="VISION_APPS" :environments="VISION_ENVIRONMENTS" :compact="compact" :sound="sound" @command="siriCommand" />
@@ -947,6 +978,27 @@ button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3
 @media(hover:none){.chip-shut{opacity:1;transform:scale(1)}.corner{opacity:1}.gaze{display:none}}
 @media(prefers-reduced-motion:reduce){.home,.window,.orb,.dimmer,.dock{transition:none;animation:none}.honeycomb button,.shelf,.lens,.optic,.help li i::before,.help li i::after{animation:none}.optic circle:first-child{animation:none;stroke-dashoffset:0}
   .home-enter-active,.home-leave-active,.window-enter-active,.window-leave-active,.drop-enter-active,.drop-leave-active{transition:opacity .15s}.home-enter-from,.home-leave-to,.window-enter-from,.window-leave-to{transform:none}}
+
+/* Just the view. Windows and the Home View sink back and blur away; the chrome slides off the edges. */
+.window,.home,.widget-layer{transition-property:transform,filter,opacity,scale,visibility;transition-duration:.25s,.3s,.3s,.6s,0s;transition-timing-function:ease-out,ease,ease,cubic-bezier(.2,.8,.2,1),linear}
+.dock,.status,.crown,.top-button,.notices,.siri-layer{transition:translate .6s cubic-bezier(.2,.8,.2,1),opacity .4s ease,top .3s ease}
+.view-only :is(.window,.home,.widget-layer){opacity:0;scale:.9;filter:blur(14px);pointer-events:none;visibility:hidden;transition-duration:.25s,.45s,.45s,.6s,0s;transition-delay:0s,0s,0s,0s,.6s}
+.view-only .dock{translate:0 calc(100% + 40px);opacity:0;pointer-events:none}
+.view-only :is(.status,.crown,.top-button){translate:0 -90px;opacity:0;pointer-events:none}
+.view-only :is(.notices,.siri-layer){opacity:0;pointer-events:none}
+.view-only .space::before{opacity:0}
+.view-return{position:absolute;left:50%;bottom:24px;translate:-50% 0;z-index:7600;height:40px;padding:0 7px;border-radius:20px;display:flex;align-items:center;color:#fff;background:linear-gradient(180deg,rgb(255 255 255 / .16),rgb(255 255 255 / .05)),rgb(36 38 46 / .32);backdrop-filter:blur(26px) saturate(150%);-webkit-backdrop-filter:blur(26px) saturate(150%);box-shadow:inset 0 1px 0 rgb(255 255 255 / .28),inset 0 0 0 1px rgb(255 255 255 / .14),0 14px 34px rgb(0 0 0 / .28);opacity:.62;transition:opacity .3s,padding .35s cubic-bezier(.2,.8,.2,1),background .3s}
+.view-return i{width:26px;height:26px;display:grid;place-items:center;flex:none}
+.view-return svg{width:20px;height:20px}
+.view-return span{max-width:0;overflow:hidden;white-space:nowrap;font-size:14px;font-weight:600;opacity:0;transition:max-width .4s cubic-bezier(.2,.8,.2,1),opacity .25s,margin .4s}
+.view-return:is(:hover,:focus-visible){opacity:1;padding:0 16px 0 9px}
+.view-return:is(:hover,:focus-visible) span{max-width:150px;opacity:1;margin-left:7px}
+.view-return::after{content:"";position:absolute;inset:-6px;border-radius:26px;box-shadow:0 0 0 1.5px rgb(255 255 255 / .5);opacity:0;animation:view-ping 2.4s ease-out .7s 2;pointer-events:none}
+@keyframes view-ping{0%{opacity:.9;scale:.9}100%{opacity:0;scale:1.25}}
+.view-return-enter-active{transition:opacity .5s ease .35s,translate .6s cubic-bezier(.2,.8,.2,1) .35s}
+.view-return-leave-active{transition:opacity .25s ease,translate .3s ease}
+.view-return-enter-from,.view-return-leave-to{opacity:0;translate:-50% 30px}
+@media (prefers-reduced-motion:reduce){.view-only :is(.window,.home,.widget-layer){scale:1;filter:none}.view-return::after{animation:none}}
 </style>
 
 <style src="./vision/kit/kit.css"></style>
@@ -954,4 +1006,6 @@ button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3
 <style>
 /* While the headset is on, the site's own menus step out of view: only the room and visionOS remain. */
 .lab-vision-on .lab-chrome{opacity:0;pointer-events:none;transition:opacity .4s}
+.lab-vision-view .device-close{opacity:.22;transition:opacity .4s}
+.lab-vision-view .device-close:is(:hover,:focus-visible){opacity:1}
 </style>
