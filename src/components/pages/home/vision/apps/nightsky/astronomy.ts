@@ -78,3 +78,19 @@ export function planets(time: number): SkyObject[] {
         return { name, ra: (Math.atan2(y, p.x) / RAD / 15 + 24) % 24, dec: Math.atan2(z, Math.hypot(p.x, y)) / RAD, magnitude, bv, constellation: 'Solar system', distance, fact, planet: true };
     });
 }
+
+/** Geocentric solar direction from the same low-precision orbit as the planet atlas. */
+export function solarDirection(time: number): Vector3 {
+  const d = (time - Date.UTC(1999, 11, 31)) / 86400000;
+  const p = orbit([0,0,282.9404+4.70935e-5*d,1,.016709-1.151e-9*d,356.047+.9856002585*d]);
+  const e = (23.4393-3.563e-7*d)*RAD;
+  return new Vector3(p.x, p.z*Math.cos(e)+p.y*Math.sin(e), p.y*Math.cos(e)-p.z*Math.sin(e)).normalize();
+}
+export function solarAltitude(time: number, cityIndex: number): number {
+  const city = cities[cityIndex] ?? cities[0];
+  return Math.asin(solarDirection(time).applyMatrix4(observerMatrix(time,city.lat,city.lon)).y)/RAD;
+}
+export function moonIllumination(time: number): number {
+  const moon = planets(time)[0]!;
+  return (1-equatorial(moon.ra,moon.dec,1).dot(solarDirection(time)))/2;
+}

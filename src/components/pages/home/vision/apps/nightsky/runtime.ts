@@ -9,7 +9,6 @@ export class WindowRenderer {
     private disposed = false;
     private visible = false;
     private last = 0;
-    private awakeUntil = 0;
     private ratioCeiling = 1.5;
     private resize: ResizeObserver;
     private intersection: IntersectionObserver;
@@ -57,7 +56,6 @@ export class WindowRenderer {
     }
     get active(): boolean { return !this.disposed && this.visible && !document.hidden; }
     wake = (): void => {
-        this.awakeUntil = performance.now() + 2000;
         if (!this.disposed && this.visible && !document.hidden && !this.frame)
             this.frame = requestAnimationFrame(this.draw);
     };
@@ -69,8 +67,6 @@ export class WindowRenderer {
         this.last = time;
         const moving = this.tick(dt, time / 1000);
         if (moving)
-            this.awakeUntil = time + 2000;
-        if (moving || time < this.awakeUntil)
             this.frame = requestAnimationFrame(this.draw);
         else
             this.last = 0;
