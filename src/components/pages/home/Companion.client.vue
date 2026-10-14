@@ -42,31 +42,47 @@ function togglePanel(){
         <span>WALL·E</span>{{ state.caption }}
       </p></Transition
     >
+    <Transition name="robot-card">
     <nav
       v-if="state.panel"
       class="robot-menu"
       aria-label="WALL-E companion controls"
     >
-      <button :disabled="!state.ready" @click="tour()">
-        Show me around <span aria-hidden="true">→</span>
-      </button>
-      <button :disabled="!state.ready" @click="robot()?.greet()">
-        Say hello <span aria-hidden="true">↗</span>
-      </button>
-      <button :disabled="!state.ready" @click="robot()?.dance()">
-        Dance <span aria-hidden="true">♪</span>
-      </button>
-      <button :disabled="!state.ready" @click="robot()?.compact()">
-        Make a cube <span aria-hidden="true">▣</span>
-      </button>
-      <button :disabled="!state.ready" @click="robot()?.dock()">
-        Back to dock <span aria-hidden="true">↙</span>
-      </button>
-      <button :disabled="!state.ready" @click="robot()?.togglePlant()" :aria-expanded="state.plantOpen">
-        {{ state.plantOpen ? 'Close hatch' : 'A little green hope' }} <span aria-hidden="true">✳</span>
-      </button>
-      <button @click="close" aria-label="Close WALL-E controls">×</button>
+      <header>
+        <b>WALL·E</b>
+        <small>{{ state.ready ? 'At your service' : 'Warming up…' }}</small>
+        <button class="robot-close" @click="close" aria-label="Close WALL-E controls">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8m0-8-8 8" /></svg>
+        </button>
+      </header>
+      <div class="robot-actions">
+        <button class="wide" :disabled="!state.ready" @click="tour()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.2 7-11.5a7 7 0 0 0-14 0C5 14.8 12 21 12 21Z" /><circle cx="12" cy="9.5" r="2.5" /></svg>
+          <span><b>Show me around</b><small>A short guided tour</small></span>
+        </button>
+        <button :disabled="!state.ready" @click="robot()?.greet()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12m0-6.5V5a1.5 1.5 0 0 1 3 0v7m0-5.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-12.4 4.4L3.4 15a1.6 1.6 0 0 1 2.4-2.1L8 15" /></svg>
+          <span>Say hello</span>
+        </button>
+        <button :disabled="!state.ready" @click="robot()?.dance()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="17" cy="16" r="3" /></svg>
+          <span>Dance</span>
+        </button>
+        <button :disabled="!state.ready" @click="robot()?.compact()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Zm0 9 8-4.5M12 12 4 7.5M12 12v9" /></svg>
+          <span>Make a cube</span>
+        </button>
+        <button :disabled="!state.ready" @click="robot()?.togglePlant()" :aria-expanded="state.plantOpen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21v-9m0 0C12 7 8.5 4 4 4c0 4.5 3.5 8 8 8Zm0 0c0-4 3-7 7-7 0 4-3 7-7 7" /></svg>
+          <span>{{ state.plantOpen ? 'Close hatch' : 'The plant' }}</span>
+        </button>
+        <button :disabled="!state.ready" @click="robot()?.dock()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M7 20v-6h10v6M9 14V9l3-3 3 3v5" /></svg>
+          <span>Back to dock</span>
+        </button>
+      </div>
     </nav>
+    </Transition>
     <button
       class="robot-toggle"
       @click="togglePanel"
@@ -120,25 +136,123 @@ function togglePanel(){
   font: 9px/2 monospace;
   letter-spacing: 0.16em;
 }
+/* The companion's controls: a small warm glass card, icon tiles in a grid. */
 .robot-menu {
-  display: flex;
-  flex-wrap: wrap;
+  width: min(330px, calc(100vw - 32px));
+  margin-bottom: 12px;
+  padding: 14px;
+  border-radius: 22px;
+  background: linear-gradient(160deg, #3a332bde, #1f1c19eb);
+  backdrop-filter: blur(18px) saturate(120%);
+  -webkit-backdrop-filter: blur(18px) saturate(120%);
+  box-shadow: inset 0 1px 0 #ffffff1c, inset 0 0 0 1px #d2bd9426, 0 24px 60px #000a;
+  text-shadow: none;
+}
+.robot-menu header {
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 20px;
+  padding: 2px 4px 12px;
 }
-.robot-menu button {
-  font-size: 12px;
-  min-height: 44px;
-  border-bottom: 1px solid #d2bd9466;
-}
-.robot-menu button span {
-  padding-left: 3px;
+.robot-menu header b {
+  font: 600 11px/1.2 monospace;
+  letter-spacing: 0.18em;
   color: #d2bd94;
 }
-.robot-menu button:last-child {
-  border: 0;
-  font-size: 22px;
-  padding: 0 10px;
+.robot-menu header small {
+  grid-row: 2;
+  font-size: 13px;
+  color: #fff6dea6;
+  margin-top: 2px;
+}
+.robot-close {
+  grid-row: 1 / 3;
+  grid-column: 2;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #ffffff12;
+}
+.robot-close svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+.robot-close:hover {
+  background: #ffffff24;
+}
+.robot-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.robot-actions button {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 7px;
+  min-height: 76px;
+  padding: 10px 6px;
+  border-radius: 16px;
+  background: #ffffff0d;
+  box-shadow: inset 0 0 0 1px #ffffff0f;
+  font-size: 12px;
+  line-height: 1.2;
+  color: #fff6de;
+  transition: background 0.16s, transform 0.16s;
+}
+.robot-actions button:hover:not(:disabled) {
+  background: #d2bd9426;
+  transform: translateY(-2px);
+}
+.robot-actions button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.robot-actions svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: #d2bd94;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.robot-actions .wide {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-start;
+  gap: 12px;
+  min-height: 58px;
+  padding: 10px 14px;
+  text-align: left;
+  background: linear-gradient(120deg, #d2bd9433, #d2bd9414);
+}
+.robot-actions .wide span {
+  display: grid;
+  gap: 2px;
+}
+.robot-actions .wide b {
+  font-size: 14px;
+  font-weight: 600;
+}
+.robot-actions .wide small {
+  font-size: 12px;
+  color: #fff6de99;
+}
+.robot-card-enter-active,
+.robot-card-leave-active {
+  transition: opacity 0.22s, transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+.robot-card-enter-from,
+.robot-card-leave-to {
+  opacity: 0;
+  transform: translateY(10px) scale(0.97);
+  transform-origin: bottom left;
 }
 .robot-toggle {
   display: flex;
@@ -186,7 +300,7 @@ button:disabled {
     max-width: 260px;
   }
   .robot-menu {
-    gap: 14px;
+    width: calc(100vw - 34px);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -200,9 +314,9 @@ button:disabled {
  .companion-ui{bottom:calc(82px + env(safe-area-inset-bottom));left:max(16px,env(safe-area-inset-left));right:max(16px,env(safe-area-inset-right));pointer-events:none;}
  .robot-toggle,.robot-menu{pointer-events:auto;}
  .robot-toggle{min-height:44px;}
- .robot-menu{width:100%;gap:4px 18px;padding:6px 12px;background:#191b1bea;border-top:1px solid #d2bd9440;max-height:calc(var(--visual-height,100dvh) - 180px);overflow:auto;}
- .robot-menu button{font-size:12px;}
+ .robot-menu{width:100%;padding:12px;max-height:calc(var(--visual-height,100dvh) - 180px);overflow:auto;}
+ .robot-actions button{min-height:68px;}
  .robot-caption{max-width:calc(100vw - 48px);font-size:16px;}
 }
-@media(max-height:500px) and (min-width:640px){.companion-ui{bottom:calc(64px + env(safe-area-inset-bottom));}.robot-menu{width:max-content;max-width:100%;}}
+@media(max-height:500px) and (min-width:640px){.companion-ui{bottom:calc(64px + env(safe-area-inset-bottom));}.robot-menu{max-height:calc(100dvh - 120px);overflow:auto;}}
 </style>

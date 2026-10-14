@@ -70,7 +70,7 @@ export function createCompanion(
     rightEye: Object3D | undefined;
   // A livelier WALL·E: eyes that follow the pointer, little idle glances, a dance when music plays,
   // headlights after dark and a compactor trick. All procedural, all inside his own update.
-  let pointerX = 0, pointerY = 0, glance = 0, glanceAim = 0, nextIdle = 9, energy = 0, music = false, wantDance = 0;
+  let pointerX = 0, pointerY = 0, glance = 0, glanceAim = 0, nextIdle = 25, energy = 0, music = false, wantDance = 0;
   let lampLevel = 0, nightWatch = false, quipIndex = 0, cubeCount = 0;
   const lamps: Mesh[] = [];
   const cubes: Mesh[] = [];
@@ -252,50 +252,93 @@ export function createCompanion(
     motion?.kill();
     resetPose();
     state.phase = "visiting";
-    wantDance = 7;
+    wantDance = 6;
     say(music ? "This one is my jam." : "No music? I'll hum.");
   }
-  /** The compactor trick: the hatch opens, a tidy cube of rubbish rolls out onto the apron. */
+  /**
+   * The compactor trick, after the film: the chest hatch opens, a tidy cube of rubbish slides out and he sets
+   * it on a little tower at the corner of his dock. Six make a tower; the seventh recycles it and starts again.
+   */
+  const CUBE = 0.13;
+  const STACK = new Vector3(DOCK.x + 0.7, GROUND, DOCK.z + 1.2);
+  let cubeBusy = false;
   function compact() {
-    if (!state.ready || !compartment || !robot) return;
+    if (!state.ready || !compartment || !robot || cubeBusy) return;
     motion?.kill();
     resetPose();
     state.phase = "visiting";
+    cubeBusy = true;
+    const recycle = cubes.length >= 6;
+    if (recycle) {
+      // Last tower goes back into the compactor, top first.
+      const old = cubes.splice(0);
+      old.reverse().forEach((cube, i) => gsap.to(cube.scale, {
+        x: 0.01, y: 0.01, z: 0.01, duration: 0.25, delay: i * 0.06, ease: "power2.in",
+        onComplete: () => { cube.removeFromParent(); },
+      }));
+    }
     cubeCount++;
-    say(cubeCount === 1 ? "Directive: compact. One fresh cube, coming up." : "Cube number " + cubeCount + ". I'm on a roll.");
-    const size = 0.11;
+    const level = cubes.length;
+    say(recycle ? "Recycled the old tower. Starting a new one."
+      : level === 5 ? "Six. The tower is complete. Very tidy."
+      : level === 0 ? "Directive: compact. First cube of a new tower."
+      : `Cube ${level + 1} of 6. Stacking carefully.`);
     const face = document.createElement("canvas");
     face.width = face.height = 64;
     const paint = face.getContext("2d")!;
+    // Crushed cans, cardboard and wire, pressed flat: rusty browns with a few bright labels.
+    paint.fillStyle = "#4a3b2c"; paint.fillRect(0, 0, 64, 64);
     for (let i = 0; i < 90; i++) {
-      paint.fillStyle = ["#6b5b45", "#8a7a5c", "#4f4a3e", "#a08a62", "#5d6b5a", "#b5a27a"][i % 6]!;
-      paint.fillRect(Math.random() * 64, Math.random() * 64, 6 + Math.random() * 14, 3 + Math.random() * 8);
+      paint.fillStyle = ["#7a4a28", "#5a3a22", "#8e5a30", "#3f3226", "#9c7a4a", "#6a5a48", "#b0452f", "#2f5d78", "#c9a24a"][i % 9]!;
+      paint.save(); paint.translate(Math.random() * 64, Math.random() * 64); paint.rotate((Math.random() - 0.5) * 0.6);
+      paint.fillRect(-6, -2, 6 + Math.random() * 14, 2 + Math.random() * 6); paint.restore();
     }
-    paint.strokeStyle = "#2b2620"; paint.lineWidth = 2; paint.strokeRect(1, 1, 62, 62);
+    paint.strokeStyle = "#1b150f88"; paint.lineWidth = 1;
+    for (let i = 0; i < 8; i++) { paint.beginPath(); paint.moveTo(0, Math.random() * 64); paint.lineTo(64, Math.random() * 64); paint.stroke(); }
+    paint.strokeStyle = "#2b2620"; paint.lineWidth = 3; paint.strokeRect(1.5, 1.5, 61, 61);
+    paint.strokeStyle = "#ffffff22"; paint.lineWidth = 1; paint.strokeRect(5, 5, 54, 54);
     const texture = new CanvasTexture(face);
     textures.add(texture);
-    const material = tint(new MeshStandardMaterial({ map: texture, roughness: 0.9, metalness: 0.1, envMap: env, envMapIntensity: 0.3 }));
-    const geometry = new BoxGeometry(size, size, size);
+    const material = tint(new MeshStandardMaterial({ map: texture, roughness: 0.92, metalness: 0.35, envMap: env, envMapIntensity: 0.45 }));
+    const geometry = new BoxGeometry(CUBE, CUBE, CUBE);
     geometries.add(geometry);
     const cube = new Mesh(geometry, material);
+    // It starts inside the open hatch, at the centre of his chest.
     const start = new Vector3();
     compartment.getWorldPosition(start);
     root.worldToLocal(start);
+    const forward = new Vector3(0, 0, 1).applyQuaternion(carriage.quaternion);
+    start.addScaledVector(forward, 0.06);
     cube.position.copy(start);
+    cube.rotation.y = carriage.rotation.y;
     cube.scale.setScalar(0.01);
     root.add(cube);
+    const end = STACK.clone();
+    end.y = GROUND + CUBE / 2 + level * CUBE;
+    end.x += Math.sin(level * 2.3) * 0.006;
+    end.z += Math.cos(level * 1.7) * 0.006;
+    const flight = { t: 0 };
+    const yaw = (Math.random() - 0.5) * 0.25;
+    const startYaw = cube.rotation.y;
+    // Arc height: enough to clear the dock deck and the tower beneath.
+    const lift = Math.max(0.22, end.y - start.y + 0.18);
+    gsap.timeline({ delay: recycle ? 0.5 : 0, onComplete: () => { cubeBusy = false; } })
+      .to(compartment.rotation, { x: (Math.PI * 95) / 180, duration: 0.45, ease: "power2.out" }, 0)
+      .to(cube.scale, { x: 1, y: 1, z: 1, duration: 0.3, ease: "back.out(1.6)" }, 0.4)
+      .to(flight, {
+        t: 1, duration: 0.85, ease: "power1.inOut",
+        onUpdate: () => {
+          const t = flight.t;
+          cube.position.lerpVectors(start, end, t);
+          cube.position.y += Math.sin(t * Math.PI) * lift;
+          cube.rotation.y = startYaw + (yaw - startYaw) * t;
+        },
+      }, 0.75)
+      // A small settle as it lands on the stack.
+      .to(cube.scale, { y: 0.88, x: 1.06, z: 1.06, duration: 0.08, ease: "power1.out" }, 1.6)
+      .to(cube.scale, { y: 1, x: 1, z: 1, duration: 0.22, ease: "back.out(2)" }, 1.68)
+      .to(compartment.rotation, { x: 0, duration: 0.45, ease: "power2.inOut" }, 1.5);
     cubes.push(cube);
-    if (cubes.length > 4) { const old = cubes.shift()!; old.removeFromParent(); }
-    const forward = new Vector3(0, 0, 1).applyQuaternion(carriage.quaternion);
-    const land = carriage.position.clone().addScaledVector(forward, 0.42 + (cubeCount % 3) * 0.06);
-    land.x += ((cubeCount % 2) * 2 - 1) * 0.12;
-    gsap.timeline()
-      .to(compartment.rotation, { x: (Math.PI * 95) / 180, duration: 0.5, ease: "power2.out" }, 0)
-      .to(cube.scale, { x: 1, y: 1, z: 1, duration: 0.35, ease: "back.out(2)" }, 0.45)
-      .to(cube.position, { x: land.x, z: land.z, duration: 0.7, ease: "power1.in" }, 0.75)
-      .to(cube.position, { y: carriage.position.y + size / 2 + 0.01, duration: 0.7, ease: "bounce.out" }, 0.75)
-      .to(cube.rotation, { y: Math.random() * 1.2 - 0.6, x: Math.PI / 2, duration: 0.7, ease: "power2.out" }, 0.75)
-      .to(compartment.rotation, { x: 0, duration: 0.5, ease: "power2.inOut" }, 1.4);
   }
   function react(kind: "console" | "newspaper" | "music" | "art" | "lights") {
     if (!state.ready || state.caption) return;
@@ -574,15 +617,15 @@ export function createCompanion(
         if (!sleeping) {
           nextIdle -= dt;
           if (nextIdle <= 0 && state.phase !== "greeting" && wantDance <= 0) {
-            nextIdle = 14 + Math.random() * 18;
-            glanceAim = (Math.random() - 0.5) * 1.4;
+            nextIdle = 35 + Math.random() * 35;
+            glanceAim = (Math.random() - 0.5) * 0.7;
             glance = 1.3;
-            if (!state.caption && Math.random() < 0.35) say(QUIPS[quipIndex++ % QUIPS.length]!);
+            if (!state.caption && Math.random() < 0.2) say(QUIPS[quipIndex++ % QUIPS.length]!);
           }
         }
         glance = Math.max(0, glance - dt);
         const beat = Math.sin(elapsed * Math.PI * 2 * 1.55);
-        const aim = yaw + (sleeping ? 0 : pointerX * 0.45) + (glance > 0 ? glanceAim : 0) + beat * 0.22 * energy;
+        const aim = yaw + (sleeping ? 0 : pointerX * 0.16) + (glance > 0 ? glanceAim : 0) + beat * 0.22 * energy;
         head.rotation.y += (Math.max(-1.2, Math.min(1.2, aim)) - head.rotation.y) * follow;
         const pitch = sleeping
           ? 0.36
@@ -597,7 +640,7 @@ export function createCompanion(
               ),
             );
         const nod = Math.abs(beat) * 0.12 * energy;
-        neck.rotation.x += ((pitch + (sleeping ? 0 : pointerY * 0.18)) * 0.6 + nod - neck.rotation.x) * follow;
+        neck.rotation.x += ((pitch + (sleeping ? 0 : pointerY * 0.06)) * 0.6 + nod - neck.rotation.x) * follow;
         if (upperNeck)
           upperNeck.rotation.x += (pitch * 0.4 - upperNeck.rotation.x) * follow;
         if (leftEye && rightEye && state.phase !== "greeting") {
@@ -611,7 +654,7 @@ export function createCompanion(
       }
       // Dancing: a sway, a bounce and a waving arm, layered on top of his rest pose.
       wantDance = Math.max(0, wantDance - dt);
-      const grooving = !reduced.matches && (wantDance > 0 || (music && !sleeping)) && (state.phase === "docked" || state.phase === "visiting");
+      const grooving = !reduced.matches && wantDance > 0 && (state.phase === "docked" || state.phase === "visiting");
       energy += ((grooving ? 1 : 0) - energy) * (1 - Math.exp(-dt * 2.5));
       if (robot && energy > 0.002) {
         const beat = Math.sin(elapsed * Math.PI * 2 * 1.55);
