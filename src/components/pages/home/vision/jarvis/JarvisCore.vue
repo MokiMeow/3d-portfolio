@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import type { Jarvis } from './useJarvis';
-import { JarvisSphere } from './sphere';
+import { borrowSphere, returnSphere, type JarvisSphere } from './sphere';
 import { VOICES } from './voice';
 import { MODELS } from './mind';
 
@@ -13,7 +13,7 @@ const props = defineProps<{ jarvis: Jarvis; docked: boolean; compact: boolean; s
 const emit = defineEmits<{ close: []; dock: [docked: boolean] }>();
 const state = props.jarvis.state;
 
-const canvas = ref<HTMLCanvasElement>();
+const holder = ref<HTMLElement>();
 const input = ref<HTMLInputElement>();
 const signal = ref<HTMLCanvasElement>();
 const root = ref<HTMLElement>();
@@ -202,15 +202,19 @@ function keys(event: KeyboardEvent) {
 }
 
 onMounted(() => {
-  if (!canvas.value || !root.value) return;
-  sphere = new JarvisSphere(canvas.value, { quality: props.compact ? 'low' : 'high' });
+  if (!holder.value || !root.value) return;
+  // The sphere is lent, already built (usually in idle time), rather than built now.
+  const lent = borrowSphere(props.compact ? 'low' : 'high');
+  sphere = lent.sphere;
+  const canvas = lent.canvas;
+  holder.value.appendChild(canvas);
   sphere.level = () => props.jarvis.voice.level();
   sphere.spectrum = () => props.jarvis.voice.spectrum();
   sphere.setMode(state.mode);
   sphere.start();
   // Arrive out of the corner orb.
-  if (props.origin && canvas.value) {
-    const rect = canvas.value.getBoundingClientRect();
+  if (props.origin) {
+    const rect = canvas.getBoundingClientRect();
     if (rect.width) sphere.setOrigin((props.origin.x - rect.left) / rect.width * 2 - 1, -((props.origin.y - rect.top) / rect.height) * 2 + 1);
   }
   sphere.assemble(needsSetup.value ? .22 : loading.value ? .22 + progress.value * .78 : 1);
@@ -231,7 +235,7 @@ onBeforeUnmount(() => {
   recognition?.abort();
   cancelAnimationFrame(frame); clearInterval(clock); observer?.disconnect();
   window.removeEventListener('keydown', keys, true);
-  sphere?.dispose(); sphere = null;
+  returnSphere(); sphere = null;
 });
 </script>
 
@@ -239,7 +243,7 @@ onBeforeUnmount(() => {
   <div ref="root" class="jarvis-hud" :class="[state.mode, { docked, compact, setup: needsSetup }]" role="dialog" aria-label="JARVIS" @pointerdown.stop @wheel.stop>
     <i class="veil" />
     <div class="stage" :style="stageStyle" @click="docked && emit('dock', false)">
-      <canvas ref="canvas" aria-hidden="true" />
+      <div ref="holder" class="holder" />
     </div>
 
     <!-- The reticle: measuring rings that turn around the sphere and quicken when he thinks. -->
@@ -426,8 +430,9 @@ onBeforeUnmount(() => {
 .veil{position:absolute;inset:0;background:radial-gradient(ellipse 60% 55% at 50% 44%,rgb(12 8 2 / .55),rgb(4 3 1 / .86) 70%,rgb(2 1 0 / .94));backdrop-filter:blur(7px) saturate(.8);-webkit-backdrop-filter:blur(7px) saturate(.8);transition:opacity .6s ease;animation:veil-in .6s ease both}
 @keyframes veil-in{from{opacity:0}}
 .stage{position:absolute;left:0;top:0;transform-origin:50% 50%;transition:transform .8s cubic-bezier(.2,.8,.2,1);will-change:transform}
-.stage canvas{width:100%;height:100%;display:block;cursor:grab}
-.stage canvas:active{cursor:grabbing}
+.stage .holder{width:100%;height:100%}
+.stage :deep(canvas){width:100%;height:100%;display:block;cursor:grab}
+.stage :deep(canvas:active){cursor:grabbing}
 
 /* Title */
 .title{position:absolute;top:22px;left:50%;translate:-50% 0;text-align:center;display:grid;justify-items:center;gap:3px;font-family:'Rajdhani','Inter',sans-serif;transition:opacity .4s,translate .6s cubic-bezier(.2,.8,.2,1);animation:rise .8s .25s cubic-bezier(.2,.8,.2,1) both}
@@ -634,7 +639,7 @@ onBeforeUnmount(() => {
 .docked :is(.panel,.title,.chips,.setup-card,.loading-bar){opacity:0;pointer-events:none}
 .docked .systems{translate:-60px 0}.docked .process{translate:60px 0}
 .docked .title{translate:-50% -30px}
-.docked .stage canvas{cursor:pointer}
+.docked .stage :deep(canvas){cursor:pointer}
 .docked .transcript{bottom:96px;width:min(560px,calc(100% - 210px));translate:-50% 0;text-align:left;margin-left:60px;pointer-events:none}
 .docked .transcript .said{font-size:16.5px;text-shadow:none}
 .docked .transcript:has(.said){padding:10px 16px;border-radius:16px;background:rgb(20 14 6 / .62);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:inset 0 0 0 1px rgb(255 193 90 / .16)}

@@ -220,9 +220,10 @@ function sendKey(key: string) {
   dialog.value?.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
 }
 function pollPads() {
-  padFrame = requestAnimationFrame(pollPads);
   const pad = [...(navigator.getGamepads?.() ?? [])].find((item): item is Gamepad => !!item && item.connected);
-  if (!pad) return;
+  // No controller: stop asking every frame. Plugging one in (or pressing a button) starts the polling again.
+  if (!pad) { padFrame = 0; return; }
+  padFrame = requestAnimationFrame(pollPads);
   if (padPress(16, pad) || padPress(8, pad)) { psButton(); return; }
   // While a game is on screen the controller belongs to the game, apart from the PS button.
   if (showPlayer.value && !control.value) { padHeld.length = 0; return; }
@@ -241,6 +242,7 @@ function pollPads() {
 function onPad(event: GamepadEvent) {
   padConnected.value = event.type === 'gamepadconnected';
   if (padConnected.value && opened.value) notice('Controller connected', 'Cross to select, Circle to go back, PS for Control Center.');
+  if (padConnected.value && opened.value && !padFrame) padFrame = requestAnimationFrame(pollPads);
 }
 
 /* ---------- The hero art leans gently toward the pointer ---------- */
@@ -436,7 +438,7 @@ onMounted(() => {
 });
 // The controller is only polled while the console is switched on.
 watch(opened, value => {
-  cancelAnimationFrame(padFrame);
+  cancelAnimationFrame(padFrame); padFrame = 0;
   clearInterval(spotlightTimer);
   if (value) { padFrame = requestAnimationFrame(pollPads); startSpotlight(); }
 });
@@ -845,7 +847,8 @@ const tierColor: Record<Trophy['tier'], string> = { bronze: '#d08a52', silver: '
 .hero { position: absolute; inset: 0; background: color-mix(in srgb, var(--tint, #12204a) 45%, #05060a); transition: background .5s ease; }
 .hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transform: scale(1.06); transition: opacity .45s ease, transform 14s linear; }
 .hero img.on { opacity: 1; transform: scale(1.04) translate(calc(var(--lx, 0) * -14px), calc(var(--ly, 0) * -10px)); transition: opacity .45s ease, transform .6s cubic-bezier(.2, .8, .2, 1); }
-.motes { position: absolute; inset: 0; overflow: hidden; pointer-events: none; mix-blend-mode: screen; }
+/* Soft light drifting over the art. Plain blending: a screen blend here re-mixed the whole hero every frame. */
+.motes { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .motes i { position: absolute; left: calc(var(--n) * 7%); top: calc(20% + var(--n) * 4%); width: calc(30px + var(--n) * 9px); aspect-ratio: 1; border-radius: 50%;
   background: radial-gradient(circle, color-mix(in srgb, var(--tint, #4f7bff) 60%, #fff) 0%, transparent 70%); opacity: .12;
   animation: mote calc(14s + var(--n) * 1.7s) ease-in-out infinite alternate; animation-delay: calc(var(--n) * -2.3s); will-change: transform; }

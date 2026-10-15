@@ -4,6 +4,7 @@ import {
   Mesh, MeshBasicMaterial, PerspectiveCamera, PlaneGeometry, Points, PointsMaterial, SRGBColorSpace, Scene,
   SphereGeometry, TextureLoader, WebGLRenderer, type Texture,
 } from 'three';
+import { decoded } from './textures';
 import { VISION_ENVIRONMENTS, type VisionEnvironmentId } from './vision';
 
 /**
@@ -50,7 +51,8 @@ function soft(size: number, stops: [number, string][]) {
   return keep(new CanvasTexture(surface));
 }
 function picture(file: string) {
-  return new Promise<Texture>((resolve, reject) => new TextureLoader().load(BASE + file, (texture) => {
+  return new Promise<Texture>((resolve, reject) => new TextureLoader().load(BASE + file, async (texture) => {
+    await decoded(texture.image);
     texture.colorSpace = SRGBColorSpace;
     texture.minFilter = LinearMipmapLinearFilter; texture.magFilter = LinearFilter;
     texture.anisotropy = renderer?.capabilities.getMaxAnisotropy() ?? 1;
@@ -189,6 +191,7 @@ onMounted(() => {
     renderer = new WebGLRenderer({ canvas: canvas.value, antialias: true, powerPreference: 'high-performance' });
   } catch { return; }
   renderer.outputColorSpace = SRGBColorSpace;
+  renderer.debug.checkShaderErrors = Boolean(import.meta.dev);
   renderer.setClearColor(0x000000, 1);
   scene = new Scene();
   camera = new PerspectiveCamera(72, 1, 0.1, 1200);

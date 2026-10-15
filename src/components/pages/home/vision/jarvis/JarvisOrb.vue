@@ -4,6 +4,8 @@ import type { CSSProperties } from 'vue';
 import type { Jarvis } from './useJarvis';
 import { MiniOrb } from './mini';
 import JarvisCore from './JarvisCore.vue';
+import { prewarmSphere } from './sphere';
+import { whenIdle } from '../idle';
 
 /**
  * JARVIS in the corner of your view. A small gold orb you can drag anywhere; a quick panel for one-line
@@ -115,6 +117,8 @@ function keys(event: KeyboardEvent) {
 }
 
 onMounted(() => {
+  // The full display's sphere is built ahead, while nothing else is happening, so it opens at once.
+  window.setTimeout(() => whenIdle(() => prewarmSphere(props.compact ? 'low' : 'high'), 4000), 5000);
   try { const p = JSON.parse(localStorage.getItem(STORAGE) ?? 'null'); if (p && typeof p.x === 'number' && typeof p.y === 'number') position.value = { x: Math.min(1, Math.max(0, p.x)), y: Math.min(1, Math.max(0, p.y)) }; } catch { /* ignore */ }
   if (orbCanvas.value) { orb = new MiniOrb(orbCanvas.value); orb.level = () => props.jarvis.voice.level(); orb.start(); }
   if (layer.value) {
@@ -159,8 +163,8 @@ onBeforeUnmount(() => { orb?.stop(); observer?.disconnect(); window.removeEventL
           <button type="submit" :disabled="!question.trim()" aria-label="Send"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
         </form>
         <div class="chips"><button v-for="item in QUICK" :key="item" @click="quick(item)">{{ item }}</button></div>
-        <button v-if="jarvis.wakeAvailable" class="handsfree" :aria-pressed="state.wake" @click="jarvis.setWake(!state.wake)">
-          <i class="mic" /><span><b>“Hey JARVIS”</b><small>{{ state.wake ? (state.ear === 'listening' ? 'Listening…' : 'Just say his name') : 'Talk hands-free' }}</small></span><em class="switch" aria-hidden="true"><i /></em>
+        <button v-if="jarvis.wakeAvailable" class="handsfree" :class="{ trouble: state.earProblem }" :aria-pressed="state.wake" @click="jarvis.setWake(!state.wake)">
+          <i class="mic" :style="{ '--level': state.wake && state.ear !== 'off' ? state.earLevel : 0 }" /><span><b>“Hey JARVIS”</b><small>{{ state.earProblem || (state.wake ? (state.ear === 'listening' ? 'Listening…' : state.ear === 'off' ? 'Starting the microphone…' : 'Just say his name') : 'Talk hands-free') }}</small></span><em class="switch" aria-hidden="true"><i /></em>
         </button>
         <button class="talk" @click="talk">
           <span class="glyph" aria-hidden="true"><i /><i /><i /></span>
@@ -218,7 +222,10 @@ onBeforeUnmount(() => { orb?.stop(); observer?.disconnect(); window.removeEventL
 .dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
 @keyframes dots{50%{opacity:.2;transform:translateY(-3px)}}
 .quick .handsfree{margin-top:12px;width:100%;display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:16px;background:rgb(255 255 255 / .05);border:1px solid rgb(255 193 90 / .16);text-align:left}
-.quick .handsfree .mic{width:10px;height:10px;border-radius:50%;background:rgb(255 255 255 / .3)}.quick .handsfree[aria-pressed=true] .mic{background:#63d8ff;box-shadow:0 0 10px #63d8ff}
+.quick .handsfree .mic{flex:none;width:10px;height:10px;border-radius:50%;background:rgb(255 255 255 / .3);transition:scale .1s,box-shadow .1s}
+/* The dot breathes with your voice: proof the microphone is live. */
+.quick .handsfree[aria-pressed=true] .mic{background:#63d8ff;scale:calc(1 + var(--level, 0) * .9);box-shadow:0 0 calc(8px + var(--level, 0) * 16px) #63d8ff}
+.quick .handsfree.trouble .mic{background:#ff8a6b;box-shadow:0 0 8px #ff8a6b;scale:1}.quick .handsfree.trouble small{color:#ffb8a6}
 .quick .handsfree span{flex:1;display:grid;gap:2px}.quick .handsfree b{font-size:14px}.quick .handsfree small{font-size:12px;color:rgb(255 225 170 / .6)}
 .quick .handsfree .switch{flex:none;position:relative;width:42px;height:26px;border-radius:13px;background:rgb(255 255 255 / .14);transition:background .25s}
 .quick .handsfree .switch i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgb(0 0 0 / .35);transition:translate .25s cubic-bezier(.3,1.3,.5,1)}

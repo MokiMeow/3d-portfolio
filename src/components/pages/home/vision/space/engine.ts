@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { decoded } from '../textures';
 import * as CANNON from 'cannon-es';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { make, makeMaterials } from './shapes';
@@ -54,7 +55,9 @@ export class SpaceEngine {
   constructor(private canvas: HTMLCanvasElement, private view: () => View) {
     this.renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setClearColor(0x000000, 0);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    // Full-view and transparent, so every pixel counts: sharp enough at 1.5x, and no sharper.
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    this.renderer.debug.checkShaderErrors = Boolean(import.meta.dev);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
@@ -130,7 +133,8 @@ export class SpaceEngine {
     if (url === this.envUrl) return;
     this.envUrl = url ?? '';
     if (!url || url === 'space') { this.scene.environment = url === 'space' ? this.spaceEnv.texture : this.roomEnv.texture; this.wake(); return; }
-    new THREE.TextureLoader().load(url, texture => {
+    new THREE.TextureLoader().load(url, async texture => {
+      await decoded(texture.image);
       if (this.envUrl !== url) { texture.dispose(); return; }
       texture.mapping = THREE.EquirectangularReflectionMapping;
       texture.colorSpace = THREE.SRGBColorSpace;
@@ -235,6 +239,16 @@ export class SpaceEngine {
     this.wake(); this.onChange();
     return thing;
   }
+  /** Compiles every finish's shaders in the background, so the first cube of each appears without a stall. */
+  prewarm() {
+    const geometry = new THREE.BoxGeometry(.01, .01, .01), group = new THREE.Group();
+    for (const material of Object.values(this.materials.materials)) { const mesh = new THREE.Mesh(geometry, material); mesh.castShadow = true; group.add(mesh); }
+    group.position.set(0, -40, 0);
+    this.scene.add(group);
+    void this.renderer.compileAsync(this.scene, this.camera).catch(() => undefined).finally(() => { this.scene.remove(group); geometry.dispose(); });
+  }
+  /** Compiles a model's shaders before it is placed. */
+  prepare(root: THREE.Object3D) { return this.renderer.compileAsync(root, this.camera, this.scene).catch(() => undefined); }
   /** The light the space is lit by, for models brought in from elsewhere. */
   get envMap() { return this.scene.environment; }
 

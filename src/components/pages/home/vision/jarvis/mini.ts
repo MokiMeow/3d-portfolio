@@ -28,11 +28,15 @@ export class MiniOrb {
   }
 
   start() {
+    let drawn = 0;
     const tick = (now: number) => {
       this.frame = requestAnimationFrame(tick);
+      if (document.hidden) { this.last = now; return; }
+      // At rest a gentle twenty frames a second is enough; busy, every frame.
+      if (this.mode === 'idle' && this.energy < .02 && now - drawn < 48) return;
+      drawn = now;
       const dt = Math.min(.05, (now - (this.last || now)) / 1000);
       this.last = now;
-      if (document.hidden) return;
       this.draw(dt);
     };
     this.frame = requestAnimationFrame(tick);

@@ -35,6 +35,7 @@ export class ObjectStage {
     private environment: THREE.WebGLRenderTarget;
     private thumbTarget = new THREE.WebGLRenderTarget(112, 112, { depthBuffer: true });
     private cache = new Map<ObjectId, Entry>();
+    private compiled = new Set<ObjectId>();
     private pending = new Map<ObjectId, Promise<Entry>>();
     private current?: Entry;
     private outgoing?: Entry;
@@ -66,7 +67,8 @@ export class ObjectStage {
     private thumbCanvas = document.createElement('canvas');
     private pixels = new Uint8Array(112 * 112 * 4);
     private thumbDone = new Set<ObjectId>();
-    constructor(host: HTMLElement, compact: boolean, settings: StageSettings, private status: (message: string, failed?: boolean) => void, private thumbnail: (id: ObjectId, url: string) => void) {
+    /** `thumbnails: false` for a stage that shows one model and has no picker to fill (a volume). */
+    constructor(host: HTMLElement, compact: boolean, settings: StageSettings, private status: (message: string, failed?: boolean) => void, private thumbnail: (id: ObjectId, url: string) => void, private thumbnails = true) {
         try {
             this.settings = { ...settings };
             this.view = new WindowRenderer(host, compact, (dt) => this.draw(dt), () => { this.camera.aspect = this.view.width / this.view.height; this.camera.updateProjectionMatrix(); });
@@ -165,6 +167,13 @@ export class ObjectStage {
             const entry = await this.get(id);
             if (this.disposed || generation !== this.generation)
                 return;
+            // Compile its shaders off the main path first, so the model's first frame does not stall the page.
+            if (!this.compiled.has(id)) {
+                await this.view.renderer.compileAsync(entry.model.root, this.camera, this.scene).catch(() => undefined);
+                this.compiled.add(id);
+                if (this.disposed || generation !== this.generation)
+                    return;
+            }
             if (this.cache.get(id) !== entry) {
                 void this.select(id);
                 return;
@@ -191,7 +200,7 @@ export class ObjectStage {
             this.status('');
             this.view.wake();
             this.trim(id);
-            if (!this.thumbDone.has(id))
+            if (this.thumbnails && !this.thumbDone.has(id))
                 this.requestThumbnail(id);
         }
         catch {
@@ -444,5 +453,29 @@ export class ObjectStage {
         this.thumbTarget.dispose();
         this.thumbCanvas.width = this.thumbCanvas.height = 0;
         this.view?.dispose();
+    }
+}
+
+/**
+ * Bringing the first model out of a window costs a new GPU context, its shaders and its textures. Done once,
+ * quietly, ahead of time (when the Mac or Objects opens), the browser keeps the compiled shaders and the
+ * model file, and the real first volume opens as quickly as any after it.
+ */
+let warmed = false;
+export function prewarmVolumes(): void {
+    if (warmed || typeof document === 'undefined')
+        return;
+    warmed = true;
+    const host = document.createElement('div');
+    host.style.cssText = 'position:fixed;left:-9999px;top:0;width:160px;height:160px;pointer-events:none;opacity:0';
+    document.body.appendChild(host);
+    let stage: ObjectStage | undefined;
+    const done = (): void => { stage?.dispose(); host.remove(); };
+    try {
+        stage = new ObjectStage(host, true, { rotate: false, explode: false, wireframe: false, night: false }, () => { }, () => { }, false);
+        void stage.select('walle').finally(() => window.setTimeout(done, 300));
+    }
+    catch {
+        done();
     }
 }

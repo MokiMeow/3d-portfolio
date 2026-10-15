@@ -188,6 +188,7 @@ export class JarvisSphere {
     this.renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, premultipliedAlpha: true, powerPreference: 'high-performance' });
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, low ? 1.25 : 1.75));
+    this.renderer.debug.checkShaderErrors = Boolean(import.meta.dev);
     this.uniforms.uPixel.value = this.renderer.getPixelRatio();
     this.camera.position.set(0, 0, 4.6);
     this.scene.add(this.root);
@@ -602,6 +603,17 @@ export class JarvisSphere {
     this.frame = requestAnimationFrame(tick);
   }
   stop() { this.running = false; cancelAnimationFrame(this.frame); }
+  /** Back to the moment before it assembles, ready to arrive again. */
+  reset() {
+    const u = this.uniforms;
+    u.uAssemble.value = 0; u.uImplode.value = 0; u.uLevel.value = 0; u.uThink.value = 0; u.uListen.value = 0; u.uFromOrigin.value = 0;
+    this.target.assemble = 0; this.target.implode = 0; this.flare = 0; this.spin.set(0, 0); this.drag = null; this.pointer = null; this.mode = 'idle';
+  }
+  /** Compiles every shader before anyone opens the display: the sphere's in parallel, then the glow passes in one unseen frame. */
+  async warm() {
+    await this.renderer.compileAsync(this.scene, this.camera).catch(() => undefined);
+    if (!this.running) this.composer.render(0);
+  }
 
   private step(dt: number) {
     const u = this.uniforms;
@@ -687,4 +699,28 @@ export class JarvisSphere {
     this.composer.dispose();
     this.renderer.dispose();
   }
+}
+
+/* One sphere for the whole visit. Building it takes a moment (thousands of traces, a glyph atlas, bloom),
+   so it is built once, ahead of time when the browser is idle, and lent to the display each time it opens. */
+let pooled: { sphere: JarvisSphere; canvas: HTMLCanvasElement; quality: 'high' | 'low' } | null = null;
+export function borrowSphere(quality: 'high' | 'low') {
+  if (pooled && pooled.quality !== quality) { pooled.sphere.dispose(); pooled = null; }
+  if (!pooled) {
+    const canvas = document.createElement('canvas');
+    canvas.setAttribute('aria-hidden', 'true');
+    pooled = { sphere: new JarvisSphere(canvas, { quality }), canvas, quality };
+  }
+  pooled.sphere.reset();
+  return pooled;
+}
+export function returnSphere() {
+  if (!pooled) return;
+  pooled.sphere.stop();
+  pooled.sphere.level = () => 0; pooled.sphere.spectrum = () => null;
+  pooled.canvas.remove();
+}
+export function prewarmSphere(quality: 'high' | 'low') {
+  if (pooled) return;
+  try { void borrowSphere(quality).sphere.warm(); } catch { /* no WebGL: the display builds what it can when opened */ }
 }

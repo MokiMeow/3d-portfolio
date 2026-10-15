@@ -35,7 +35,8 @@ const night = ref(false);
 const status = ref('Preparing your close-up…');
 const error = ref('');
 const failed = ref(false);
-const thumbnails = ref<Partial<Record<ObjectId,string>>>({});
+// Rendered once, ahead of time, from this same stage: the picker no longer draws seven models every time it opens.
+const thumbnails = ref<Partial<Record<ObjectId,string>>>(Object.fromEntries(objects.map(item => [item.id, `/vision/objects/thumbs/${item.id}.png`])));
 const current = computed(() => objects.find(item => item.id === selected.value) ?? objects[0]);
 let stage: ObjectStage | undefined;
 let observer: IntersectionObserver | undefined;
@@ -53,15 +54,8 @@ function listKeys(event: KeyboardEvent): void {
 onMounted(() => {
   if (!host.value) return;
   try {
-    stage = new ObjectStage(host.value, !!props.compact, { rotate: rotate.value, explode: false, wireframe: false, night: false }, (message,loadFailed) => { status.value = message; failed.value = !!loadFailed; }, (id,url) => { thumbnails.value[id] = url; });
+    stage = new ObjectStage(host.value, !!props.compact, { rotate: rotate.value, explode: false, wireframe: false, night: false }, (message,loadFailed) => { status.value = message; failed.value = !!loadFailed; }, (id,url) => { thumbnails.value[id] = url; }, false);
     void loadSelected(selected.value);
-    observer = new IntersectionObserver(entries => { for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
-      const id = entry.target.getAttribute('data-object');
-      if (objects.some(item => item.id === id)) stage?.requestThumbnail(id as ObjectId);
-      observer?.unobserve(entry.target);
-    } }, { root: list.value });
-    list.value?.querySelectorAll('[data-object]').forEach(row => observer?.observe(row));
   } catch { error.value = 'This close-up needs WebGL. The object collection is still here to browse.'; status.value = ''; }
 });
 watch(() => props.compact, value => stage?.view.setCompact(!!value));

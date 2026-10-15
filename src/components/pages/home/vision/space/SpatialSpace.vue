@@ -6,6 +6,7 @@ import type { GravityMode, Structure, Thing } from './engine';
 import { MATERIALS, SHAPES, SHAPE_NAMES, materialFor, outline } from './shapes';
 import { loadModel, objects, type ObjectId } from '../apps/objects/models';
 import type { MaterialId, ShapeId } from './shapes';
+import { whenIdle } from '../idle';
 
 /**
  * Making things in your space, the way the headset does it: not in a window, but out in the place you
@@ -217,6 +218,7 @@ async function dropModel(id: ObjectId, x: number, y: number) {
   if (!e) return;
   const env = e.envMap;
   const model = await loadModel(id, env as Parameters<typeof loadModel>[1]);
+  await e.prepare(model.root);
   e.spawnModel(model.root, objects.find(item => item.id === id)!.name, model.dispose, e.placeAt(x, y, .42), .42, id);
 }
 defineExpose({
@@ -246,6 +248,8 @@ onMounted(() => {
   host?.addEventListener('pointercancel', up, true);
   host?.addEventListener('wheel', wheel, { capture: true, passive: false });
   window.addEventListener('keydown', keys, true);
+  // Ahead of the first cube: every finish compiled while nothing else is happening.
+  window.setTimeout(() => whenIdle(() => engine.value?.prewarm()), 2500);
 });
 onBeforeUnmount(() => {
   cancelAnimationFrame(followFrame);

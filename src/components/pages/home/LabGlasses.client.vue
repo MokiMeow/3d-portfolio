@@ -10,6 +10,8 @@ import JarvisOrb from './vision/jarvis/JarvisOrb.vue';
 import SpatialSpace from './vision/space/SpatialSpace.vue';
 import ModelVolume, { type Volume } from './vision/space/ModelVolume.vue';
 import { objects as MODELS, type ObjectId } from './vision/apps/objects/models';
+import { prewarmVolumes } from './vision/apps/objects/stage';
+import { whenIdle } from './vision/idle';
 import { whatsapp } from './vision/apps/whatsapp/useWhatsApp';
 import { slack } from './vision/apps/slack/useSlack';
 import { sendToApp, carry, onCarryLand, onOpenVolume } from './vision/bus';
@@ -19,35 +21,49 @@ import Spotlight, { type SpotlightResult } from './vision/Spotlight.vue';
 
 type Win = { id: VisionAppId; x: number; y: number; w: number; h: number; z: number; locked?: boolean; full?: { x: number; y: number; w: number; h: number } };
 // Apps load on first open, so the headset itself starts quickly; each window shows its glass until the app arrives.
-const VIEWS: Record<VisionAppId, Component> = {
-  tv: defineAsyncComponent(() => import('./vision/apps/TV.vue')),
-  youtube: defineAsyncComponent(() => import('./vision/apps/YouTube.vue')),
-  photos: defineAsyncComponent(() => import('./vision/apps/Photos.vue')),
-  safari: defineAsyncComponent(() => import('./vision/apps/Safari.vue')),
-  music: defineAsyncComponent(() => import('./vision/apps/Music.vue')),
-  notes: defineAsyncComponent(() => import('./vision/apps/Notes.vue')),
-  mindfulness: defineAsyncComponent(() => import('./vision/apps/Mindfulness.vue')),
-  mac: defineAsyncComponent(() => import('./vision/apps/Mac.vue')),
-  freeform: defineAsyncComponent(() => import('./vision/apps/Freeform.vue')),
-  settings: defineAsyncComponent(() => import('./vision/apps/Settings.vue')),
-  messages: defineAsyncComponent(() => import('./vision/apps/Messages.vue')),
-  files: defineAsyncComponent(() => import('./vision/apps/Files.vue')),
-  encounter: defineAsyncComponent(() => import('./vision/apps/Encounter.vue')),
-  store: defineAsyncComponent(() => import('./vision/apps/Store.vue')),
-  arcade: defineAsyncComponent(() => import('./vision/apps/Arcade.vue')),
-  facetime: defineAsyncComponent(() => import('./vision/apps/FaceTime.vue')),
-  weather: defineAsyncComponent(() => import('./vision/apps/Weather.vue')),
-  maps: defineAsyncComponent(() => import('./vision/apps/Maps.vue')),
-  clock: defineAsyncComponent(() => import('./vision/apps/Clock.vue')),
-  keynote: defineAsyncComponent(() => import('./vision/apps/Keynote.vue')),
-  nightsky: defineAsyncComponent(() => import('./vision/apps/NightSky.vue')),
-  objects: defineAsyncComponent(() => import('./vision/apps/Objects.vue')),
-  beatstudio: defineAsyncComponent(() => import('./vision/apps/BeatStudio.vue')),
-  zengarden: defineAsyncComponent(() => import('./vision/apps/ZenGarden.vue')),
-  gravity: defineAsyncComponent(() => import('./vision/apps/Gravity.vue')),
-  whatsapp: defineAsyncComponent(() => import('./vision/apps/WhatsApp.vue')),
-  slack: defineAsyncComponent(() => import('./vision/apps/Slack.vue')),
+const LOADERS: Record<VisionAppId, () => Promise<{ default: Component }>> = {
+  tv: () => import('./vision/apps/TV.vue'),
+  youtube: () => import('./vision/apps/YouTube.vue'),
+  photos: () => import('./vision/apps/Photos.vue'),
+  safari: () => import('./vision/apps/Safari.vue'),
+  music: () => import('./vision/apps/Music.vue'),
+  notes: () => import('./vision/apps/Notes.vue'),
+  mindfulness: () => import('./vision/apps/Mindfulness.vue'),
+  mac: () => import('./vision/apps/Mac.vue'),
+  freeform: () => import('./vision/apps/Freeform.vue'),
+  settings: () => import('./vision/apps/Settings.vue'),
+  messages: () => import('./vision/apps/Messages.vue'),
+  files: () => import('./vision/apps/Files.vue'),
+  encounter: () => import('./vision/apps/Encounter.vue'),
+  store: () => import('./vision/apps/Store.vue'),
+  arcade: () => import('./vision/apps/Arcade.vue'),
+  facetime: () => import('./vision/apps/FaceTime.vue'),
+  weather: () => import('./vision/apps/Weather.vue'),
+  maps: () => import('./vision/apps/Maps.vue'),
+  clock: () => import('./vision/apps/Clock.vue'),
+  keynote: () => import('./vision/apps/Keynote.vue'),
+  nightsky: () => import('./vision/apps/NightSky.vue'),
+  objects: () => import('./vision/apps/Objects.vue'),
+  beatstudio: () => import('./vision/apps/BeatStudio.vue'),
+  zengarden: () => import('./vision/apps/ZenGarden.vue'),
+  gravity: () => import('./vision/apps/Gravity.vue'),
+  whatsapp: () => import('./vision/apps/WhatsApp.vue'),
+  slack: () => import('./vision/apps/Slack.vue'),
 };
+const VIEWS = Object.fromEntries(Object.entries(LOADERS).map(([id, load]) => [id, defineAsyncComponent(load)])) as Record<VisionAppId, Component>;
+/**
+ * After the headset is on and quiet, each app's code is fetched and compiled ahead, one per idle moment, most
+ * used first: opening an app then only has to draw it. Skipped when the visitor asks to save data or is on a
+ * slow connection.
+ */
+const PRELOAD: VisionAppId[] = ['safari', 'youtube', 'photos', 'music', 'mac', 'objects', 'nightsky', 'weather', 'maps', 'whatsapp', 'messages', 'notes', 'tv', 'clock', 'facetime', 'settings', 'files', 'store', 'freeform', 'keynote', 'arcade', 'mindfulness', 'slack', 'beatstudio', 'zengarden', 'gravity', 'encounter'];
+function preloadApps() {
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+  if (connection?.saveData || /(^|-)(2g|3g)$/.test(connection?.effectiveType ?? '')) return;
+  const queue = [...PRELOAD];
+  const next = () => { const id = queue.shift(); if (id) void LOADERS[id]().catch(() => undefined).finally(() => whenIdle(next, 4000)); };
+  whenIdle(next, 6000);
+}
 const NAMES = Object.fromEntries(VISION_APPS.map(item => [item.id, item.name])) as Record<VisionAppId, string>;
 // The Home View honeycomb: pages of rows of 4, 5 and 5, each cell 146 apart, like the real Home View.
 const ROWS = [4, 5, 5];
@@ -357,9 +373,18 @@ function grab(event: PointerEvent, win: Win, mode: 'move' | 'size' | 'size-left'
   (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
 }
 function lowest(win: Win) { return Math.max(TOP, view.h - DOCK - 54 - win.h); }
+/* A dragged window follows the newest pointer position once a frame, however often the mouse reports. */
+let pullFrame = 0;
+const pullAt = { x: 0, y: 0 };
 function pull(event: PointerEvent) {
   if (!drag) return;
-  const dx = event.clientX - drag.x, dy = event.clientY - drag.y, win = drag.win;
+  pullAt.x = event.clientX; pullAt.y = event.clientY;
+  if (!pullFrame) pullFrame = requestAnimationFrame(applyPull);
+}
+function applyPull() {
+  pullFrame = 0;
+  if (!drag) return;
+  const dx = pullAt.x - drag.x, dy = pullAt.y - drag.y, win = drag.win;
   if (Math.abs(dx) + Math.abs(dy) > 3) win.full = undefined;
   if (drag.mode === 'move') {
     win.x = Math.max(90 - win.w, Math.min(view.w - 90, drag.left + dx));
@@ -515,12 +540,9 @@ function openVolume(id: ObjectId, near?: { x: number; y: number }) {
   else {
     const spot = clearSpot(w, h);
     if (spot) ({ x, y } = spot);
-    else {
-      // Nowhere free: windows slide right, away from JARVIS's corner, and the model takes the left.
-      glideWindows();
-      windows.value.forEach(win => { if (!win.locked) win.x = Math.max(6, Math.min(view.w - win.w - 6, Math.max(win.x, w + 30))); });
-      x = 18; y = (view.h - h) / 2 - 20;
-    }
+    // Nowhere clear: a volume floats in front of windows anyway, so it takes the left without moving anything
+    // (sliding every glass window aside meant re-blurring all of them, frame after frame).
+    else { x = 18; y = (view.h - h) / 2 - 20; }
   }
   x = Math.max(6, Math.min(view.w - w - 6, x)); y = Math.max(TOP, Math.min(view.h - DOCK - 54 - h, y));
   const volume: Volume = { key: ++volumeKey, id, name: model.name, x, y, w, h, z: ++top };
@@ -528,6 +550,8 @@ function openVolume(id: ObjectId, near?: { x: number; y: number }) {
   return volume;
 }
 function raiseVolume(volume: Volume) { volume.z = ++top; }
+// Opening the Mac or Objects is the sign a model may come out next: get the volume ready while idle.
+watch(() => windows.value.some(win => win.id === 'mac' || win.id === 'objects'), likely => { if (likely) window.setTimeout(() => whenIdle(prewarmVolumes, 5000), 2500); });
 function closeVolume(key: number) { volumes.value = volumes.value.filter(item => item.key !== key); }
 /** Out of its volume and into the room, where it can be picked up and thrown. */
 async function setLoose(volume: Volume) {
@@ -808,12 +832,45 @@ function spotlightPick(result: SpotlightResult) {
 }
 function openFromWidget(id: string) { if (APP_IDS.has(id)) open(id as VisionAppId); }
 
+/* The windows lean toward the pointer and the glass catches its light. A mouse can report a thousand
+   times a second; the view only changes once a frame, so the latest position is applied once a frame. */
+let lookFrame = 0;
+const lookAt = { x: 0, y: 0 };
 function look(event: PointerEvent) {
   if (event.pointerType === 'touch') return;
-  tilt.x = (event.clientX / view.w - 0.5) * 2; tilt.y = (event.clientY / view.h - 0.5) * 2;
+  lookAt.x = event.clientX; lookAt.y = event.clientY;
+  if (!lookFrame) lookFrame = requestAnimationFrame(applyLook);
+}
+function applyLook() {
+  lookFrame = 0;
+  tilt.x = (lookAt.x / view.w - 0.5) * 2; tilt.y = (lookAt.y / view.h - 0.5) * 2;
   if (!gaze && !drag && !travel.value) place.value?.lean(tilt.x, tilt.y);
-  visor.value?.style.setProperty('--gx', `${event.clientX}px`);
-  visor.value?.style.setProperty('--gy', `${event.clientY}px`);
+  leanWindows();
+}
+/**
+ * The lean and the light go only to the elements that draw them: each window and the Home View take the
+ * tilt, the gaze takes the pointer, and each window's sheen takes the pointer in its own coordinates. The
+ * properties are registered as non-inheriting, so nothing inside a window has to be restyled.
+ */
+function leanWindows() {
+  const root = visor.value;
+  if (!root) return;
+  const tx = tilt.x.toFixed(3), ty = tilt.y.toFixed(3);
+  // Only the window in front leans (and the Home View): a window that moves must re-blur everything behind its
+  // glass every frame, and the ones behind barely show a 0.4° lean anyway. They settle level and stay cached.
+  root.querySelectorAll<HTMLElement>(':scope .window, :scope .home').forEach(node => {
+    const leans = node.classList.contains('front') || node.classList.contains('home');
+    if (leans) { node.style.setProperty('--tx', tx); node.style.setProperty('--ty', ty); node.dataset.leaning = '1'; }
+    else if (node.dataset.leaning) { node.style.setProperty('--tx', '0'); node.style.setProperty('--ty', '0'); delete node.dataset.leaning; }
+  });
+  const gazeAt = root.querySelector<HTMLElement>(':scope > .gaze');
+  gazeAt?.style.setProperty('--gx', `${lookAt.x}px`); gazeAt?.style.setProperty('--gy', `${lookAt.y}px`);
+  root.querySelectorAll<HTMLElement>(':scope .window').forEach(node => {
+    const sheen = node.querySelector<HTMLElement>(':scope > .sheen');
+    if (!sheen) return;
+    sheen.style.setProperty('--gx', `${lookAt.x - parseFloat(node.style.left || '0')}px`);
+    sheen.style.setProperty('--gy', `${lookAt.y - parseFloat(node.style.top || '0')}px`);
+  });
 }
 function measure() {
   const box = visor.value;
@@ -830,6 +887,7 @@ function finishHelp() {
   try { localStorage.setItem('lab-vision-welcomed', '1'); } catch { /* private mode: show it again next time */ }
 }
 onMounted(() => {
+  window.setTimeout(preloadApps, 8000);
   // The dialog is still closed when this mounts, so size is taken from the element once it is shown.
   document.documentElement.classList.add('lab-vision-on');
   labDeviceBack.handler = back;
@@ -853,12 +911,13 @@ onBeforeUnmount(() => {
   clearTimeout(crownHold);
   ambience.dispose();
   scriptTimers.forEach(clearTimeout); noticeTimers.forEach(clearTimeout); clearTimeout(holdTimer);
+  cancelAnimationFrame(lookFrame); cancelAnimationFrame(pullFrame);
   clearInterval(clockTimer); clearTimeout(bootTimer); clearTimeout(noteTimer); clearTimeout(flashTimer); cancelAnimationFrame(glide);
 });
 </script>
 
 <template>
-  <div ref="visor" class="visor" :class="{ booting, solid: reduceTransparency, compact, inside, looking, 'cc-open': control, 'home-open': homeOpen, 'view-only': viewOnly, 'jarvis-open': jarvisCore === 'open', 'jarvis-docked': jarvisCore === 'docked', creating }" :style="{ '--tx': tilt.x, '--ty': tilt.y }" @pointermove="look">
+  <div ref="visor" class="visor" :class="{ booting, solid: reduceTransparency, compact, inside, looking, 'cc-open': control, 'home-open': homeOpen, 'view-only': viewOnly, 'jarvis-open': jarvisCore === 'open', 'jarvis-docked': jarvisCore === 'docked', creating }" @pointermove="look">
     <VisionEnvironment :id="environment" ref="place" :immersion="immersion" :dark="dark" class="place" />
     <i class="dimmer" :style="{ opacity: dim }" />
     <i class="gaze" />
@@ -871,7 +930,7 @@ onBeforeUnmount(() => {
       <TransitionGroup name="window">
         <section v-for="win in windows" :key="win.id" class="window" :class="{ front: front === win, behind: homeOpen, gliding, scanning: scanning === win.id }" :aria-label="NAMES[win.id]"
           :style="{ left: `${win.x}px`, top: `${win.y}px`, width: `${win.w}px`, height: `${win.h}px`, zIndex: win.z, '--wx': `${win.x}px`, '--wy': `${win.y}px` }" @pointerdown.capture="focus(win)">
-          <div class="glass"><component :is="VIEWS[win.id]" :compact="compact" /></div>
+          <div class="glass"><component :is="VIEWS[win.id]" :compact="compact" /></div><i class="sheen" aria-hidden="true" />
           <div class="grip-row">
             <button class="shut" :aria-label="`Close ${NAMES[win.id]}. Hold for more.`" :title="`Close ${NAMES[win.id]} (hold for more)`"
               @pointerdown="closeDown(win.id)" @pointerup="closeUp" @pointerleave="closeUp" @click="closeClick(win.id)" @contextmenu.prevent="closeMenu = win.id">
@@ -1166,9 +1225,9 @@ button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3
 .glass::before{content:'';position:absolute;inset:0;border-radius:inherit;padding:1.2px;pointer-events:none;z-index:50;
   background:linear-gradient(180deg,rgb(255 255 255 / .55),rgb(255 255 255 / .16) 22%,rgb(255 255 255 / .07) 60%,rgb(255 255 255 / .12));
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
-.glass::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:49;opacity:0;transition:opacity .4s;
-  background:radial-gradient(520px circle at calc(var(--gx,-999px) - var(--wx,0px)) calc(var(--gy,-999px) - var(--wy,0px)),rgb(255 255 255 / .075),transparent 62%)}
-.window.front:hover .glass::after{opacity:1}
+.sheen{position:absolute;inset:0;border-radius:40px;pointer-events:none;opacity:0;transition:opacity .4s;
+  background:radial-gradient(520px circle at var(--gx,-999px) var(--gy,-999px),rgb(255 255 255 / .075),transparent 62%)}
+.window.front:hover .sheen{opacity:1}
 .inside .glass{background:radial-gradient(120% 70% at 30% -10%,rgb(255 255 255 / .16),transparent 62%),linear-gradient(180deg,rgb(255 255 255 / .1),rgb(255 255 255 / .03) 40%,rgb(255 255 255 / .02)),rgb(46 50 60 / .56)}
 .solid .glass,.solid .tabs,.solid .control,.solid .dock,.solid .help{background:#2b2d33;backdrop-filter:none;-webkit-backdrop-filter:none}
 /* The window bar: a close button that is always in view, and the bar you move the window by. */
@@ -1418,6 +1477,12 @@ button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3
 <style src="./vision/kit/kit.css"></style>
 
 <style>
+/* The pointer's lean and light change every frame; registered as non-inheriting, a change restyles only the
+   element that holds it, not everything inside it. Browsers without @property simply inherit, as before. */
+@property --tx{syntax:'<number>';inherits:false;initial-value:0}
+@property --ty{syntax:'<number>';inherits:false;initial-value:0}
+@property --gx{syntax:'<length>';inherits:false;initial-value:-999px}
+@property --gy{syntax:'<length>';inherits:false;initial-value:-999px}
 /* While the headset is on, the site's own menus step out of view: only the room and visionOS remain. */
 .lab-vision-on .lab-chrome{opacity:0;pointer-events:none;transition:opacity .4s}
 .lab-vision-view .device-close{opacity:.22;transition:opacity .4s}

@@ -92,6 +92,10 @@ export function useJarvis(options: {
     hostedVoice: false,
     hostedHear: false,
     ear: 'off' as EarState,
+    /** Why hands-free cannot hear, in plain words; '' when it can. */
+    earProblem: '',
+    /** The microphone's level, 0 to 1, while hands-free is on. */
+    earLevel: 0,
     /** True once the site has said whether it hosts JARVIS, so the setup card never flashes. */
     serviceKnown: false,
     turns: 0,
@@ -467,11 +471,17 @@ export function useJarvis(options: {
   function stopWake() { ear.stop(); }
   /** The microphone button in the full display needs the microphone to itself for a moment. */
   function pauseWake(paused: boolean) { wakePaused = paused; if (paused) stopWake(); else startWake(); }
-  function setWake(on: boolean) { state.wake = on && wakeAvailable; persist(); if (state.wake) startWake(); else stopWake(); }
+  function setWake(on: boolean) { state.wake = on && wakeAvailable; state.earProblem = ''; persist(); if (state.wake) startWake(); else stopWake(); }
   // On by default once the microphone is allowed; otherwise the orb offers it once.
+  ear.onProblem = problem => { state.earProblem = problem; if (problem) log(`ear.problem(${JSON.stringify(problem)})`, 'warn'); };
+  ear.onLevel = level => { state.earLevel = level; };
   void Ear.allowed().then(allowed => {
-    if (initial.wake === false) return;
-    if (initial.wake || allowed) { state.wake = wakeAvailable; window.setTimeout(startWake, 1200); }
+    if (initial.wake === false || !wakeAvailable) return;
+    if (initial.wake || allowed) { state.wake = true; window.setTimeout(startWake, 1200); return; }
+    // Never asked yet: hands-free is how he is meant to be used, so the first touch in the headset asks for the
+    // microphone (browsers only ask in answer to a touch). Turning it off in the panel is remembered.
+    const ask = () => { window.removeEventListener('pointerdown', ask, true); if (!state.wake && !wakePaused) setWake(true); };
+    window.addEventListener('pointerdown', ask, true);
   });
 
   function dispose() { stopWake(); voice.dispose(); void mind.unload(); timers.forEach(handle => clearTimeout(handle)); }

@@ -28,11 +28,20 @@ import { ErrorFactory } from "~/errors";
 
 // MODELS
 import type { ExperienceConstructorProps } from "~/common/models/experience.model";
+import type { LabDevice } from "~/common/models/lab-device.model";
+import type { Ref } from "vue";
 
 /**
  * Experience class for Home page.
  * (Module root).
  */
+/** Whether a lab device (headset, phone, PS5…) is open in front of the room. */
+let activeDevice: Ref<LabDevice> | undefined;
+function deviceOpen() {
+	try { activeDevice ??= useState<LabDevice>("activeLabDevice", () => null); } catch { return false; }
+	return Boolean(activeDevice.value);
+}
+
 export class HomeExperience extends ExperienceBlueprint {
 	public readonly ui?: UI;
 	public readonly router?: Router;
@@ -128,6 +137,13 @@ export class HomeExperience extends ExperienceBlueprint {
 
 	public update() {
 		try {
+			// A device is in front of the room and holds its last frame beneath, so the room itself can rest:
+			// no raycasts, animation or camera work until it is put down. Sound keeps playing.
+			if (deviceOpen()) {
+				this.sound?.update();
+				this.emit?.(events.UPDATED);
+				return;
+			}
 			this.ui?.update();
 			this.router?.update();
 			this.camera?.update();

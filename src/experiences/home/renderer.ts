@@ -131,6 +131,8 @@ export class Renderer extends ExperienceBasedBlueprint {
 			roomPixelRatio(this._appSizes.width, this._appSizes.height, this._appSizes.pixelRatio)
 		);
 		this._appRenderer.instance.localClippingEnabled = true;
+		// Checking each shader for errors makes the page wait for it to compile; only worth it while developing.
+		this._appRenderer.instance.debug.checkShaderErrors = Boolean(import.meta.dev);
 
 		// CSS RENDERER
 		if (!this._camera?.instance) return;

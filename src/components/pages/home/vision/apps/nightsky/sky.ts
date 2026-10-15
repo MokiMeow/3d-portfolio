@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { decoded } from '../../textures';
 import { stars, constellations, type SkyObject } from './catalog';
 import { cities, equatorial, observerMatrix, planets, solarDirection, RAD } from './astronomy';
 import { atmosphere, horizon, lunarSphere, figures } from './scenery';
@@ -128,7 +129,11 @@ export class Planetarium {
             this.sphere.add(this.figureLines);
             // The faint sky is real: NASA's Deep Star Maps 2020 (Hipparcos, Tycho-2 and Gaia), an equirectangular
             // map in equatorial coordinates with 0h at the centre and right ascension increasing to the left.
-            this.skyMap = new THREE.TextureLoader().load(`/vision/sky/stars-${compact ? '4k' : '6k'}.webp`, () => this.view?.wake());
+            // Empty until the map is decoded in the background; then uploaded in one quick step.
+            this.skyMap = new THREE.Texture();
+            new THREE.ImageLoader().load(`/vision/sky/stars-${compact ? '4k' : '6k'}.webp`, image => {
+                void decoded(image).then(() => { this.skyMap.image = image; this.skyMap.needsUpdate = true; this.view?.wake(); });
+            });
             this.skyMap.colorSpace = THREE.SRGBColorSpace; this.skyMap.generateMipmaps = false; this.skyMap.minFilter = THREE.LinearFilter; this.skyMap.wrapS = THREE.RepeatWrapping;
             this.milkyMaterial = new THREE.ShaderMaterial({side:THREE.BackSide,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{map:{value:this.skyMap},night:{value:1},gain:{value:2.3}},
                 vertexShader:'varying vec3 direction;void main(){direction=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',

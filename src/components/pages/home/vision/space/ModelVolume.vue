@@ -22,7 +22,7 @@ let stage: ObjectStage | undefined;
 onMounted(() => {
   if (!host.value) return;
   try {
-    stage = new ObjectStage(host.value, props.compact, { rotate: true, explode: false, wireframe: false, night: false }, (message, broke) => { status.value = message; failed.value = !!broke; }, () => {});
+    stage = new ObjectStage(host.value, props.compact, { rotate: true, explode: false, wireframe: false, night: false }, (message, broke) => { status.value = message; failed.value = !!broke; }, () => {}, false);
     // A step further back than the Objects app, so the model and its glass floor sit inside the volume.
     void stage.select(props.volume.id).then(() => stage?.zoom(1.1));
   } catch { failed.value = true; status.value = 'This model needs WebGL to float in your space.'; }
