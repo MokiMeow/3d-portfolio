@@ -12,7 +12,8 @@ import type { MaterialId, ShapeId } from './shapes';
 export type GravityMode = 'earth' | 'moon' | 'mars' | 'zero';
 export const GRAVITY: Record<GravityMode, { g: number; name: string }> = { earth: { g: -9.82, name: 'Earth' }, moon: { g: -1.62, name: 'Moon' }, mars: { g: -3.72, name: 'Mars' }, zero: { g: 0, name: 'Zero-G' } };
 type View = { yaw: number; pitch: number; fov: number };
-export type Thing = { id: number; shape: ShapeId; material: MaterialId; size: number; mesh: THREE.Mesh; body: CANNON.Body; born: number; dying?: number; wire?: THREE.LineSegments };
+/** A thing in the space. A model (dragged out of the Mac) rides on `mesh`, an invisible box that carries its physics. */
+export type Thing = { id: number; shape: ShapeId; material: MaterialId; size: number; mesh: THREE.Mesh; body: CANNON.Body; born: number; dying?: number; wire?: THREE.LineSegments; model?: { name: string; dispose: () => void } };
 export type Structure = 'tower' | 'pyramid' | 'dominoes' | 'wall' | 'stairs' | 'circle';
 
 // Eye height above the floor, and how far out things are made: far enough to sit in the lower third of the view.
@@ -205,6 +206,36 @@ export class SpaceEngine {
     return thing;
   }
 
+  /** A whole model, placed in the space with a body the shape of its bounding box. */
+  spawnModel(root: THREE.Object3D, name: string, dispose: () => void, at: THREE.Vector3, height = .42) {
+    const box = new THREE.Box3().setFromObject(root), size = box.getSize(new THREE.Vector3()), centre = box.getCenter(new THREE.Vector3());
+    const scale = height / Math.max(size.y, .001);
+    root.scale.multiplyScalar(scale); root.position.sub(centre.multiplyScalar(scale));
+    size.multiplyScalar(scale);
+    root.traverse(node => { if (node instanceof THREE.Mesh) { node.castShadow = true; node.receiveShadow = true; } });
+    const geometry = new THREE.BoxGeometry(size.x, size.y, size.z);
+    const proxy = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
+    proxy.add(root);
+    const body = new CANNON.Body({ mass: 1.2, position: new CANNON.Vec3(at.x, Math.max(at.y, FLOOR + size.y / 2 + .02), at.z), linearDamping: .05, angularDamping: .2, sleepSpeedLimit: .12, sleepTimeLimit: .6 });
+    body.addShape(new CANNON.Box(new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2)));
+    const { yaw } = this.view();
+    body.quaternion.setFromEuler(0, yaw, 0);
+    this.world.addBody(body);
+    proxy.scale.setScalar(.001);
+    this.scene.add(proxy);
+    const wire = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), this.wireMaterial.clone());
+    this.scene.add(wire);
+    proxy.visible = false;
+    const thing: Thing = { id: this.nextId++, shape: 'cube', material: 'glass', size: Math.max(size.x, size.y, size.z), mesh: proxy, body, born: performance.now(), wire, model: { name, dispose } };
+    this.things.push(thing);
+    this.ring(new THREE.Vector3(at.x, body.position.y, at.z), thing.size);
+    while (this.things.filter(item => !item.dying).length > MAX) this.remove(this.things.find(item => !item.dying)!);
+    this.wake(); this.onChange();
+    return thing;
+  }
+  /** The light the space is lit by, for models brought in from elsewhere. */
+  get envMap() { return this.scene.environment; }
+
   /** A gold ring that flares where something materialises. */
   private ring(at: THREE.Vector3, size: number) {
     const material = new THREE.MeshBasicMaterial({ color: '#ffc15a', transparent: true, opacity: .9, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
@@ -284,8 +315,9 @@ export class SpaceEngine {
     const p = thing.mesh.position.clone().add(new THREE.Vector3(0, thing.size * .75, 0)).project(this.camera);
     return { x: (p.x + 1) / 2 * this.canvas.clientWidth, y: (1 - p.y) / 2 * this.canvas.clientHeight, visible: p.z < 1 };
   }
-  restyle(thing: Thing, material: MaterialId) { thing.material = material; thing.mesh.material = this.materials.materials[material]; thing.mesh.castShadow = material !== 'glass'; this.wake(); }
+  restyle(thing: Thing, material: MaterialId) { if (thing.model) return; thing.material = material; thing.mesh.material = this.materials.materials[material]; thing.mesh.castShadow = material !== 'glass'; this.wake(); }
   resize_thing(thing: Thing, factor: number) {
+    if (thing.model) return;
     const next = Math.max(.08, Math.min(1.2, thing.size * factor));
     const made = make(thing.shape, next, thing.shape === 'drawn' ? (thing.mesh.userData.drawn as THREE.Shape) : undefined);
     thing.mesh.geometry.dispose(); thing.mesh.geometry = made.geometry;
@@ -336,7 +368,7 @@ export class SpaceEngine {
         const t = (now - thing.dying) / 380;
         scale = Math.max(.001, 1 - t);
         busy = true;
-        if (t >= 1) { this.scene.remove(thing.mesh); thing.mesh.geometry.dispose(); this.things.splice(this.things.indexOf(thing), 1); continue; }
+        if (t >= 1) { this.scene.remove(thing.mesh); thing.mesh.geometry.dispose(); thing.model?.dispose(); this.things.splice(this.things.indexOf(thing), 1); continue; }
       }
       if (thing.wire) {
         const t = age / 1.1;
@@ -379,7 +411,7 @@ export class SpaceEngine {
   dispose() {
     cancelAnimationFrame(this.frame);
     this.observer.disconnect();
-    for (const thing of this.things) thing.mesh.geometry.dispose();
+    for (const thing of this.things) { thing.mesh.geometry.dispose(); thing.model?.dispose(); }
     Object.values(this.materials.materials).forEach(material => material.dispose());
     this.materials.textures.forEach(texture => texture.dispose());
     this.envTarget?.dispose(); this.roomEnv.dispose(); this.spaceEnv.dispose(); this.pmrem.dispose();

@@ -10,7 +10,7 @@ import JarvisOrb from './vision/jarvis/JarvisOrb.vue';
 import SpatialSpace from './vision/space/SpatialSpace.vue';
 import { whatsapp } from './vision/apps/whatsapp/useWhatsApp';
 import { slack } from './vision/apps/slack/useSlack';
-import { sendToApp } from './vision/bus';
+import { sendToApp, carry, onCarryLand } from './vision/bus';
 import { useJarvis } from './vision/jarvis/useJarvis';
 import type { JarvisAction } from './vision/jarvis/brain';
 import Spotlight, { type SpotlightResult } from './vision/Spotlight.vue';
@@ -475,6 +475,18 @@ function beamTo(target: Element | { x: number; y: number } | null | undefined) {
   else jarvis.beam(target.x, target.y);
 }
 function beamToWindow(id: VisionAppId) { void nextTick(() => window.setTimeout(() => beamTo(visor.value?.querySelector(`.window[aria-label="${NAMES[id]}"]`)), 420)); }
+/* A model carried out of the Mac lands in the space, where you let go of it. */
+const stopCarry = onCarryLand(item => {
+  const mac = visor.value?.querySelector('.window[aria-label="Mac Virtual Display"]')?.getBoundingClientRect();
+  if (mac && item.x > mac.left && item.x < mac.right && item.y > mac.top && item.y < mac.bottom) { toast('Let go outside the window to place it in your space.'); return; }
+  const box = visor.value?.getBoundingClientRect();
+  if (!box || !spatial.value) return;
+  if (viewOnly.value) setViewOnly(false);
+  void spatial.value.dropModel(item.id as Parameters<NonNullable<typeof spatial.value>['dropModel']>[0], item.x - box.left, item.y - box.top)
+    .then(() => toast(`${item.name} is in your space. Grab it to move it; flick to throw.`))
+    .catch(() => toast(`${item.name} could not be placed.`));
+});
+onBeforeUnmount(stopCarry);
 /* Replies to messages JARVIS sent are announced, wherever you are. */
 const awaiting = new Map<string, number>();
 whatsapp().onIncoming((chat, message) => {
@@ -818,6 +830,7 @@ onBeforeUnmount(() => {
       </button>
     </Transition>
 
+    <div v-if="carry.active" class="carry" :class="{ flip: carry.x > view.w - 300 }" :style="{ left: `${carry.x}px`, top: `${carry.y}px` }" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 2.8 8 4.6v9.2l-8 4.6-8-4.6V7.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /><path d="m4 7.4 8 4.6 8-4.6M12 12v9.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></svg><span><b>{{ carry.name }}</b><small>Let go in the room to place it</small></span></div>
     <Spotlight ref="spotlight" :apps="VISION_APPS" :environments="VISION_ENVIRONMENTS" :people="PEOPLE" :compact="compact" @pick="spotlightPick" />
     <JarvisOrb v-if="!booting" ref="jarvisOrb" :jarvis="jarvis" :compact="compact" :status="jarvisStatus" @core="jarvisCore = $event" />
 
@@ -1062,6 +1075,9 @@ button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3
 .chip-enter-active,.chip-leave-active{transition:opacity .25s,transform .3s}.chip-enter-from,.chip-leave-to{opacity:0;transform:scale(.4)}
 
 /* Control Centre */
+.carry{position:fixed;z-index:9000;pointer-events:none;transform:translate(14px,14px);display:flex;align-items:center;gap:10px;padding:10px 14px 10px 10px;border-radius:18px;background:rgb(40 46 60 / .72);backdrop-filter:blur(18px) saturate(1.4);box-shadow:inset 0 0 0 1px rgb(255 255 255 / .22),0 18px 40px rgb(0 0 0 / .35);color:#fff;animation:fade .2s both}
+.carry{white-space:nowrap}.carry.flip{transform:translate(calc(-100% - 14px),14px)}
+.carry svg{width:34px;height:34px;color:#9fd3ff;filter:drop-shadow(0 0 10px rgb(120 190 255 / .6))}.carry span{display:flex;flex-direction:column;gap:2px}.carry b{font-size:14px;font-weight:600}.carry small{font-size:11.5px;opacity:.7}
 .status{position:absolute;left:50%;top:8px;transform:translateX(-50%);height:40px;padding:0 14px 0 16px;border-radius:20px;display:flex;align-items:center;gap:10px;z-index:7000;font-size:15px;
   background:rgb(60 62 70 / .5);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);box-shadow:inset 0 0 0 1px rgb(255 255 255 / .2);transition:background .2s,transform .2s}
 .status:hover{background:rgb(100 102 110 / .65)}.status b{font-weight:600;font-variant-numeric:tabular-nums}

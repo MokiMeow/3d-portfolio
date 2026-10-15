@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { vHover } from '../../kit/hover';
 import AppIcon from '../music/AppIcon.vue';
-import { FILES, HOME, listDirectory, resolvePath } from './model';
+import { FILES, HOME, MODEL_FILES, listDirectory, resolvePath } from './model';
+import { startCarry } from '../../bus';
 
 const path = ref(HOME);
 const columnView = ref<HTMLElement>();
 const selection = ref<string | null>(null);
-const folders = ['Home', 'Desktop', 'Documents', 'Downloads', 'Projects'];
+const folders = ['Home', 'Desktop', 'Documents', 'Downloads', 'Projects', 'Models'];
+function carryOut(path: string, event: PointerEvent): void { const model = MODEL_FILES[path]; if (model && event.button === 0) startCarry(model.id, model.name, event); }
 const columns = computed(() => {
   const suffix = path.value.slice(HOME.length).split('/').filter(Boolean);
   const paths = [HOME];
@@ -55,14 +57,15 @@ function keys(event: KeyboardEvent): void {
         <section v-for="column in columns" :key="column.path" class="column vk-scroll" :aria-label="column.path" @keydown="keys">
           <button
             v-for="item in column.items" :key="item.path" v-hover class="vk-row"
-            :aria-pressed="selection === item.path || (item.folder && path.startsWith(item.path))" @click="choose(item)"
+            :aria-pressed="selection === item.path || (item.folder && path.startsWith(item.path))" :class="{ model: MODEL_FILES[item.path] }"
+            :title="MODEL_FILES[item.path] ? 'Drag out of the window to place it in your space' : undefined" @click="choose(item)" @pointerdown="carryOut(item.path, $event)"
           >
-            <span class="file-icon"><AppIcon :name="item.folder ? 'folder' : 'note'" /></span>
+            <span class="file-icon"><svg v-if="MODEL_FILES[item.path]" class="cube" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.8 8 4.6v9.2l-8 4.6-8-4.6V7.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /><path d="m4 7.4 8 4.6 8-4.6M12 12v9.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></svg><AppIcon v-else :name="item.folder ? 'folder' : 'note'" /></span>
             <span>{{ item.name }}</span><span v-if="item.folder" class="chevron"><AppIcon name="right" /></span>
           </button>
         </section>
         <article v-if="preview !== undefined" class="preview vk-scroll">
-          <span class="paper"><AppIcon name="note" /></span>
+          <span class="paper"><svg v-if="selection && MODEL_FILES[selection]" class="cube big" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.8 8 4.6v9.2l-8 4.6-8-4.6V7.4Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" /><path d="m4 7.4 8 4.6 8-4.6M12 12v9.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" /></svg><AppIcon v-else name="note" /></span>
           <h3>{{ selection?.split('/').at(-1) }}</h3>
           <pre>{{ preview }}</pre>
         </article>
@@ -75,6 +78,9 @@ function keys(event: KeyboardEvent): void {
 <style scoped>
 .finder-content { width: 100%; height: 100%; display: flex; min-height: 0; font-family: inherit; background: #283142; }
 .finder-content :deep(*) { font-family: inherit; box-sizing: border-box; }
+.vk-row.model { cursor: grab; touch-action: none; user-select: none; }
+.cube { width: 18px; height: 18px; color: #9fd3ff; }
+.cube.big { width: 54px; height: 54px; }
 .favorites { width: 142px; flex: none; padding: 12px 6px; background: #ffffff0b; }
 .favorites p { margin: 0 8px 10px; }
 .favorites .vk-row { min-height: 44px; font-size: 14px; padding: 6px 10px; gap: 8px; border-radius: 10px; }

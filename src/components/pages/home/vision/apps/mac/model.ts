@@ -25,7 +25,20 @@ export const FILES: Record<string, string> = {
   [HOME + '/Projects/fix-it-later/package.json']: '{\n  "name": "fix-it-later",\n  "scripts": { "dev": "take-a-break" },\n  "dependencies": { "chai": "essential" }\n}',
   [HOME + '/Downloads/why-is-this-happening.txt']: 'Have you tried turning it off and having chai?\nAbout several million opinions. None quite yours.',
 };
-const DIRECTORIES = [HOME, ...['Desktop', 'Documents', 'Downloads', 'Projects', 'Projects/fix-it-later'].map(name => HOME + '/' + name)];
+/** 3D models in ~/Models. Drag one out of the window and it lands in your space. */
+export const MODEL_FILES: Record<string, { id: 'walle' | 'headset' | 'turntable' | 'controller' | 'ps5' | 'watch'; name: string }> = {
+  [HOME + '/Models/WALL·E.usdz']: { id: 'walle', name: 'WALL·E' },
+  [HOME + '/Models/Vision Pro.usdz']: { id: 'headset', name: 'Vision Pro' },
+  [HOME + '/Models/Turntable.usdz']: { id: 'turntable', name: 'Record Turntable' },
+  [HOME + '/Models/DualSense.usdz']: { id: 'controller', name: 'DualSense' },
+  [HOME + '/Models/PlayStation 5.usdz']: { id: 'ps5', name: 'PlayStation 5' },
+  [HOME + '/Models/Apple Watch Ultra.usdz']: { id: 'watch', name: 'Apple Watch Ultra' },
+};
+for (const [path, model] of Object.entries(MODEL_FILES)) FILES[path] = `${model.name}
+3D model (USDZ)
+
+Drag this file out of the window to place it in your space.`;
+const DIRECTORIES = [HOME, ...['Desktop', 'Documents', 'Downloads', 'Projects', 'Projects/fix-it-later', 'Models'].map(name => HOME + '/' + name)];
 
 export function resolvePath(input: string, cwd = HOME): string {
   const path = input.startsWith('~') ? HOME + input.slice(1) : input.startsWith('/') ? input : cwd + '/' + input;

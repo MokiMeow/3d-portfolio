@@ -4,6 +4,7 @@ import { Vector3 } from 'three';
 import { SpaceEngine, GRAVITY } from './engine';
 import type { GravityMode, Structure, Thing } from './engine';
 import { MATERIALS, SHAPES, SHAPE_NAMES, materialFor, outline } from './shapes';
+import { loadModel, objects, type ObjectId } from '../apps/objects/models';
 import type { MaterialId, ShapeId } from './shapes';
 
 /**
@@ -142,7 +143,7 @@ function scaleSelected(factor: number) { if (selected.value) engine.value?.resiz
 function restyleSelected(id: MaterialId) { if (selected.value) engine.value?.restyle(selected.value, id); }
 function duplicateSelected() {
   const thing = selected.value, e = engine.value;
-  if (!thing || !e) return;
+  if (!thing || !e || thing.model) return;
   const p = thing.body.position;
   e.spawn(thing.shape, thing.material, thing.size, new Vector3(p.x + thing.size * .4, p.y + thing.size * 1.4, p.z), { drawn: thing.mesh.userData.drawn });
 }
@@ -196,7 +197,16 @@ function build(kind: Structure, finish?: string) {
   return jobs.length;
 }
 function setGravity(mode: GravityMode) { gravity.value = mode; }
+/** A model dragged out of the Mac lands where it was let go, at arm's length. */
+async function dropModel(id: ObjectId, x: number, y: number) {
+  const e = engine.value;
+  if (!e) return;
+  const env = e.envMap;
+  const model = await loadModel(id, env as Parameters<typeof loadModel>[1]);
+  e.spawnModel(model.root, objects.find(item => item.id === id)!.name, model.dispose, e.placeAt(x, y, .42));
+}
 defineExpose({
+  dropModel,
   open: () => { creating.value = true; }, close: () => { creating.value = false; }, toggle: () => { creating.value = !creating.value; },
   spawn: spawnMany, build, clear, setGravity, get count() { return count.value; }, get creating() { return creating.value; },
 });
