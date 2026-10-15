@@ -1,5 +1,20 @@
 import { glslify } from "vite-plugin-glslify";
 
+/**
+ * web-llm ships as one 6.8 MB file. Vite's asset plugin screens every module with
+ * /new\s+URL.+import\.meta\.url/s, and on a file that size the regex overflows the stack. web-llm's
+ * `new URL(...)` calls resolve model files at run time and must not be touched by Vite anyway, so
+ * they are spelled `new (URL)(...)`: identical behaviour, invisible to the screen.
+ */
+const webLlmUnscanned = () => ({
+	name: "web-llm-unscanned",
+	enforce: "pre" as const,
+	transform(code: string, id: string) {
+		if (!id.includes("@mlc-ai/web-llm") || code.length < 1e6) return null;
+		return { code: code.replace(/new URL\(/g, "new (URL)("), map: null };
+	},
+});
+
 export default defineNuxtConfig({
 	compatibilityDate: "2026-07-18",
 	devtools: { enabled: false },
@@ -76,7 +91,9 @@ export default defineNuxtConfig({
 		compressPublicAssets: true,
 	},
 	vite: {
-		plugins: [glslify()],
+		plugins: [glslify(), webLlmUnscanned()],
+		// JARVIS's workers (web-llm, Kokoro) are module workers, and web-llm is bundled into one of them.
+		worker: { format: "es", plugins: () => [webLlmUnscanned()] },
 	},
 	i18n: {
 		vueI18n: "../i18n.config.ts",
