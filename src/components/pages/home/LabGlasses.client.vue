@@ -40,6 +40,8 @@ const VIEWS: Record<VisionAppId, Component> = {
   beatstudio: defineAsyncComponent(() => import('./vision/apps/BeatStudio.vue')),
   zengarden: defineAsyncComponent(() => import('./vision/apps/ZenGarden.vue')),
   gravity: defineAsyncComponent(() => import('./vision/apps/Gravity.vue')),
+  whatsapp: defineAsyncComponent(() => import('./vision/apps/WhatsApp.vue')),
+  slack: defineAsyncComponent(() => import('./vision/apps/Slack.vue')),
 };
 const NAMES = Object.fromEntries(VISION_APPS.map(item => [item.id, item.name])) as Record<VisionAppId, string>;
 // The Home View honeycomb: pages of rows of 4, 5 and 5, each cell 146 apart, like the real Home View.
@@ -446,6 +448,8 @@ const jarvis = useJarvis({
     apps: VISION_APPS, environments: VISION_ENVIRONMENTS, objects: spatial.value?.count ?? 0,
   }),
   act: jarvisAct,
+  visible: () => Boolean(jarvisOrb.value?.visible),
+  onWake: () => { if (viewOnly.value) setViewOnly(false); },
 });
 const jarvisStatus = computed(() => ({ place: inside.value ? here.value.name : 'My Room', immersion: inside.value ? immersion.value : 0, windows: windows.value.length, front: front.value ? NAMES[front.value.id] : '' }));
 /** Everything JARVIS can do to the headset. Returns an extra line for him to say, when there is one. */
@@ -492,9 +496,11 @@ function siriKey(event: KeyboardEvent) {
   if (event.altKey && event.code === 'Space') { event.preventDefault(); jarvisOrb.value?.activate(); return; }
   // Spotlight: Ctrl or Command + Space, or / when nothing is being typed.
   const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || (event.target as HTMLElement | null)?.isContentEditable;
-  if (!typing && !event.ctrlKey && !event.metaKey && !event.altKey && (event.key === 'j' || event.key === 'J') && !booting.value) { event.preventDefault(); if (viewOnly.value) setViewOnly(false); void jarvisOrb.value?.talk(); return; }
-  if (!typing && !event.ctrlKey && !event.metaKey && !event.altKey && (event.key === 'v' || event.key === 'V') && !booting.value) { event.preventDefault(); setViewOnly(!viewOnly.value); return; }
-  if (!typing && !event.ctrlKey && !event.metaKey && !event.altKey && (event.key === 'c' || event.key === 'C') && !booting.value) { event.preventDefault(); toggleCreate(); return; }
+  // Single letters belong to the app you are using (YouTube seeks with J, for one); they are shortcuts only from the shell.
+  const inApp = event.defaultPrevented || Boolean((event.target as HTMLElement | null)?.closest?.('.window, .jarvis-hud, .quick, .create, .control, .help'));
+  if (!typing && !inApp && !event.ctrlKey && !event.metaKey && !event.altKey && (event.key === 'j' || event.key === 'J') && !booting.value) { event.preventDefault(); if (viewOnly.value) setViewOnly(false); void jarvisOrb.value?.talk(); return; }
+  if (!typing && !inApp && !event.ctrlKey && !event.metaKey && !event.altKey && (event.key === 'v' || event.key === 'V') && !booting.value) { event.preventDefault(); setViewOnly(!viewOnly.value); return; }
+  if (!typing && !inApp && !event.ctrlKey && !event.metaKey && !event.altKey && (event.key === 'c' || event.key === 'C') && !booting.value) { event.preventDefault(); toggleCreate(); return; }
   if (((event.ctrlKey || event.metaKey) && event.code === 'Space') || (event.key === '/' && !typing)) { event.preventDefault(); openSpotlight(); }
 }
 const spotlight = ref<InstanceType<typeof Spotlight>>();
@@ -581,7 +587,7 @@ onBeforeUnmount(() => {
       <!-- Windows -->
       <TransitionGroup name="window">
         <section v-for="win in windows" :key="win.id" class="window" :class="{ front: front === win, behind: homeOpen, gliding, scanning: scanning === win.id }" :aria-label="NAMES[win.id]"
-          :style="{ left: `${win.x}px`, top: `${win.y}px`, width: `${win.w}px`, height: `${win.h}px`, zIndex: win.z }" @pointerdown.capture="focus(win)">
+          :style="{ left: `${win.x}px`, top: `${win.y}px`, width: `${win.w}px`, height: `${win.h}px`, zIndex: win.z, '--wx': `${win.x}px`, '--wy': `${win.y}px` }" @pointerdown.capture="focus(win)">
           <div class="glass"><component :is="VIEWS[win.id]" :compact="compact" /></div>
           <div class="grip-row">
             <button class="shut" :aria-label="`Close ${NAMES[win.id]}. Hold for more.`" :title="`Close ${NAMES[win.id]} (hold for more)`"
@@ -861,10 +867,22 @@ button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3
 .window{position:absolute;transform:rotateY(calc(var(--tx) * .4deg)) rotateX(calc(var(--ty) * -.3deg));transition:transform .25s ease-out,filter .3s,opacity .3s}
 .window:not(.front) .glass{filter:brightness(.82)}
 .window.behind{pointer-events:none}
-.glass{position:absolute;inset:0;border-radius:40px;overflow:hidden;border:1px solid rgb(255 255 255 / .2);transition:filter .3s;
-  background:linear-gradient(135deg,rgb(255 255 255 / .16),rgb(255 255 255 / .035)),rgb(45 48 54 / .5);backdrop-filter:blur(36px) saturate(125%);-webkit-backdrop-filter:blur(36px) saturate(125%);
-  box-shadow:inset 0 1px 0 rgb(255 255 255 / .3),0 24px 70px rgb(0 0 0 / .3)}
-.inside .glass{background:linear-gradient(135deg,rgb(255 255 255 / .14),rgb(255 255 255 / .03)),rgb(38 41 48 / .62)}
+/* visionOS glass: a luminous, frosted pane. Light falls from above, the rim catches it along the top edge,
+   the room glows through, and a soft light follows your gaze across the surface. */
+.glass{position:absolute;inset:0;border-radius:40px;overflow:hidden;transition:filter .3s;isolation:isolate;
+  background:
+    radial-gradient(120% 70% at 30% -10%,rgb(255 255 255 / .2),transparent 62%),
+    linear-gradient(180deg,rgb(255 255 255 / .13),rgb(255 255 255 / .045) 38%,rgb(255 255 255 / .025)),
+    rgb(78 82 94 / .4);
+  backdrop-filter:blur(50px) saturate(175%) brightness(1.12);-webkit-backdrop-filter:blur(50px) saturate(175%) brightness(1.12);
+  box-shadow:inset 0 1px 0 rgb(255 255 255 / .42),inset 0 -1px 0 rgb(0 0 0 / .14),0 2px 6px rgb(0 0 0 / .12),0 34px 90px rgb(0 0 0 / .38)}
+.glass::before{content:'';position:absolute;inset:0;border-radius:inherit;padding:1.2px;pointer-events:none;z-index:50;
+  background:linear-gradient(180deg,rgb(255 255 255 / .55),rgb(255 255 255 / .16) 22%,rgb(255 255 255 / .07) 60%,rgb(255 255 255 / .12));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+.glass::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:49;opacity:0;transition:opacity .4s;
+  background:radial-gradient(520px circle at calc(var(--gx,-999px) - var(--wx,0px)) calc(var(--gy,-999px) - var(--wy,0px)),rgb(255 255 255 / .075),transparent 62%)}
+.window.front:hover .glass::after{opacity:1}
+.inside .glass{background:radial-gradient(120% 70% at 30% -10%,rgb(255 255 255 / .16),transparent 62%),linear-gradient(180deg,rgb(255 255 255 / .1),rgb(255 255 255 / .03) 40%,rgb(255 255 255 / .02)),rgb(46 50 60 / .56)}
 .solid .glass,.solid .tabs,.solid .control,.solid .dock,.solid .help{background:#2b2d33;backdrop-filter:none;-webkit-backdrop-filter:none}
 /* The window bar: a close button that is always in view, and the bar you move the window by. */
 .grip-row{position:absolute;left:0;right:0;top:calc(100% + 8px);display:flex;justify-content:center;align-items:center;gap:10px}

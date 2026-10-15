@@ -76,7 +76,7 @@ async function closeCore() {
 function setDocked(value: boolean) { docked.value = value; emit('core', value ? 'docked' : 'open'); }
 /** JARVIS steps aside on his own when he changes what you see, so you can watch it happen. */
 function stepAside() { if (coreOpen.value && !docked.value) setDocked(true); }
-defineExpose({ activate, talk, stepAside, close: closeCore, get open() { return coreOpen.value; } });
+defineExpose({ activate, talk, stepAside, close: closeCore, get open() { return coreOpen.value; }, get visible() { return coreOpen.value || panel.value; } });
 
 /* Dragging the orb */
 let drag: { id: number; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null = null;

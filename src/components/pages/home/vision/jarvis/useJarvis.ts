@@ -11,7 +11,7 @@ export type Remarks = 'off' | 'captions' | 'spoken';
 export type Whisper = { id: number; text: string };
 
 const STORE = 'lab-jarvis-v1';
-type Saved = { address?: string; voiceOn?: boolean; voice?: VoiceId; remarks?: Remarks; tier?: 'full' | 'instant'; neural?: boolean };
+type Saved = { address?: string; voiceOn?: boolean; voice?: VoiceId; remarks?: Remarks; tier?: 'full' | 'instant'; neural?: boolean; wake?: boolean };
 function saved(): Saved { try { return JSON.parse(localStorage.getItem(STORE) ?? '{}') as Saved; } catch { return {}; } }
 
 /**
@@ -21,6 +21,10 @@ function saved(): Saved { try { return JSON.parse(localStorage.getItem(STORE) ??
 export function useJarvis(options: {
   context: () => Omit<JarvisContext, 'address' | 'neural' | 'timers'>;
   act: (action: JarvisAction) => string | void | Promise<string | void>;
+  /** Called when someone says "JARVIS" out loud, so the shell can bring him forward. */
+  onWake?: () => void;
+  /** Whether the quick panel or the full display is showing his words. */
+  visible?: () => boolean;
 }) {
   const initial = saved();
   const state = reactive({
@@ -44,6 +48,8 @@ export function useJarvis(options: {
     mindProgress: 0,
     mindDetail: '',
     tokensPerSecond: 0,
+    wake: false,
+    wakeHeard: '',
     gpu: null as boolean | null,
     turns: 0,
     lastMs: 0,
@@ -63,7 +69,7 @@ export function useJarvis(options: {
   };
 
   let lineId = 0, whisperId = 0, timerId = 0, run = 0;
-  const persist = () => { try { localStorage.setItem(STORE, JSON.stringify({ address: state.address, voiceOn: state.voiceOn, voice: state.voiceId, remarks: state.remarks, tier: state.tier, neural: mind.status === 'ready' })); } catch { /* private mode */ } };
+  const persist = () => { try { localStorage.setItem(STORE, JSON.stringify({ address: state.address, voiceOn: state.voiceOn, voice: state.voiceId, remarks: state.remarks, tier: state.tier, neural: mind.status === 'ready', wake: state.wake })); } catch { /* private mode */ } };
   function log(text: string, kind: LogLine['kind'] = 'op') {
     state.log.push({ id: ++lineId, text, kind, at: Date.now() });
     if (state.log.length > 60) state.log.splice(0, state.log.length - 60);
@@ -80,6 +86,7 @@ export function useJarvis(options: {
     state.words = text.split(' ').filter(Boolean);
     state.spoken = state.voiceOn ? -1 : state.words.length;
     log(`say(${JSON.stringify(text.length > 52 ? text.slice(0, 52) + '…' : text)})`, 'say');
+    if (options.visible && !options.visible()) caption(text);
     if (!state.voiceOn) { state.mode = 'idle'; return; }
     state.mode = 'speaking';
     await voice.speak(text, { words: state.words, onWord: index => { if (mine === run) state.spoken = index; } });
@@ -139,20 +146,36 @@ export function useJarvis(options: {
     log(`core.generate(tokens ≤ 90)`, 'sys');
     try {
       const mine = run;
-      const result = await mind.reply(context(), memory.turns, text, partial => { if (mine === run) { state.caption = partial; state.words = partial.split(' '); state.spoken = -1; } });
+      const speech = state.voiceOn ? voice.stream(index => { if (mine === run) state.spoken = index; }) : null;
+      let said = 0;
+      const feed = (partial: string, final: boolean) => {
+        // Hand each finished sentence to the voice as soon as it exists.
+        const done = final ? partial.length : (partial.match(/^[\s\S]*[.!?]["')\]]?(?=\s)/)?.[0].length ?? 0);
+        if (done > said) { speech?.push(partial.slice(said, done)); said = done; }
+      };
+      const result = await mind.reply(context(), memory.turns, text, partial => {
+        if (mine !== run) return;
+        state.caption = partial; state.words = partial.split(' ').filter(Boolean);
+        if (state.mode === 'thinking' && speech && /[.!?]/.test(partial)) state.mode = 'speaking';
+        feed(partial, false);
+      });
       if (mine !== run) return;
+      feed(result.text, true);
       state.tokensPerSecond = mind.tokensPerSecond; state.lastMs = result.ms;
       log(`core.reply  ${result.ms}ms  ${mind.tokensPerSecond} t/s`, 'ok');
       memory.turns.push({ you: text, jarvis: result.text });
       if (memory.turns.length > 8) memory.turns.shift();
       const ctx = context();
       const tag = validTag(result.tag, ctx.apps, ctx.environments, text, ctx.place.id, ctx.open);
-      let line = result.text || addressed('Forgive me, {a}. I lost my train of thought.', address());
       if (tag) {
         log(`suggest ${tag.kind}:${tag.id}`, 'op');
         await run_actions([tag.kind === 'place' ? { type: 'environment', id: tag.id } : { type: 'open', app: tag.id }]);
       }
-      await say(line);
+      log(`say(${JSON.stringify(result.text.slice(0, 52))})`, 'say');
+      if (!result.text) { await say(addressed('Forgive me, {a}. I lost my train of thought.', address())); return; }
+      state.caption = result.text; state.words = result.text.split(' ').filter(Boolean);
+      if (speech) { state.mode = 'speaking'; await speech.end(); }
+      if (mine === run) { state.spoken = state.words.length; state.mode = 'idle'; }
     } catch (error) {
       log(`core.error  ${String(error).slice(0, 50)}`, 'warn');
       await say(reply.say);
@@ -178,6 +201,12 @@ export function useJarvis(options: {
   /* Remarks: short captions beside the orb when something happens, spoken if you have asked for that. */
   let lastRemark = 0;
   const placesRemarked = new Set<string>();
+  /** A remark bubble beside the orb, without speaking it again. */
+  function caption(text: string) {
+    const item = { id: ++whisperId, text };
+    state.whispers = [...state.whispers.slice(-1), item];
+    window.setTimeout(() => { state.whispers = state.whispers.filter(entry => entry.id !== item.id); }, Math.max(4200, text.length * 70));
+  }
   function whisper(text: string, important = false) {
     if (state.remarks === 'off' && !important) return;
     const item = { id: ++whisperId, text };
@@ -220,13 +249,47 @@ export function useJarvis(options: {
   function setAddress(value: string) { state.address = value; persist(); }
   function forget() { memory.turns = []; state.log = []; state.turns = 0; log('memory.clear()  ✓', 'ok'); }
 
-  function dispose() { voice.dispose(); void mind.unload(); timers.forEach(handle => clearTimeout(handle)); }
+  /* "JARVIS, …": hands-free, through the browser's speech recognition, only when switched on. */
+  type Recognition = { lang: string; continuous: boolean; interimResults: boolean; onresult: ((event: { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> }) => void) | null; onend: (() => void) | null; onerror: ((event: { error: string }) => void) | null; start(): void; stop(): void; abort(): void };
+  let wake: Recognition | null = null, wakePaused = false, wakeRetry = 0;
+  const Recognizer = typeof window === 'undefined' ? undefined : ((window as unknown as { SpeechRecognition?: new () => Recognition }).SpeechRecognition ?? (window as unknown as { webkitSpeechRecognition?: new () => Recognition }).webkitSpeechRecognition);
+  const wakeAvailable = Boolean(Recognizer);
+  function startWake() {
+    if (!Recognizer || wake || wakePaused || !state.wake) return;
+    const recognizer = new Recognizer();
+    recognizer.lang = 'en-GB'; recognizer.continuous = true; recognizer.interimResults = false;
+    recognizer.onresult = event => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i]!;
+        if (!result.isFinal || voice.busy) continue;
+        const heard = result[0]!.transcript.trim();
+        const match = heard.match(/\b(?:hey |ok |okay )?(?:jarvis|jervis|jarvis's|travis)\b[,.!?]?\s*(.*)$/i);
+        if (!match) continue;
+        state.wakeHeard = heard;
+        log(`wake("${heard.slice(0, 40)}")`, 'in');
+        voice.chime('wake');
+        options.onWake?.();
+        if (match[1]?.trim()) void ask(match[1].trim());
+        else void say(addressed(['Yes, {a}?', 'At your service.', 'Listening, {a}.'][Math.floor(Math.random() * 3)]!, address()));
+      }
+    };
+    recognizer.onerror = event => { if (event.error === 'not-allowed' || event.error === 'service-not-allowed') { state.wake = false; persist(); log('wake.denied', 'warn'); } };
+    recognizer.onend = () => { wake = null; if (state.wake && !wakePaused) { window.clearTimeout(wakeRetry); wakeRetry = window.setTimeout(startWake, 400); } };
+    try { recognizer.start(); wake = recognizer; log('wake.listen()', 'sys'); } catch { wake = null; }
+  }
+  function stopWake() { window.clearTimeout(wakeRetry); const current = wake; wake = null; if (current) { current.onend = null; current.abort(); } }
+  /** The microphone button needs the recogniser to itself for a moment. */
+  function pauseWake(paused: boolean) { wakePaused = paused; if (paused) stopWake(); else startWake(); }
+  function setWake(on: boolean) { state.wake = on && wakeAvailable; persist(); if (state.wake) startWake(); else stopWake(); }
+  if (initial.wake) { state.wake = wakeAvailable; window.setTimeout(startWake, 1500); }
+
+  function dispose() { stopWake(); voice.dispose(); void mind.unload(); timers.forEach(handle => clearTimeout(handle)); }
 
   // Returning visitors who chose the full JARVIS get it back without asking again.
   if (initial.tier === 'full' && initial.neural) {
     void JarvisMind.supported().then(ok => { state.gpu = ok; if (ok) { void voice.load(); void mind.load(MODELS[0]); } });
   }
 
-  return { state, voice, mind, ask, say, interrupt, whisper, remark, log, wakeNeural, setInstant, setVoice, setVoiceOn, setRemarks, setAddress, forget, dispose, address };
+  return { state, voice, mind, ask, say, interrupt, whisper, remark, log, wakeNeural, setInstant, setVoice, setVoiceOn, setRemarks, setAddress, forget, dispose, address, context, setWake, pauseWake, wakeAvailable };
 }
 export type Jarvis = ReturnType<typeof useJarvis>;

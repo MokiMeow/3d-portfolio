@@ -103,6 +103,7 @@ function mic() {
   if (listening.value) { recognition?.stop(); return; }
   if (!Recognizer) return;
   props.jarvis.interrupt();
+  props.jarvis.pauseWake(true);
   recognition = new Recognizer();
   recognition.lang = 'en-GB'; recognition.interimResults = true; recognition.continuous = false;
   let finalText = '';
@@ -112,7 +113,7 @@ function mic() {
     question.value = text;
   };
   recognition.onerror = event => { props.jarvis.log(`mic.error(${event.error})`, 'warn'); };
-  recognition.onend = () => { listening.value = false; state.mode = state.mode === 'listening' ? 'idle' : state.mode; recognition = null; if (finalText.trim()) void send(finalText); };
+  recognition.onend = () => { listening.value = false; state.mode = state.mode === 'listening' ? 'idle' : state.mode; recognition = null; props.jarvis.pauseWake(false); if (finalText.trim()) void send(finalText); };
   listening.value = true; state.mode = 'listening';
   props.jarvis.log('mic.listen()', 'sys');
   try { recognition.start(); } catch { listening.value = false; state.mode = 'idle'; }
@@ -294,6 +295,10 @@ onBeforeUnmount(() => {
           <p class="note">{{ MODELS[0]!.name }} · {{ MODELS[0]!.size }} · {{ mindLine.toLowerCase() }}</p>
           <button v-if="state.mindStatus !== 'ready' && state.mindStatus !== 'loading'" class="wide" @click="full">Bring it online</button>
           <button v-else-if="state.mindStatus === 'ready'" class="wide" @click="jarvis.mind.unload()">Put it to sleep</button>
+        </section>
+        <section v-if="jarvis.wakeAvailable">
+          <h4>Listen for “JARVIS” <button class="toggle" :aria-pressed="state.wake" @click="jarvis.setWake(!state.wake)">{{ state.wake ? 'On' : 'Off' }}</button></h4>
+          <p class="note">Say “JARVIS” and a request, from anywhere in the headset. Uses your browser’s speech recognition while it is on.</p>
         </section>
         <section>
           <h4>Remarks as you go</h4>

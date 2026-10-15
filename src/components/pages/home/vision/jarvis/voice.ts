@@ -196,6 +196,48 @@ export class JarvisVoice {
     if (run === this.generation) this.speaking = false;
   }
 
+  /**
+   * Speak while the text is still arriving. `push` takes each finished sentence in order; `end` resolves
+   * once everything pushed has been heard. Captions follow word by word across the whole stream.
+   */
+  stream(onWord?: (index: number) => void) {
+    this.stop();
+    const run = this.generation;
+    let chain: Promise<void> = Promise.resolve();
+    let wordBase = 0, at = 0;
+    const context = this.muted ? null : this.graph();
+    if (context?.state === 'suspended') void context.resume();
+    const push = (sentence: string) => {
+      const clean = sentence.trim();
+      if (!clean || this.muted || run !== this.generation) return;
+      this.speaking = true;
+      const words = clean.split(' ').filter(Boolean), base = wordBase;
+      wordBase += words.length;
+      if (this.engine === 'neural' && this.worker && context) {
+        const job = this.synthesize(clean);
+        chain = chain.then(async () => {
+          const audio = await job;
+          if (!audio || run !== this.generation) return;
+          const buffer = context.createBuffer(1, audio.samples.length, audio.rate);
+          buffer.copyToChannel(new Float32Array(audio.samples), 0);
+          const source = context.createBufferSource();
+          source.buffer = buffer; source.connect(this.input!);
+          at = Math.max(at, context.currentTime + .03);
+          source.start(at);
+          this.sources.add(source); source.onended = () => this.sources.delete(source);
+          this.follow(words, base, at, buffer.duration, run, onWord);
+          at += buffer.duration + .08;
+        });
+      } else chain = chain.then(() => run === this.generation ? this.system(clean, run, index => onWord?.(base + index)) : undefined);
+    };
+    const end = async () => {
+      await chain;
+      if (context && this.engine === 'neural') await new Promise(resolve => window.setTimeout(resolve, Math.max(0, (at - context.currentTime) * 1000)));
+      if (run === this.generation) this.speaking = false;
+    };
+    return { push, end };
+  }
+
   /** Reveal words across a sentence's audio, weighted by length, so captions keep pace with speech. */
   private follow(words: string[], base: number, start: number, duration: number, run: number, onWord?: (index: number) => void) {
     if (!onWord || !this.context) return;
