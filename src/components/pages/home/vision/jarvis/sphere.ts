@@ -38,6 +38,8 @@ const Projection = {
       vec2 off = (vUv - .5) * .0045;
       vec3 c = vec3(texture2D(tDiffuse, vUv + off).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - off).b);
       c = max(c - .026, 0.) * 1.04;
+      // Soft shoulder: bright overlaps keep their colour instead of burning out to white.
+      c = c * (1. + c * .18) / (1. + c * .62) * 1.22;
       float scan = .955 + .045 * sin(vUv.y * uHeight * 1.35 + uTime * 9.);
       float flick = 1. - .05 * step(.985, fract(sin(floor(uTime * 24.)) * 43758.5)) * uFlicker;
       c *= scan * flick;
@@ -63,11 +65,13 @@ const COMMON = /* glsl */`
     float r = length(p);
     // Speaking sends rings of light out from the core; thinking makes every fragment shiver.
     float wave = .5 + .5 * sin(r * 16. - uTime * 7.);
-    q *= 1. + uLevel * .07 * wave + uThink * .012 * sin(uTime * 11. + aSeed * 60.) - uListen * .03;
+    q *= 1. + uLevel * .055 * wave + uThink * .012 * sin(uTime * 11. + aSeed * 60.) - uListen * .03;
     q = mix(q, mix(q * .03, origin, uFromOrigin), uImplode);
     float flicker = .62 + .38 * sin(uTime * (1.3 + aSeed * 5.) + aSeed * 97.);
     flicker = mix(flicker, step(.5, fract(sin(floor(uTime * 14. + aSeed * 30.)) * 4375.85)), uThink * .55);
-    float facing = .3 + .7 * smoothstep(-1.1, 1.0, (modelMatrix * vec4(q, 1.)).z);
+    float facing = .2 + .8 * smoothstep(-1.1, 1.0, (modelMatrix * vec4(q, 1.)).z);
+    vec3 nWorld = normalize(mat3(modelMatrix) * normalize(p + vec3(1e-5)));
+    float rim = pow(1. - abs(nWorld.z), 3.) * step(.55, length(p));
     float gaze = smoothstep(.82, .98, dot(normalize(p), uGaze)) * step(.001, length(uGaze));
     // Data in transit: a bright pulse runs along each trace, faster while thinking.
     float pulse = 0.;
@@ -75,8 +79,9 @@ const COMMON = /* glsl */`
       float head = fract(uTime * (.18 + aSeed * .35) * uFlow + aSeed * 7.);
       pulse = smoothstep(.16, 0., abs(head - aTrail)) * step(aTrail, head);
     }
-    vAlpha = t * flicker * facing * aFade * (1. - uImplode * .6) * (.85 + uLevel * (pow(wave, 4.) * .9 - .15) + gaze * 1.6 + uListen * .3 + pulse * 2.4) * uGain;
-    vHeat = clamp(gaze + uLevel * pow(wave, 4.) * .5 + (1. - r) * .35 + uImplode + pulse * .9, 0., 1.);
+    float ripple = pow(wave, 9.);
+    vAlpha = t * flicker * facing * aFade * (1. - uImplode * .6) * (.85 + rim * .55 + uLevel * (ripple * 1.1 - .12) + gaze * 1.6 + uListen * .3 + pulse * 2.4) * uGain;
+    vHeat = clamp(gaze + uLevel * ripple * .45 + (1. - r) * .22 + rim * .25 + uImplode + pulse * .9, 0., 1.);
     return q;
   }
 `;
@@ -489,7 +494,7 @@ export class JarvisSphere {
       vertexShader: /* glsl */`varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
       fragmentShader: /* glsl */`uniform float uAssemble, uLevel, uThink, uImplode; uniform vec3 uColor; varying vec2 vUv;
         void main(){ float d = length(vUv - .5) * 2.; float halo = exp(-d * d * 5.) * .05 + exp(-d * d * 120.) * .1;
-          gl_FragColor = vec4(uColor * halo * uAssemble * (.8 + uLevel * .8 + uThink * .3 + uImplode * 2.), 1.); }`,
+          gl_FragColor = vec4(uColor * halo * uAssemble * (.8 + uLevel * .4 + uThink * .3 + uImplode * 2.), 1.); }`,
     });
     this.disposables.push(glowMaterial);
     const glow = new Mesh(quad(1.6, 1.6), glowMaterial);
@@ -501,7 +506,7 @@ export class JarvisSphere {
       fragmentShader: /* glsl */`uniform float uAssemble, uLevel, uFlare; varying vec2 vUv;
         void main(){ vec2 c = vUv - .5; float line = exp(-abs(c.y) * 90.) * exp(-abs(c.x) * 3.2);
           float core = exp(-dot(c * vec2(6., 40.), c * vec2(6., 40.)));
-          gl_FragColor = vec4(vec3(1., .78, .45) * (line * .5 + core * .25) * uAssemble * (.5 + uLevel * .45 + uFlare * 1.8), 1.); }`,
+          gl_FragColor = vec4(vec3(1., .78, .45) * (line * .5 + core * .25) * uAssemble * (.5 + uLevel * .25 + uFlare * 1.8), 1.); }`,
     });
     this.disposables.push(streakMaterial);
     this.streak = new Mesh(quad(2.2, .16), streakMaterial);
@@ -578,7 +583,7 @@ export class JarvisSphere {
     this.core.position.copy(this.originWorld).multiplyScalar(away);
     this.streak.position.copy(this.core.position);
     ((this.streak.material as ShaderMaterial).uniforms.uFlare!).value = this.flare;
-    this.bloom.strength = 1.0 + u.uLevel.value * .2 + u.uImplode.value * 1.2 + this.flare * .6;
+    this.bloom.strength = 1.0 + u.uLevel.value * .12 + u.uImplode.value * 1.2 + this.flare * .6;
     this.projection.uniforms.uTime!.value = u.uTime.value;
     this.projection.uniforms.uFlicker!.value = 1 + u.uThink.value * 2;
     // Where the pointer meets the sphere, fragments brighten, as if JARVIS is following your gaze.

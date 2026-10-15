@@ -42,6 +42,23 @@ const suggestionPage = ref(0);
 const suggestions = computed(() => needsAddress.value ? [] : SUGGESTIONS[suggestionPage.value % SUGGESTIONS.length]!);
 
 const mindName = computed(() => state.hosted ?? MODELS[0]!.name);
+/** Dial geometry: a 270-degree sweep from bottom-left round to bottom-right, in a 200-unit box. */
+function polar(degrees: number, radius: number) { const a = (135 + degrees) * Math.PI / 180; return { x: 100 + Math.cos(a) * radius, y: 100 + Math.sin(a) * radius }; }
+function segment(index: number, count: number, inner: number, outer: number) {
+  const step = 270 / count, from = index * step + .8, to = (index + 1) * step - .8;
+  const a = polar(from, inner), b = polar(from, outer), c = polar(to, outer), d = polar(to, inner);
+  return `M${a.x} ${a.y}L${b.x} ${b.y}A${outer} ${outer} 0 0 1 ${c.x} ${c.y}L${d.x} ${d.y}A${inner} ${inner} 0 0 0 ${a.x} ${a.y}Z`;
+}
+function arcPath(radius: number, fraction: number) {
+  const f = Math.max(.001, Math.min(1, fraction)), start = polar(0, radius), end = polar(270 * f, radius);
+  return `M${start.x} ${start.y}A${radius} ${radius} 0 ${270 * f > 180 ? 1 : 0} 1 ${end.x} ${end.y}`;
+}
+/** Reply speed against 60 tokens a second; load follows what he is doing right now. */
+const speedFraction = computed(() => Math.min(1, (state.tokensPerSecond || 0) / 60));
+const loadFraction = computed(() => state.mode === 'thinking' ? .82 : state.mode === 'speaking' ? .58 : state.mode === 'listening' ? .36 : loading.value ? progress.value * .6 : .12);
+const TAGS: Record<string, string> = { in: 'YOU', op: 'OP', ok: 'OK', say: 'SAY', warn: 'WARN', sys: 'SYS' };
+const born = Date.now();
+const uptime = computed(() => { const s = Math.floor((now.value.getTime() - born) / 1000); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; });
 const mindLine = computed(() => state.mindStatus === 'ready' ? `${mindName.value.toUpperCase()} · ONLINE${state.tokensPerSecond ? ` · ${state.tokensPerSecond} T/S` : ''}`
   : state.mindStatus === 'loading' ? `LOADING · ${Math.round(state.mindProgress * 100)}%` : state.mindStatus === 'error' ? 'OFFLINE · LOCAL PROTOCOLS' : 'LOCAL PROTOCOLS');
 const voiceLine = computed(() => !state.voiceOn ? 'MUTED' : state.voiceStatus === 'loading' ? `LOADING · ${Math.round(state.voiceProgress * 100)}%`
@@ -145,8 +162,9 @@ function mic() {
   try { recognition.start(); } catch { listening.value = false; state.mode = 'idle'; }
 }
 
-/* The little voice-signal trace in the systems panel. */
-const history = new Float32Array(90);
+/* The voice spectrum in the diagnostics panel: segmented bars from his actual voice, with falling peaks. */
+const peaks = new Float32Array(48);
+const spectrumLive = ref(false);
 function drawSignal() {
   const c = signal.value;
   if (!c) return;
@@ -154,17 +172,25 @@ function drawSignal() {
   if (!ctx) return;
   const dpr = Math.min(2, window.devicePixelRatio || 1), w = c.clientWidth, h = c.clientHeight;
   if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
-  history.copyWithin(0, 1);
-  const level = state.mode === 'speaking' ? props.jarvis.voice.level() : state.mode === 'thinking' ? .15 + Math.random() * .2 : state.mode === 'listening' ? .1 + Math.random() * .3 : .03 + Math.random() * .02;
-  history[history.length - 1] = level;
+  const live = state.mode === 'speaking' ? props.jarvis.voice.spectrum() : null;
+  if (spectrumLive.value !== Boolean(live)) spectrumLive.value = Boolean(live);
+  const t = performance.now() / 1000;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
-  ctx.strokeStyle = 'rgba(255,193,90,.18)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
-  ctx.strokeStyle = '#ffc15a'; ctx.lineWidth = 1.4; ctx.shadowColor = 'rgba(255,160,50,.8)'; ctx.shadowBlur = 6;
-  ctx.beginPath();
-  history.forEach((value, i) => { const x = i / (history.length - 1) * w, y = h / 2 + Math.sin(i * 1.7) * value * h * .45; if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
-  ctx.stroke(); ctx.shadowBlur = 0;
+  const bars = 48, gap = 2, bw = (w - gap * (bars - 1)) / bars, cell = 3, rows = Math.floor(h / (cell + 1));
+  for (let i = 0; i < bars; i++) {
+    const idle = state.mode === 'thinking' ? .25 + .2 * Math.sin(t * 9 + i * .5) : state.mode === 'listening' ? .12 + .1 * Math.sin(t * 5 + i) : .05 + .04 * Math.sin(t * 1.6 + i * .7);
+    const value = Math.max(0, Math.min(1, live ? live[i] ?? 0 : idle));
+    peaks[i] = Math.max(value, peaks[i]! - .012);
+    const lit = Math.round(value * rows), x = i * (bw + gap);
+    for (let r = 0; r < rows; r++) {
+      const y = h - (r + 1) * (cell + 1);
+      ctx.fillStyle = r < lit ? (r > rows * .78 ? '#fff1ca' : '#ffc15a') : 'rgba(255,193,90,.08)';
+      ctx.fillRect(x, y, bw, cell);
+    }
+    const peakRow = Math.round(peaks[i]! * rows);
+    if (peakRow > 0) { ctx.fillStyle = 'rgba(255,241,202,.85)'; ctx.fillRect(x, h - peakRow * (cell + 1) - 1.5, bw, 1.5); }
+  }
 }
 
 function keys(event: KeyboardEvent) {
@@ -221,7 +247,7 @@ onBeforeUnmount(() => {
       <g class="spin slow"><circle cx="100" cy="100" r="98" class="dash" /></g>
       <g class="spin rev"><line v-for="i in RETICLE_TICKS" :key="i" x1="100" :y1="i % 6 ? 4.5 : 1.5" x2="100" y2="8" :transform="`rotate(${i * 5} 100 100)`" :class="{ major: !(i % 6) }" /></g>
       <g class="spin fast"><path d="M100 13 A87 87 0 0 1 175.3 56.5" class="arc" /><path d="M100 187 A87 87 0 0 1 24.7 143.5" class="arc" /><path d="M187 100 A87 87 0 0 1 181 132" class="arc thin" /></g>
-      <g class="labels"><text x="100" y="22" text-anchor="middle">{{ statusLine }}</text><text x="178" y="104" text-anchor="end">{{ String(Math.round(state.mode === 'speaking' ? 87 + Math.random() * 12 : 98)).padStart(3, '0') }}°</text><text x="22" y="104">SYNC</text></g>
+      <g class="labels"><text x="100" y="22" text-anchor="middle">{{ state.hosted ? 'REMOTE CORE' : 'LOCAL CORE' }}</text><text x="178" y="104" text-anchor="end">{{ String(Math.round(state.mode === 'speaking' ? 87 + Math.random() * 12 : 98)).padStart(3, '0') }}°</text><text x="22" y="104">SYNC</text></g>
     </svg>
 
     <!-- Light lines from the panels into the sphere. -->
@@ -250,31 +276,43 @@ onBeforeUnmount(() => {
       <span class="state"><i />{{ statusLine }}</span>
     </header>
 
-    <aside class="panel systems" aria-label="Systems">
-      <h3>Systems</h3>
-      <dl>
-        <div><dt>Location</dt><dd>{{ status.place }}</dd></div>
-        <div class="gauge-row">
-          <dt>Immersion</dt>
-          <dd>
-            <svg viewBox="0 0 44 44" class="gauge" aria-hidden="true"><circle cx="22" cy="22" r="18" /><circle cx="22" cy="22" r="18" class="fill" :style="{ strokeDashoffset: 113.1 * (1 - status.immersion) }" /></svg>
-            {{ Math.round(status.immersion * 100) }}%
-          </dd>
-        </div>
-        <div><dt>Windows</dt><dd>{{ status.windows ? `${status.windows} open` : 'None' }}<small v-if="status.front"> · {{ status.front }} in front</small></dd></div>
-        <div><dt>Local time</dt><dd class="mono">{{ time }}</dd></div>
-        <div><dt>Mind</dt><dd>{{ mindLine }}</dd></div>
-        <div><dt>Voice</dt><dd>{{ voiceLine }}</dd></div>
-        <div v-for="timer in state.timers" :key="timer.id" class="timer"><dt>Timer</dt><dd class="mono">{{ countdown(timer.end) }}<small v-if="timer.label"> · {{ timer.label }}</small></dd></div>
+    <aside class="panel systems" aria-label="Diagnostics">
+      <h3>Diagnostics<em>{{ state.hosted ? 'Hosted core' : 'Local core' }}</em></h3>
+      <div class="dial">
+        <svg viewBox="0 0 200 200" aria-hidden="true">
+          <g class="segs"><path v-for="i in 44" :key="i" :d="segment(i - 1, 44, 84, 95)" :class="{ on: i <= Math.round(status.immersion * 44) }" /></g>
+          <g class="ticks"><line v-for="i in 55" :key="i" :x1="polar(i * 270 / 54, 77).x" :y1="polar(i * 270 / 54, 77).y" :x2="polar(i * 270 / 54, i % 5 ? 74 : 70).x" :y2="polar(i * 270 / 54, i % 5 ? 74 : 70).y" :class="{ major: !(i % 5) }" /></g>
+          <path class="track" :d="arcPath(64, 1)" /><path class="speed" :d="arcPath(64, speedFraction)" />
+          <path class="track thin" :d="arcPath(56, 1)" /><path class="load" :d="arcPath(56, loadFraction)" />
+          <circle class="hub" cx="100" cy="100" r="44" />
+        </svg>
+        <div class="dial-core"><small>Local time</small><b class="mono">{{ time }}</b><span>{{ status.place }}</span></div>
+        <span class="tag tl">Immersion<b>{{ Math.round(status.immersion * 100) }}%</b></span>
+        <span class="tag tr">Speed<b>{{ state.tokensPerSecond || '··' }}<i>t/s</i></b></span>
+      </div>
+      <dl class="stats">
+        <div><dt>Windows</dt><dd>{{ status.windows || '0' }}</dd></div>
+        <div><dt>Latency</dt><dd>{{ state.lastMs ? `${state.lastMs}` : '··' }}<i v-if="state.lastMs">ms</i></dd></div>
+        <div><dt>Turns</dt><dd>{{ state.turns }}</dd></div>
+        <div><dt>In front</dt><dd class="small">{{ status.front || 'Nothing' }}</dd></div>
       </dl>
-      <div class="signal"><span>Signal</span><canvas ref="signal" aria-hidden="true" /></div>
+      <div class="cores">
+        <div :class="{ on: state.mindStatus === 'ready' }"><i class="hex" /><span><small>Mind</small><b>{{ mindLine }}</b></span></div>
+        <div :class="{ on: state.voiceEngine === 'neural' }"><i class="hex" /><span><small>Voice{{ state.depth ? ` · depth ${state.depth > 0 ? '+' : ''}${state.depth}` : '' }}</small><b>{{ voiceLine }}</b></span></div>
+      </div>
+      <div v-for="timer in state.timers" :key="timer.id" class="timer">
+        <span><small>{{ timer.label || 'Timer' }}</small><b class="mono">{{ countdown(timer.end) }}</b></span>
+        <i><i :style="{ transform: `scaleX(${Math.max(0, Math.min(1, (timer.end - now.getTime()) / (timer.total * 1000)))})` }" /></i>
+      </div>
+      <div class="signal"><span>Voice spectrum<em>{{ spectrumLive ? 'live' : state.mode === 'speaking' ? 'buffering' : 'idle' }}</em></span><canvas ref="signal" aria-hidden="true" /></div>
     </aside>
 
     <aside class="panel process" aria-label="Process log">
-      <h3>Process<em>{{ state.turns }} turns</em></h3>
+      <h3>Process<em>{{ state.turns }} {{ state.turns === 1 ? 'turn' : 'turns' }}</em></h3>
       <ol>
-        <li v-for="line in tail" :key="line.id" :class="line.kind"><time>{{ stamp(line.at) }}</time><span>{{ line.text }}</span></li>
+        <li v-for="line in tail" :key="line.id" :class="line.kind"><time>{{ stamp(line.at) }}</time><b>{{ TAGS[line.kind] }}</b><span>{{ line.text }}</span></li>
       </ol>
+      <footer><span><i />{{ state.mode === 'idle' ? 'Standing by' : statusLine.toLowerCase() }}</span><span>Uptime {{ uptime }}</span></footer>
     </aside>
 
     <section class="transcript" aria-live="polite">
@@ -453,22 +491,57 @@ onBeforeUnmount(() => {
 .systems{left:34px;animation:from-left .8s .35s cubic-bezier(.2,.8,.2,1) both;transform:perspective(1100px) rotateY(14deg);transform-origin:0 50%}
 .process{right:34px;width:340px;animation:from-right .8s .45s cubic-bezier(.2,.8,.2,1) both;transform:perspective(1100px) rotateY(-14deg);transform-origin:100% 50%}
 @keyframes from-left{from{opacity:0;translate:-40px 0}}@keyframes from-right{from{opacity:0;translate:40px 0}}@keyframes rise{from{opacity:0;translate:-50% -16px}}
-.systems dl{margin:0;display:grid;gap:9px}
-.systems dl>div{display:grid;gap:2px;padding-bottom:9px;border-bottom:1px solid rgb(255 193 90 / .08)}
-.systems dt{font:600 9.5px/1 'Rajdhani','Inter',sans-serif;letter-spacing:.26em;text-transform:uppercase;color:rgb(255 210 140 / .5)}
-.systems dd{margin:0;font:600 15.5px/1.25 'Rajdhani','Inter',sans-serif;letter-spacing:.04em;color:var(--white);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.systems dd small{font-weight:500;color:rgb(255 225 170 / .55);font-size:12.5px}
-.systems .mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:14px;font-weight:500;letter-spacing:0}
-.gauge{width:30px;height:30px;rotate:-90deg}
-.gauge circle{fill:none;stroke:rgb(255 193 90 / .16);stroke-width:3}
-.gauge .fill{stroke:var(--gold);stroke-dasharray:113.1;stroke-linecap:round;transition:stroke-dashoffset .6s;filter:drop-shadow(0 0 3px rgb(255 160 50 / .8))}
-.timer dd{color:var(--gold)}
-.signal{margin-top:10px;display:grid;gap:6px}
-.signal span{font:600 9.5px/1 'Rajdhani','Inter',sans-serif;letter-spacing:.26em;text-transform:uppercase;color:rgb(255 210 140 / .5)}
-.signal canvas{width:100%;height:34px}
+.systems{width:300px}
+.dial{position:relative;width:100%;aspect-ratio:1/.86;margin:2px 0 6px}
+.dial svg{position:absolute;left:50%;top:0;translate:-50% 0;height:100%;overflow:visible}
+.dial path,.dial line,.dial circle{fill:none;vector-effect:non-scaling-stroke}
+.dial .segs path{fill:rgb(255 193 90 / .1);stroke:none;transition:fill .5s}
+.dial .segs path.on{fill:#ffc15a;filter:drop-shadow(0 0 3px rgb(255 160 50 / .9))}
+.dial .ticks line{stroke:rgb(255 193 90 / .3);stroke-width:1}.dial .ticks line.major{stroke:rgb(255 193 90 / .7);stroke-width:1.3}
+.dial .track{stroke:rgb(255 193 90 / .12);stroke-width:5;stroke-linecap:round}.dial .track.thin{stroke-width:2.5}
+.dial .speed{stroke:#fff1ca;stroke-width:5;stroke-linecap:round;filter:drop-shadow(0 0 4px #ffb04a);transition:d .8s}
+.dial .load{stroke:var(--amber);stroke-width:2.5;stroke-linecap:round;transition:d .6s}
+.dial .hub{stroke:rgb(255 193 90 / .22);stroke-width:1;stroke-dasharray:2 4;animation:turn 40s linear infinite;transform-origin:100px 100px}
+.dial-core{position:absolute;left:50%;top:50%;translate:-50% -58%;display:grid;justify-items:center;gap:2px;text-align:center}
+.dial-core small{font:600 8.5px/1 'Rajdhani','Inter',sans-serif;letter-spacing:.28em;text-transform:uppercase;color:rgb(255 210 140 / .5)}
+.dial-core b{font:500 21px/1.1 'JetBrains Mono',ui-monospace,monospace;color:var(--white);text-shadow:0 0 14px rgb(255 160 50 / .45)}
+.dial-core span{font:600 11.5px/1.2 'Rajdhani','Inter',sans-serif;letter-spacing:.08em;color:rgb(255 225 170 / .7);max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dial .tag{position:absolute;bottom:2px;display:grid;gap:1px;font:600 8.5px/1 'Rajdhani','Inter',sans-serif;letter-spacing:.24em;text-transform:uppercase;color:rgb(255 210 140 / .5)}
+.dial .tag b{font:600 17px/1 'Rajdhani','Inter',sans-serif;letter-spacing:.04em;color:var(--white)}.dial .tag b i{font-style:normal;font-size:10px;margin-left:3px;color:rgb(255 210 140 / .55)}
+.dial .tag.tl{left:0}.dial .tag.tr{right:0;text-align:right}
+.stats{margin:8px 0 0;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid rgb(255 193 90 / .12);border-bottom:1px solid rgb(255 193 90 / .12)}
+.stats div{padding:8px 0 8px 9px;border-left:1px solid rgb(255 193 90 / .1);min-width:0}.stats div:first-child{border-left:0;padding-left:0}
+.stats dt{font:600 8px/1 'Rajdhani','Inter',sans-serif;letter-spacing:.22em;text-transform:uppercase;color:rgb(255 210 140 / .48)}
+.stats dd{margin:4px 0 0;font:600 17px/1 'Rajdhani','Inter',sans-serif;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stats dd i{font-style:normal;font-size:10px;margin-left:2px;color:rgb(255 210 140 / .55)}.stats dd.small{font-size:12.5px;padding-top:3px}
+.cores{display:grid;gap:7px;margin:10px 0 2px}
+.cores>div{display:flex;align-items:center;gap:10px}
+.cores span{display:grid;gap:2px;min-width:0}
+.cores small{font:600 8.5px/1 'Rajdhani','Inter',sans-serif;letter-spacing:.24em;text-transform:uppercase;color:rgb(255 210 140 / .5)}
+.cores b{font:600 13.5px/1.15 'Rajdhani','Inter',sans-serif;letter-spacing:.06em;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hex{flex:none;width:20px;height:22px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:rgb(255 193 90 / .18);position:relative}
+.hex::after{content:'';position:absolute;inset:4px;clip-path:inherit;background:rgb(255 193 90 / .35)}
+.on>.hex{background:rgb(255 193 90 / .45)}.on>.hex::after{background:#ffc15a;box-shadow:0 0 10px #ffc15a;animation:blink 2.6s ease-in-out infinite}
+.timer{margin-top:9px;display:grid;gap:5px}
+.timer span{display:flex;justify-content:space-between;align-items:baseline}
+.timer small{font:600 9px/1 'Rajdhani','Inter',sans-serif;letter-spacing:.22em;text-transform:uppercase;color:rgb(255 210 140 / .6)}
+.timer b{color:var(--gold);font-size:14px}
+.timer>i{display:block;height:3px;background:rgb(255 193 90 / .12)}.timer>i>i{display:block;height:100%;background:var(--gold);transform-origin:0 50%;box-shadow:0 0 6px var(--gold);transition:transform 1s linear}
+.signal{margin-top:12px;display:grid;gap:7px}
+.signal span{display:flex;justify-content:space-between;font:600 9px/1 'Rajdhani','Inter',sans-serif;letter-spacing:.26em;text-transform:uppercase;color:rgb(255 210 140 / .5)}
+.signal span em{font-style:normal;letter-spacing:.18em;color:rgb(255 210 140 / .35)}
+.speaking .signal span em{color:var(--gold)}
+.signal canvas{width:100%;height:46px}
 
 .process ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;max-height:340px;overflow:hidden;font:400 11.5px/1.55 'JetBrains Mono',ui-monospace,monospace;mask-image:linear-gradient(transparent,#000 22%)}
-.process li{display:flex;gap:10px;white-space:nowrap;animation:type-in .5s steps(24) both}
+.process li{display:flex;gap:9px;white-space:nowrap;animation:type-in .5s steps(24) both;align-items:baseline}
+.process li b{flex:none;width:34px;font:600 8.5px/1.6 'Rajdhani','Inter',sans-serif;letter-spacing:.14em;text-align:center;border:1px solid rgb(255 193 90 / .22);color:rgb(255 210 140 / .7);padding:0 2px}
+.process li.in b{color:#0b0702;background:var(--gold);border-color:var(--gold)}.process li.ok b{color:var(--cyan);border-color:rgb(99 216 255 / .4)}
+.process li.say b{color:var(--white);border-color:rgb(255 241 202 / .4)}.process li.warn b{color:#ff684c;border-color:rgb(255 104 76 / .5)}.process li.sys b{opacity:.55}
+.process footer{display:flex;justify-content:space-between;margin-top:10px;padding-top:9px;border-top:1px solid rgb(255 193 90 / .12);font:600 9.5px/1 'Rajdhani','Inter',sans-serif;letter-spacing:.2em;text-transform:uppercase;color:rgb(255 210 140 / .5)}
+.process footer span{display:flex;align-items:center;gap:7px}
+.process footer i{width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px var(--gold);animation:blink 2.4s ease-in-out infinite}
+.thinking .process footer i{animation-duration:.5s}
 .process li time{flex:none;color:rgb(255 193 90 / .32)}
 .process li span{overflow:hidden;text-overflow:ellipsis;color:rgb(255 193 90 / .82)}
 .process li.in span{color:var(--white)}
