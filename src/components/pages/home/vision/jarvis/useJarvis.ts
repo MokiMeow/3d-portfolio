@@ -54,6 +54,8 @@ export function useJarvis(options: {
   onWake?: () => void;
   /** Whether the quick panel or the full display is showing his words. */
   visible?: () => boolean;
+  /** A guest is wearing the headset: the owner's memories stay private. */
+  guest?: () => boolean;
 }) {
   const initial = saved();
   const state = reactive({
@@ -107,7 +109,7 @@ export function useJarvis(options: {
   }
   const address = () => state.address || 'sir';
   function context(): JarvisContext {
-    return { ...options.context(), memories: memories(), address: address(), neural: mind.status === 'ready', timers: state.timers.map(item => ({ label: item.label, left: Math.max(0, item.end - Date.now()) / 1000 })) };
+    return { ...options.context(), memories: options.guest?.() ? [] : memories(), address: address(), neural: mind.status === 'ready', timers: state.timers.map(item => ({ label: item.label, left: Math.max(0, item.end - Date.now()) / 1000 })) };
   }
 
   let cardId = 0, beamId = 0;
@@ -142,6 +144,7 @@ export function useJarvis(options: {
     for (const action of actions) {
       if (action.type === 'timer') { startTimer(action.seconds, action.label); continue; }
       if (action.type === 'cancelTimers') { state.timers.forEach(timer => clearTimeout(timers.get(timer.id))); state.timers = []; continue; }
+      if (options.guest?.() && (action.type === 'remember' || action.type === 'recall' || action.type === 'forget')) { extra.push(addressed('Memories stay private while a guest is using the headset, {a}.', address())); continue; }
       if (action.type === 'remember') {
         const list = [...memories().filter(item => item !== action.fact), action.fact].slice(-30);
         try { localStorage.setItem(MEMORY, JSON.stringify(list)); } catch { /* private mode */ }

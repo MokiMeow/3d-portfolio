@@ -90,6 +90,9 @@ const control = ref(false);
 const focusMode = ref(false);
 const guest = ref(false);
 const travel = ref(false);
+/** Apps holding the owner's own things. A guest sees them locked; JARVIS keeps them private. */
+const PRIVATE = new Set<VisionAppId>(['photos', 'messages', 'whatsapp', 'slack', 'facetime', 'notes', 'files']);
+let ownerWindows: Win[] | null = null;
 const wifi = ref(true);
 const bluetooth = ref(true);
 const mirroring = ref(false);
@@ -142,6 +145,7 @@ function arrange() {
 }
 function room() { return { w: view.w - (compact.value ? 12 : 56), h: view.h - TOP - DOCK - 58 }; }
 function open(id: VisionAppId) {
+  if (guest.value && PRIVATE.has(id)) { toast(`${NAMES[id]} is private while a guest is using the headset.`); return; }
   const existing = windows.value.find(item => item.id === id);
   homeOpen.value = false; control.value = false; help.value = false;
   if (existing) { focus(existing); return; }
@@ -289,10 +293,17 @@ function toggleMode(which: 'focus' | 'guest' | 'travel' | 'wifi' | 'bluetooth' |
   const switches = { focus: focusMode, guest, travel, wifi, bluetooth, mirroring };
   const flag = switches[which];
   flag.value = !flag.value;
+  // Guest User: the owner's windows are put away and come back exactly as they were.
+  if (which === 'guest') {
+    if (flag.value) { ownerWindows = windows.value.map(win => ({ ...win })); windows.value = windows.value.filter(win => !PRIVATE.has(win.id)); }
+    else if (ownerWindows) { windows.value = ownerWindows; ownerWindows = null; }
+  }
+  // Travel Mode: the view stops leaning with your head, and loose objects settle.
+  if (which === 'travel') { place.value?.lean(0, 0); if (flag.value) spatial.value?.setGravity('earth'); }
   const lines: Record<typeof which, [string, string]> = {
     focus: ['Focus on. Banners will wait quietly.', 'Focus off.'],
-    guest: ['Guest User on. Your stuff is politely hidden.', 'Guest User off. Welcome back.'],
-    travel: ['Travel Mode on. The view will hold still on bumpy rides.', 'Travel Mode off.'],
+    guest: ['Guest User on. Photos, messages and notes are locked, and JARVIS keeps your memories to himself.', 'Guest User off. Welcome back; everything is where you left it.'],
+    travel: ['Travel Mode on. Stay seated: the view holds still on bumpy rides and loose objects settle.', 'Travel Mode off. The view moves with you again.'],
     wifi: ['Wi-Fi on.', 'Wi-Fi off. Bold choice for a website.'],
     bluetooth: ['Bluetooth on.', 'Bluetooth off.'],
     mirroring: ['Mirroring to the room TV. Everyone can see your tabs now.', 'Mirroring stopped.'],
@@ -452,6 +463,7 @@ const jarvis = useJarvis({
   }),
   act: jarvisAct,
   visible: () => Boolean(jarvisOrb.value?.visible),
+  guest: () => guest.value,
   onWake: () => { if (viewOnly.value) setViewOnly(false); },
 });
 const jarvisStatus = computed(() => ({ place: inside.value ? here.value.name : 'My Room', immersion: inside.value ? immersion.value : 0, windows: windows.value.length, front: front.value ? NAMES[front.value.id] : '' }));
@@ -518,6 +530,7 @@ async function jarvisAct(action: JarvisAction): Promise<string | void> {
     case 'spawn': homeOpen.value = false; setViewOnly(false); aside(); await new Promise(resolve => window.setTimeout(resolve, 450)); beamTo({ x: view.w / 2, y: view.h * .72 }); spatial.value?.spawn(action.shape, action.count, action.material); break;
     case 'build': homeOpen.value = false; setViewOnly(false); aside(); await new Promise(resolve => window.setTimeout(resolve, 450)); beamTo({ x: view.w / 2, y: view.h * .74 }); spatial.value?.build(action.kind, action.material); break;
     case 'message': {
+      if (guest.value) return 'Messages stay private while a guest is using the headset, {a}.';
       const wa = whatsapp();
       await wa.load();
       // "amma i will be late", "the family group that dinner is at 8": the longest name that matches a chat.
@@ -537,6 +550,7 @@ async function jarvisAct(action: JarvisAction): Promise<string | void> {
       return 'I could not find that chat, {a}. Try Amma, the family group, or the landlord.';
     }
     case 'readMessages': {
+      if (guest.value) return 'Messages stay private while a guest is using the headset, {a}.';
       const wa = whatsapp();
       await wa.load();
       if (action.from) {
@@ -555,6 +569,7 @@ async function jarvisAct(action: JarvisAction): Promise<string | void> {
       return `${unread.length} chats waiting, {a}. ${unread[0]!.name} says: ${unread[0]!.preview}`;
     }
     case 'slackPost': {
+      if (guest.value) return 'Messages stay private while a guest is using the headset, {a}.';
       const sl = slack();
       await sl.load();
       const room = sl.findRoom(action.channel);
@@ -566,6 +581,7 @@ async function jarvisAct(action: JarvisAction): Promise<string | void> {
       return `Posted in ${room.kind === 'channel' ? '#' : ''}${room.name}, {a}.`;
     }
     case 'slackRead': {
+      if (guest.value) return 'Messages stay private while a guest is using the headset, {a}.';
       const sl = slack();
       await sl.load();
       const room = action.channel ? sl.findRoom(action.channel) : sl.rooms.find(item => item.unread) ?? sl.findRoom('general');
@@ -636,7 +652,7 @@ function openFromWidget(id: string) { if (APP_IDS.has(id)) open(id as VisionAppI
 function look(event: PointerEvent) {
   if (event.pointerType === 'touch') return;
   tilt.x = (event.clientX / view.w - 0.5) * 2; tilt.y = (event.clientY / view.h - 0.5) * 2;
-  if (!gaze && !drag) place.value?.lean(tilt.x, tilt.y);
+  if (!gaze && !drag && !travel.value) place.value?.lean(tilt.x, tilt.y);
   visor.value?.style.setProperty('--gx', `${event.clientX}px`);
   visor.value?.style.setProperty('--gy', `${event.clientY}px`);
 }
@@ -733,13 +749,13 @@ onBeforeUnmount(() => {
           </nav>
           <div v-if="tab === 'apps'" class="honeycomb" @pointerdown="pageDown" @pointermove="pageMove" @pointerup="pageUp" @pointercancel="pageUp" @click.capture="pageClick" @wheel="pageWheel">
             <template v-if="compact">
-              <button v-for="(cell, index) in ALL_CELLS" :key="cell.id" :style="{ '--i': index }" @click="open(cell.id)">
+              <button v-for="(cell, index) in ALL_CELLS" :key="cell.id" :class="{ guarded: guest && PRIVATE.has(cell.id) }" :style="{ '--i': index }" @click="open(cell.id)">
                 <span class="orb"><VisionIcon :name="cell.id" /><i v-if="windows.some(win => win.id === cell.id)" class="running" /></span><span class="name">{{ cell.name }}</span>
               </button>
             </template>
             <Transition v-else :name="pageDirection > 0 ? 'page-next' : 'page-back'" mode="out-in">
               <div :key="page" class="page">
-                <button v-for="(cell, index) in PAGES[page]" :key="cell.id" :style="{ '--x': `${cell.x}px`, '--y': `${cell.y}px`, '--i': index }" @click="open(cell.id)">
+                <button v-for="(cell, index) in PAGES[page]" :key="cell.id" :class="{ guarded: guest && PRIVATE.has(cell.id) }" :style="{ '--x': `${cell.x}px`, '--y': `${cell.y}px`, '--i': index }" @click="open(cell.id)">
                   <span class="orb"><VisionIcon :name="cell.id" /><i v-if="windows.some(win => win.id === cell.id)" class="running" /></span><span class="name">{{ cell.name }}</span>
                 </button>
               </div>
@@ -806,7 +822,7 @@ onBeforeUnmount(() => {
     <JarvisOrb v-if="!booting" ref="jarvisOrb" :jarvis="jarvis" :compact="compact" :status="jarvisStatus" @core="jarvisCore = $event" />
 
     <!-- Control Centre -->
-    <button class="status" :aria-expanded="control" aria-label="Control Centre" @click="control = !control; help = false"><b>{{ time }}</b><i /></button>
+    <button class="status" :aria-expanded="control" aria-label="Control Centre" @click="control = !control; help = false"><em v-if="guest" class="mode">Guest</em><em v-if="travel" class="mode travel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 15 22 7l-2 5-8 2-4 6-1-5Z" fill="currentColor" /></svg>Travel</em><b>{{ time }}</b><i /></button>
     <Transition name="drop">
       <div v-if="control" class="control cc" role="dialog" aria-label="Control Centre">
         <header class="cc-status">
@@ -1049,6 +1065,10 @@ button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:3
 .status{position:absolute;left:50%;top:8px;transform:translateX(-50%);height:40px;padding:0 14px 0 16px;border-radius:20px;display:flex;align-items:center;gap:10px;z-index:7000;font-size:15px;
   background:rgb(60 62 70 / .5);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);box-shadow:inset 0 0 0 1px rgb(255 255 255 / .2);transition:background .2s,transform .2s}
 .status:hover{background:rgb(100 102 110 / .65)}.status b{font-weight:600;font-variant-numeric:tabular-nums}
+.status .mode{font-style:normal;font-size:12px;font-weight:650;letter-spacing:.02em;padding:3px 9px;border-radius:10px;background:rgb(255 214 120 / .22);color:#ffe4a6;display:inline-flex;align-items:center;gap:4px}
+.status .mode.travel{background:rgb(120 190 255 / .22);color:#cfe7ff}.status .mode svg{width:12px;height:12px}
+.honeycomb button.guarded .orb>:first-child{filter:grayscale(.85) brightness(.55)}.honeycomb button.guarded .name{opacity:.5}
+.honeycomb button.guarded .orb::after{content:'';position:absolute;right:-2px;bottom:-2px;width:26px;height:26px;border-radius:50%;background:rgb(30 32 40 / .85) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='6' y='11' width='12' height='9' rx='2' fill='white'/%3E%3Cpath d='M9 11V8a3 3 0 0 1 6 0v3' fill='none' stroke='white' stroke-width='2'/%3E%3C/svg%3E") center/14px no-repeat;box-shadow:0 0 0 1px rgb(255 255 255 / .25)}
 .status i{width:8px;height:8px;border-right:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(45deg) translate(-2px,-2px);transition:transform .25s}.status[aria-expanded=true] i{transform:rotate(-135deg) translate(-2px,-2px)}
 .control{position:absolute;left:50%;top:56px;width:min(450px,calc(100vw - 20px));margin-left:calc(min(450px,100vw - 20px) / -2);padding:22px;border-radius:40px;z-index:7000;max-height:calc(100% - 170px);overflow-y:auto;scrollbar-width:none;touch-action:pan-y;
   background:linear-gradient(135deg,rgb(255 255 255 / .18),rgb(255 255 255 / .05)),rgb(45 48 54 / .7);backdrop-filter:blur(40px) saturate(130%);-webkit-backdrop-filter:blur(40px) saturate(130%);box-shadow:inset 0 1px 0 rgb(255 255 255 / .3),inset 0 0 0 1px rgb(255 255 255 / .16),0 30px 80px rgb(0 0 0 / .4)}
