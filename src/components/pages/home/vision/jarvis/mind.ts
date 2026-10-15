@@ -30,6 +30,7 @@ export function systemPrompt(ctx: JarvisContext) {
     `Right now: the user is ${where}. Open windows: ${open}. Local time ${clock(ctx.now)}.`,
     `If going somewhere or opening an app would genuinely help, you may end with one tag, [[place:ID]] or [[app:ID]], using only these ids.`,
     `Places: ${ctx.environments.map(item => item.id).join(', ')}. Apps: ${ctx.apps.map(item => item.id).join(', ')}.`,
+    ...(ctx.memories?.length ? [`Things the user asked you to remember: ${ctx.memories.slice(-8).join('; ')}.`] : []),
   ].join('\n');
 }
 

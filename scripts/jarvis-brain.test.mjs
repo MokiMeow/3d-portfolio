@@ -63,3 +63,33 @@ test('addresses the wearer the way they asked', () => {
   assert.equal(addressRequest('i am tired'), undefined);
   assert.equal(addressed('{a}. Of course, {a}.', 'boss'), 'Boss. Of course, boss.');
 });
+
+test('reaches into apps: messages, Slack, music, alarms, time, weather', () => {
+  assert.deepEqual(run('message amma that I will be late').actions, [{ type: 'message', body: 'amma that i will be late' }]);
+  assert.deepEqual(run('tell the family group dinner is at 8').actions, [{ type: 'message', body: 'the family group dinner is at 8' }]);
+  assert.deepEqual(run('tell me a joke').actions, []);
+  assert.deepEqual(run('what did amma say').actions, [{ type: 'readMessages', from: 'amma' }]);
+  assert.deepEqual(run('tell the team the build is green').actions, [{ type: 'slackPost', channel: 'general', text: 'the build is green' }]);
+  assert.deepEqual(run('whats new in deploys').actions, [{ type: 'slackRead', channel: 'deploys' }]);
+  assert.deepEqual(types(run('play something calm')), ['open:music', 'music']);
+  assert.deepEqual(run('pause the music').actions, [{ type: 'music', action: 'pause' }]);
+  assert.deepEqual(run('set an alarm for 7 30 am').actions, [{ type: 'alarm', hour: 7, minute: 30, label: '' }]);
+  assert.deepEqual(run('what time is it in tokyo').actions, [{ type: 'worldTime', city: 'tokyo' }]);
+  assert.deepEqual(run('whats the weather in tokyo').actions, [{ type: 'weather', city: 'tokyo' }]);
+});
+
+test('builds structures, runs protocols and remembers', () => {
+  assert.deepEqual(run('build a tower of gold blocks').actions, [{ type: 'build', kind: 'tower', material: 'gold' }]);
+  assert.deepEqual(run('set up a domino run').actions, [{ type: 'build', kind: 'dominoes', material: undefined }]);
+  assert.deepEqual(run('initiate house party protocol').actions, [{ type: 'protocol', name: 'house party' }]);
+  assert.deepEqual(run('clean slate protocol').actions, [{ type: 'protocol', name: 'clean slate' }]);
+  assert.deepEqual(run('remember that I like the beach').actions, [{ type: 'remember', fact: 'i like the beach' }]);
+  assert.deepEqual(run('what do you remember about me').actions, [{ type: 'recall' }]);
+});
+
+test('plays any song, and anything on YouTube', () => {
+  assert.deepEqual(types(run('play arijit singh')), ['open:music', 'music']);
+  assert.equal(run('play arijit singh').actions[1].query, 'arijit singh');
+  assert.deepEqual(types(run('play lofi beats on youtube')), ['open:youtube', 'youtube']);
+  assert.deepEqual(types(run('open music')), ['open:music']);
+});

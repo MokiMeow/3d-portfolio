@@ -1,11 +1,12 @@
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { createChatSession, type ReadState } from '../../../phone/chat/engine';
 import { whatsappPersonas } from '../../../phone/chat/personas';
 import { vote as castVote, type HistoryChat, type RichMessage } from '../../../phone/chat/histories';
 
 /**
- * WhatsApp on the headset runs on the same conversations, people and reply engine as the phone's,
- * so a chat reads the same on both. This holds the state; WhatsApp.vue draws it for visionOS.
+ * WhatsApp on the headset runs on the same conversations, people and reply engine as the phone's, so a
+ * chat reads the same on both. The state lives once, here, so JARVIS can send and read messages even
+ * while the window is closed; WhatsApp.vue draws it.
  */
 export type Message = RichMessage & { state?: ReadState; reaction?: string; playing?: boolean; progress?: number };
 export type Chat = {
@@ -13,7 +14,9 @@ export type Chat = {
   pinned: boolean; muted: boolean; messages: Message[]; members: HistoryChat['members']; ambient: HistoryChat['ambient'];
 };
 
-export function useWhatsApp() {
+const clock = () => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+function createStore() {
   const chats = ref<Chat[]>([]);
   const loading = ref(true);
   const selected = ref<number | null>(null);
@@ -25,28 +28,29 @@ export function useWhatsApp() {
   const followTail = ref(true);
   const flashId = ref<number | null>(null);
   const sessions = new Map<number, ReturnType<typeof createChatSession>>();
-  const timers = new Set<ReturnType<typeof setTimeout>>();
-  let nextId = 200000, disposed = false;
-  const later = (action: () => void, delay: number) => { const timer = setTimeout(() => { timers.delete(timer); if (!disposed) action(); }, delay); timers.add(timer); };
-  const clock = () => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const incoming = new Set<(chat: Chat, message: Message) => void>();
+  let nextId = 200000;
+  const later = (action: () => void, delay: number) => { window.setTimeout(action, delay); };
 
-  async function load() {
-    const { whatsappHistories } = await import('../../../phone/chat/histories-whatsapp');
-    if (disposed) return;
-    const bases = { family: whatsappPersonas['Family HQ']!, amma: whatsappPersonas.Amma!, flat: whatsappPersonas['Bengaluru Flat Hunt']!, rent: whatsappPersonas.Landlord!, delivery: whatsappPersonas['Delivery Rider']!, dev: whatsappPersonas['The Bug Support Group']! };
-    chats.value = structuredClone(whatsappHistories).map((history, id) => {
-      const base = whatsappPersonas[history.name] ?? bases[history.persona];
-      const persona = history.group ? { ...base, name: history.name, members: history.members.map(member => ({ ...member, replies: member.name === 'Grandma' ? Object.fromEntries(Object.keys(base.replies).map(intent => [intent, ['👍', '❤️', '🌻', '👏', '🙏']])) : base.members?.find(m => m.name.includes(member.name))?.replies ?? base.replies })) } : base;
-      sessions.set(id, createChatSession(persona as Parameters<typeof createChatSession>[0]));
-      const last = history.messages.at(-1);
-      return {
-        ...history, id, kind: history.persona, pinned: id < 2, muted: history.group && id % 3 === 2,
-        preview: last ? (last.kind === 'voice' ? `Voice message · ${last.duration ?? '0:12'}` : last.kind === 'photo' ? `Photo${last.text ? ' · ' + last.text : ''}` : last.text) : '',
-        unread: id % 4 === 0 ? 3 : id % 3 === 0 ? 1 : 0,
-        messages: history.messages.map(message => ({ ...message, state: message.mine ? 'read' as const : undefined })),
-      };
+  let loaded: Promise<void> | null = null;
+  function load() {
+    loaded ??= import('../../../phone/chat/histories-whatsapp').then(({ whatsappHistories }) => {
+      const bases = { family: whatsappPersonas['Family HQ']!, amma: whatsappPersonas.Amma!, flat: whatsappPersonas['Bengaluru Flat Hunt']!, rent: whatsappPersonas.Landlord!, delivery: whatsappPersonas['Delivery Rider']!, dev: whatsappPersonas['The Bug Support Group']! };
+      chats.value = structuredClone(whatsappHistories).map((history, id) => {
+        const base = whatsappPersonas[history.name] ?? bases[history.persona];
+        const persona = history.group ? { ...base, name: history.name, members: history.members.map(member => ({ ...member, replies: member.name === 'Grandma' ? Object.fromEntries(Object.keys(base.replies).map(intent => [intent, ['👍', '❤️', '🌻', '👏', '🙏']])) : base.members?.find(m => m.name.includes(member.name))?.replies ?? base.replies })) } : base;
+        sessions.set(id, createChatSession(persona as Parameters<typeof createChatSession>[0]));
+        const last = history.messages.at(-1);
+        return {
+          ...history, id, kind: history.persona, pinned: id < 2, muted: history.group && id % 3 === 2,
+          preview: last ? (last.kind === 'voice' ? `Voice message · ${last.duration ?? '0:12'}` : last.kind === 'photo' ? `Photo${last.text ? ' · ' + last.text : ''}` : last.text) : '',
+          unread: id % 4 === 0 ? 3 : id % 3 === 0 ? 1 : 0,
+          messages: history.messages.map(message => ({ ...message, state: message.mine ? 'read' as const : undefined })),
+        };
+      });
+      loading.value = false;
     });
-    loading.value = false;
+    return loaded;
   }
 
   const current = computed(() => chats.value.find(chat => chat.id === selected.value));
@@ -58,6 +62,7 @@ export function useWhatsApp() {
       .sort((a, b) => Number(b.pinned) - Number(a.pinned));
   });
   const totalUnread = computed(() => chats.value.reduce((sum, chat) => sum + (chat.unread ? 1 : 0), 0));
+  const ambientTyping = ref<number | null>(null);
   const isTyping = (id: number) => typing.value.includes(id) || ambientTyping.value === id;
 
   function open(chat: Chat) { selected.value = chat.id; chat.unread = 0; draft.value = ''; }
@@ -69,13 +74,12 @@ export function useWhatsApp() {
   }
   function trackTail(event: Event) { const el = event.currentTarget as HTMLElement; followTail.value = el.scrollHeight - el.scrollTop - el.clientHeight < 120; }
 
-  function send(text = draft.value.trim()) {
-    const chat = current.value;
-    if (!chat || !text) return;
+  /** Send into any chat, open or not. Replies arrive through the same engine as the phone's. */
+  function sendIn(chat: Chat, text: string) {
+    if (!text) return;
     chat.messages.push({ id: nextId++, text, mine: true, time: clock(), date: 'Today', state: 'sent' });
     const own = chat.messages.at(-1)!;
     chat.preview = text;
-    draft.value = '';
     const plan = sessions.get(chat.id)!.respond(text, new Date());
     later(() => { own.state = 'delivered'; }, plan.receipt.deliveredAt);
     later(() => { own.state = 'read'; }, plan.receipt.readAt);
@@ -91,20 +95,42 @@ export function useWhatsApp() {
       const last = chat.messages.at(-1)!;
       chat.preview = last.kind === 'voice' ? `Voice message · ${bubble.duration}` : `${chat.group && last.sender ? last.sender + ': ' : ''}${last.text}`;
       if (selected.value !== chat.id) chat.unread++; else void bottom();
+      incoming.forEach(listener => listener(chat, last));
     }, bubble.atMs);
-    void bottom(true);
+    if (selected.value === chat.id) void bottom(true);
+  }
+  function send(text = draft.value.trim()) {
+    const chat = current.value;
+    if (!chat || !text) return;
+    draft.value = '';
+    sendIn(chat, text);
   }
 
-  /* Group chats carry on without you now and then. */
-  const ambientTyping = ref<number | null>(null);
+  /** "Amma", "the family group", "landlord": the closest chat by name, alias or member. */
+  function findChat(name: string) {
+    const q = name.toLowerCase().replace(/^(?:the |my )/, '').replace(/ (?:group|chat)$/, '').trim();
+    if (!q) return undefined;
+    const aliases: Record<string, string[]> = { family: ['family', 'family hq', 'fam', 'home'], amma: ['amma', 'mom', 'mum', 'mother', 'ma'], rent: ['landlord', 'owner', 'rent'], delivery: ['delivery', 'rider', 'delivery guy'], flat: ['flat', 'flat hunt', 'flatmates', 'house hunt'], dev: ['bug', 'bugs', 'dev', 'developers', 'support'] };
+    return chats.value.find(chat => chat.name.toLowerCase() === q)
+      ?? chats.value.find(chat => (aliases[chat.kind] ?? []).some(alias => q === alias || q.includes(alias)) && (!chat.group || /group|family|flat|bug|team|support|hunt/.test(q) || chat.kind === 'family'))
+      ?? chats.value.find(chat => chat.name.toLowerCase().includes(q))
+      ?? chats.value.find(chat => q.split(' ').some(word => word.length > 2 && chat.name.toLowerCase().includes(word)));
+  }
+  /** The latest messages someone else sent in a chat, newest last. */
+  function latestFrom(chat: Chat, count = 3) {
+    return chat.messages.filter(message => !message.mine && message.kind !== 'system' && message.text).slice(-count);
+  }
+  function onIncoming(listener: (chat: Chat, message: Message) => void) { incoming.add(listener); return () => incoming.delete(listener); }
+
+  /* Group chats carry on without you now and then, while you are looking at them. */
   let activity: ReturnType<typeof setTimeout> | undefined, autoCount = 0;
   const offsets = new Map<number, number>();
   function scheduleActivity(chat: Chat) {
-    if (!chat.group || autoCount >= 6 || disposed) return;
+    if (!chat.group || autoCount >= 6) return;
     if (activity) clearTimeout(activity);
     activity = setTimeout(() => {
       activity = undefined;
-      if (selected.value !== chat.id || disposed || document.hidden || isTyping(chat.id)) return;
+      if (selected.value !== chat.id || document.hidden || isTyping(chat.id)) return;
       const offset = offsets.get(chat.id) ?? 0, next = chat.ambient[offset % chat.ambient.length];
       if (!next) return;
       offsets.set(chat.id, offset + 1); autoCount++;
@@ -151,7 +177,15 @@ export function useWhatsApp() {
     later(() => { if (flashId.value === id) flashId.value = null; }, 1500);
   }
 
-  onMounted(() => { void load(); });
-  onBeforeUnmount(() => { disposed = true; timers.forEach(clearTimeout); if (activity) clearTimeout(activity); });
-  return { chats, loading, selected, current, visible, draft, search, filter, typing, isTyping, timeline, followTail, flashId, totalUnread, open, send, trackTail, playVoice, vote, react, jumpTo, bottom };
+  return { chats, loading, selected, current, visible, draft, search, filter, typing, isTyping, timeline, followTail, flashId, totalUnread, load, open, send, sendIn, findChat, latestFrom, onIncoming, trackTail, playVoice, vote, react, jumpTo, bottom };
+}
+
+let store: ReturnType<typeof createStore> | null = null;
+/** The one WhatsApp, shared by the window and by JARVIS. */
+export function whatsapp() { store ??= createStore(); return store; }
+
+export function useWhatsApp() {
+  const wa = whatsapp();
+  onMounted(() => { void wa.load().then(() => wa.bottom(true)); });
+  return wa;
 }

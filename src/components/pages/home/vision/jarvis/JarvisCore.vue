@@ -9,7 +9,7 @@ import { MODELS } from './mind';
  * The full JARVIS: the gold consciousness sphere, the HUD around it, and the conversation.
  * `docked` tucks the sphere into a slim bar at the bottom so whatever JARVIS just did can be seen.
  */
-const props = defineProps<{ jarvis: Jarvis; docked: boolean; compact: boolean; status: { place: string; immersion: number; windows: number; front: string } }>();
+const props = defineProps<{ jarvis: Jarvis; docked: boolean; compact: boolean; status: { place: string; immersion: number; windows: number; front: string }; origin?: { x: number; y: number } }>();
 const emit = defineEmits<{ close: []; dock: [docked: boolean] }>();
 const state = props.jarvis.state;
 
@@ -63,7 +63,32 @@ const stageStyle = computed(() => {
   return { width: `${s}px`, height: `${s}px`, transform: `translate(${x - s / 2}px, ${y - s / 2}px) scale(${small / s})` };
 });
 
+/** The sphere's centre and radius on screen, wherever it is. */
+const orb = computed(() => {
+  const s = sphereSize.value;
+  if (!props.docked) return { x: size.w / 2, y: size.h * (props.compact ? .34 : .42), r: s * .36 };
+  const small = props.compact ? 76 : 112, bar = Math.min(size.w - 24, 760);
+  return { x: size.w / 2 - bar / 2 + small / 2 - 6, y: size.h - (props.compact ? 128 : 150), r: small * .36 };
+});
+/** Elbowed light lines from each side panel into the sphere. */
+const leaders = computed(() => {
+  if (props.compact || props.docked || size.w < 1100) return [];
+  const { x, y, r } = orb.value, top = 150;
+  const left = 34 + 272, right = size.w - 34 - 340;
+  const a = { x: x - r * Math.cos(.5), y: y - r * Math.sin(.5) }, b = { x: x + r * Math.cos(.35), y: y - r * Math.sin(.35) };
+  return [
+    `M${left} ${top} H${left + (a.x - left) * .45} L${a.x - 18} ${a.y} L${a.x} ${a.y}`,
+    `M${right} ${top} H${right - (right - b.x) * .45} L${b.x + 18} ${b.y} L${b.x} ${b.y}`,
+  ];
+});
+const beamPath = (target: { x: number; y: number }) => {
+  const { x, y } = orb.value, mx = (x + target.x) / 2, my = Math.min(y, target.y) - Math.abs(target.x - x) * .25 - 60;
+  return `M${x} ${y} Q${mx} ${my} ${target.x} ${target.y}`;
+};
+const RETICLE_TICKS = Array.from({ length: 72 }, (_, i) => i);
+
 watch(() => state.mode, mode => sphere?.setMode(mode));
+watch(() => state.beams.length, (count, before) => { if (count > (before ?? 0)) sphere?.pulse(); });
 watch(progress, value => { if (loading.value) sphere?.assemble(.22 + value * .78); else if (!needsSetup.value) sphere?.assemble(1); });
 watch(needsSetup, value => { if (!value && !loading.value) sphere?.assemble(1); });
 watch(() => props.docked, docked => sphere?.setGain(docked ? 1.15 : 1));
@@ -153,8 +178,14 @@ onMounted(() => {
   if (!canvas.value || !root.value) return;
   sphere = new JarvisSphere(canvas.value, { quality: props.compact ? 'low' : 'high' });
   sphere.level = () => props.jarvis.voice.level();
+  sphere.spectrum = () => props.jarvis.voice.spectrum();
   sphere.setMode(state.mode);
   sphere.start();
+  // Arrive out of the corner orb.
+  if (props.origin && canvas.value) {
+    const rect = canvas.value.getBoundingClientRect();
+    if (rect.width) sphere.setOrigin((props.origin.x - rect.left) / rect.width * 2 - 1, -((props.origin.y - rect.top) / rect.height) * 2 + 1);
+  }
   sphere.assemble(needsSetup.value ? .22 : loading.value ? .22 + progress.value * .78 : 1);
   observer = new ResizeObserver(() => { size.w = root.value!.clientWidth; size.h = root.value!.clientHeight; });
   observer.observe(root.value);
@@ -183,6 +214,34 @@ onBeforeUnmount(() => {
     <div class="stage" :style="stageStyle" @click="docked && emit('dock', false)">
       <canvas ref="canvas" aria-hidden="true" />
     </div>
+
+    <!-- The reticle: measuring rings that turn around the sphere and quicken when he thinks. -->
+    <svg class="reticle" :class="state.mode" :style="{ left: `${orb.x - orb.r * 1.7}px`, top: `${orb.y - orb.r * 1.7}px`, width: `${orb.r * 3.4}px`, height: `${orb.r * 3.4}px` }" viewBox="0 0 200 200" aria-hidden="true">
+      <g class="spin slow"><circle cx="100" cy="100" r="98" class="dash" /></g>
+      <g class="spin rev"><line v-for="i in RETICLE_TICKS" :key="i" x1="100" :y1="i % 6 ? 4.5 : 1.5" x2="100" y2="8" :transform="`rotate(${i * 5} 100 100)`" :class="{ major: !(i % 6) }" /></g>
+      <g class="spin fast"><path d="M100 13 A87 87 0 0 1 175.3 56.5" class="arc" /><path d="M100 187 A87 87 0 0 1 24.7 143.5" class="arc" /><path d="M187 100 A87 87 0 0 1 181 132" class="arc thin" /></g>
+      <g class="labels"><text x="100" y="22" text-anchor="middle">{{ statusLine }}</text><text x="178" y="104" text-anchor="end">{{ String(Math.round(state.mode === 'speaking' ? 87 + Math.random() * 12 : 98)).padStart(3, '0') }}°</text><text x="22" y="104">SYNC</text></g>
+    </svg>
+
+    <!-- Light lines from the panels into the sphere. -->
+    <svg class="leaders" aria-hidden="true">
+      <path v-for="(d, index) in leaders" :key="index" :d="d" />
+      <circle v-for="(d, index) in leaders" :key="'n' + index" :cx="d.split(' ').at(-2)?.replace('L', '')" :cy="d.split(' ').at(-1)" r="3" />
+    </svg>
+
+    <!-- Beams: a gold arc from JARVIS to whatever he just acted on. -->
+    <svg class="beams" aria-hidden="true">
+      <g v-for="item in state.beams" :key="item.id" class="beam"><path :d="beamPath(item)" /><path :d="beamPath(item)" class="core" /><circle :cx="item.x" :cy="item.y" r="10" /><circle :cx="item.x" :cy="item.y" r="10" class="ring" /></g>
+    </svg>
+
+    <!-- Cards he projects as he answers. -->
+    <TransitionGroup name="card-in" tag="div" class="projections" aria-live="polite">
+      <article v-for="item in state.cards" :key="item.id" class="projection" :class="item.kind">
+        <header><i />{{ item.title }}</header>
+        <b v-if="item.big">{{ item.big }}</b>
+        <p v-for="(line, index) in item.lines" :key="index">{{ line }}</p>
+      </article>
+    </TransitionGroup>
 
     <header class="title">
       <b>J.A.R.V.I.S.</b>
@@ -333,6 +392,49 @@ onBeforeUnmount(() => {
 .thinking .title .state i{animation-duration:.5s}.speaking .title .state i{background:var(--white)}.listening .title .state i{background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
 @keyframes blink{50%{opacity:.25}}
 
+/* Reticle, leader lines, beams and projected cards */
+.reticle{position:absolute;pointer-events:none;overflow:visible;transition:left .8s cubic-bezier(.2,.8,.2,1),top .8s cubic-bezier(.2,.8,.2,1),width .8s cubic-bezier(.2,.8,.2,1),height .8s cubic-bezier(.2,.8,.2,1),opacity .5s;animation:reticle-in 1.4s .3s cubic-bezier(.2,.8,.2,1) both}
+@keyframes reticle-in{from{opacity:0;transform:scale(.7) rotate(-40deg)}}
+.reticle *{fill:none;stroke:#ffc15a;vector-effect:non-scaling-stroke}
+.reticle .dash{stroke-width:1;stroke-dasharray:2 6;opacity:.45}
+.reticle line{stroke-width:1;opacity:.35}.reticle line.major{opacity:.8;stroke-width:1.4}
+.reticle .arc{stroke-width:2.2;opacity:.85;filter:drop-shadow(0 0 4px #ffb04a)}.reticle .arc.thin{stroke-width:1;opacity:.6}
+.reticle .labels text{fill:#ffc15a;stroke:none;font:600 5.2px 'Rajdhani','Inter',sans-serif;letter-spacing:.18em;opacity:.75}
+.reticle .spin{transform-origin:100px 100px;animation:turn 60s linear infinite}
+.reticle .rev{animation-duration:90s;animation-direction:reverse}
+.reticle .fast{animation-duration:16s}
+.reticle.thinking .spin{animation-duration:6s}.reticle.thinking .fast{animation-duration:2.2s}
+.reticle.speaking .fast{animation-duration:7s}
+@keyframes turn{to{transform:rotate(360deg)}}
+.docked .reticle{opacity:.5}
+.leaders,.beams{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.leaders path{fill:none;stroke:rgb(255 193 90 / .4);stroke-width:1;stroke-dasharray:3 5;animation:flow 1.2s linear infinite,leader-in 1.2s .6s both}
+.leaders circle{fill:#ffc15a;filter:drop-shadow(0 0 6px #ffb04a);animation:leader-in 1.2s 1s both}
+@keyframes flow{to{stroke-dashoffset:-16}}
+@keyframes leader-in{from{opacity:0}}
+.beam path{fill:none;stroke:#ffb04a;stroke-width:5;opacity:.35;filter:blur(3px);stroke-dasharray:1400;stroke-dashoffset:1400;animation:beam 1.3s cubic-bezier(.3,.7,.2,1) forwards}
+.beam path.core{stroke:#fff1ca;stroke-width:1.6;opacity:1;filter:drop-shadow(0 0 6px #ffc15a)}
+.beam circle{fill:#ffc15a;opacity:0;animation:spark 1.3s ease-out forwards}
+.beam circle.ring{fill:none;stroke:#ffc15a;stroke-width:2;animation:burst 1.3s ease-out forwards}
+@keyframes beam{0%{stroke-dashoffset:1400}55%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:-1400;opacity:0}}
+@keyframes spark{45%{opacity:0;r:2}60%{opacity:1;r:7}100%{opacity:0;r:3}}
+@keyframes burst{45%{opacity:0;r:4}60%{opacity:1}100%{opacity:0;r:46}}
+.projections{position:absolute;right:34px;top:min(470px,58%);width:340px;display:grid;gap:10px;pointer-events:none}
+.projection{position:relative;padding:14px 16px 13px;background:linear-gradient(135deg,rgb(255 170 60 / .14),rgb(255 170 60 / .03));border:1px solid rgb(255 193 90 / .3);clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.projection::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent,rgb(255 220 160 / .35) 50%,transparent);height:30%;animation:scan-card 1.1s ease-out both;pointer-events:none}
+@keyframes scan-card{from{transform:translateY(-120%)}to{transform:translateY(380%);opacity:0}}
+.projection header{display:flex;align-items:center;gap:8px;font:600 10.5px/1 'Rajdhani','Inter',sans-serif;letter-spacing:.3em;text-transform:uppercase;color:#ffc15a}
+.projection header i{width:6px;height:6px;background:#ffc15a;box-shadow:0 0 8px #ffc15a;transform:rotate(45deg)}
+.projection b{display:block;margin-top:8px;font:600 34px/1 'Rajdhani','Inter',sans-serif;color:#fff1ca;letter-spacing:.02em;text-shadow:0 0 18px rgb(255 160 50 / .45)}
+.projection p{margin:6px 0 0;font-size:13.5px;line-height:1.4;color:rgb(255 235 200 / .78)}
+.projection.message b{font-size:20px}
+.card-in-enter-active{transition:opacity .5s,translate .6s cubic-bezier(.2,.8,.2,1),filter .6s}
+.card-in-leave-active{transition:opacity .5s,translate .5s}
+.card-in-enter-from{opacity:0;translate:30px 0;filter:blur(6px)}
+.card-in-leave-to{opacity:0;translate:20px 0}
+.docked .projections{top:auto;bottom:110px;right:max(16px,calc(50% - 380px));width:300px}
+.compact .projections{left:12px;right:12px;width:auto;top:auto;bottom:240px}
+
 /* Panels: hairlines with gold corner brackets */
 .panel{position:absolute;top:110px;width:272px;padding:16px 18px 14px;background:linear-gradient(180deg,rgb(255 170 60 / .07),rgb(255 170 60 / .015));border:1px solid rgb(255 193 90 / .13);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transition:opacity .45s,translate .7s cubic-bezier(.2,.8,.2,1)}
 .panel::before,.panel::after{content:'';position:absolute;width:14px;height:14px;border:1.5px solid var(--gold);opacity:.8}
@@ -340,8 +442,8 @@ onBeforeUnmount(() => {
 .panel::after{right:-1px;bottom:-1px;border-left:0;border-top:0}
 .panel h3{margin:0 0 10px;display:flex;justify-content:space-between;align-items:baseline;font:600 11px/1 'Rajdhani','Inter',sans-serif;letter-spacing:.34em;text-transform:uppercase;color:var(--gold)}
 .panel h3 em{font-style:normal;letter-spacing:.12em;color:rgb(255 210 140 / .45);font-size:10px}
-.systems{left:34px;animation:from-left .8s .35s cubic-bezier(.2,.8,.2,1) both}
-.process{right:34px;width:340px;animation:from-right .8s .45s cubic-bezier(.2,.8,.2,1) both}
+.systems{left:34px;animation:from-left .8s .35s cubic-bezier(.2,.8,.2,1) both;transform:perspective(1100px) rotateY(14deg);transform-origin:0 50%}
+.process{right:34px;width:340px;animation:from-right .8s .45s cubic-bezier(.2,.8,.2,1) both;transform:perspective(1100px) rotateY(-14deg);transform-origin:100% 50%}
 @keyframes from-left{from{opacity:0;translate:-40px 0}}@keyframes from-right{from{opacity:0;translate:40px 0}}@keyframes rise{from{opacity:0;translate:-50% -16px}}
 .systems dl{margin:0;display:grid;gap:9px}
 .systems dl>div{display:grid;gap:2px;padding-bottom:9px;border-bottom:1px solid rgb(255 193 90 / .08)}

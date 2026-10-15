@@ -5,13 +5,20 @@
  * which gives the stock voice a quiet, synthetic polish without turning it into a robot. An
  * analyser on the output drives the hologram. Without WebGPU, the best British system voice stands in.
  */
-export type VoiceId = 'bm_fable' | 'bm_george' | 'bm_daniel' | 'bm_lewis';
-export const VOICES: { id: VoiceId; name: string; line: string }[] = [
-  { id: 'bm_fable', name: 'Fable', line: 'Measured, warm, a little theatrical' },
-  { id: 'bm_daniel', name: 'Daniel', line: 'Even and calm, the most restrained' },
-  { id: 'bm_george', name: 'George', line: 'Brighter and quicker' },
-  { id: 'bm_lewis', name: 'Lewis', line: 'Deep and unhurried' },
+/**
+ * Original voices made for JARVIS: weighted blends of Kokoro's four British male style packs, measured
+ * against a brief of a calm, crisp, low British voice (about 120 Hz, 145 to 160 words a minute, restrained
+ * inflection). No real person's recordings are involved.
+ */
+export type VoiceId = 'whitcombe' | 'ravenhill' | 'sterling' | 'ashford' | 'kensington';
+export const VOICES: { id: VoiceId; name: string; line: string; speed: number }[] = [
+  { id: 'whitcombe', name: 'Whitcombe', line: 'Low, measured and unhurried', speed: .92 },
+  { id: 'ravenhill', name: 'Ravenhill', line: 'The calmest; very even', speed: .86 },
+  { id: 'sterling', name: 'Sterling', line: 'Crisper and a little brighter', speed: .93 },
+  { id: 'ashford', name: 'Ashford', line: 'Warm, with a softer edge', speed: .88 },
+  { id: 'kensington', name: 'Kensington', line: 'More expressive, a touch theatrical', speed: .9 },
 ];
+export const voiceOf = (id: string): VoiceId => (VOICES.some(item => item.id === id) ? id as VoiceId : 'whitcombe');
 
 export type VoiceStatus = 'off' | 'loading' | 'ready' | 'error';
 type Speech = { words: string[]; onWord?: (index: number) => void };
@@ -34,20 +41,48 @@ function speakable(text: string) {
   return text.replace(/(\d)\s*%/g, '$1 percent').replace(/&/g, ' and ').replace(/\bJARVIS\b/g, 'Jarvis').replace(/\bvisionOS\b/gi, 'vision O S').replace(/\bUI\b/g, 'U I').replace(/[*_#`]/g, '');
 }
 
-function impulse(context: BaseAudioContext, seconds: number, decay: number) {
-  const length = Math.floor(context.sampleRate * seconds), buffer = context.createBuffer(2, length, context.sampleRate);
-  for (let channel = 0; channel < 2; channel++) {
-    const data = buffer.getChannelData(channel);
-    for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+
+/** The finishing chain for JARVIS's voice, on any audio context: returns its input and output. */
+export function voiceChain(context: BaseAudioContext) {
+  const input = context.createGain();
+  // Clean-up EQ: no rumble, less mud, a little presence and air.
+  const highpass = new BiquadFilterNode(context, { type: 'highpass', frequency: 72, Q: .7 });
+  const body = new BiquadFilterNode(context, { type: 'lowshelf', frequency: 160, gain: 1.2 });
+  const mud = new BiquadFilterNode(context, { type: 'peaking', frequency: 300, Q: 1, gain: -2.5 });
+  const presence = new BiquadFilterNode(context, { type: 'peaking', frequency: 2600, Q: .8, gain: 2 });
+  const air = new BiquadFilterNode(context, { type: 'highshelf', frequency: 9500, gain: 1.8 });
+  const compressor = new DynamicsCompressorNode(context, { threshold: -21, knee: 9, ratio: 2.8, attack: .003, release: .14 });
+  const master = context.createGain();
+  master.gain.value = .95;
+  input.connect(highpass).connect(body).connect(mud).connect(presence).connect(air).connect(compressor);
+  compressor.connect(master);
+  // A quiet exciter: only the top end, softly saturated and blended back for a polished, synthetic sheen.
+  const shaper = new WaveShaperNode(context, { oversample: '4x' });
+  const curve = new Float32Array(1024);
+  for (let i = 0; i < curve.length; i++) { const x = i / 511.5 - 1; curve[i] = Math.tanh(x * 2.4) / Math.tanh(2.4); }
+  shaper.curve = curve;
+  compressor.connect(new BiquadFilterNode(context, { type: 'highpass', frequency: 3200 })).connect(shaper).connect(new GainNode(context, { gain: .045 })).connect(master);
+  // Doubling: two faint copies a few milliseconds behind, drifting slowly, kept centred.
+  for (const [delay, rate, depth] of [[.012, .15, .0004], [.018, .22, .0005]] as const) {
+    const line = new DelayNode(context, { delayTime: delay, maxDelayTime: .05 });
+    const lfo = new OscillatorNode(context, { frequency: rate });
+    lfo.connect(new GainNode(context, { gain: depth })).connect(line.delayTime);
+    lfo.start();
+    compressor.connect(line).connect(new GainNode(context, { gain: .045 })).connect(master);
   }
-  return buffer;
+  // Early reflections instead of a reverb tail: the voice sounds present in the room, never distant.
+  for (const [time, gain, pan] of [[.011, .035, -.4], [.023, .02, .45], [.037, .012, -.15]] as const) {
+    const tap = new DelayNode(context, { delayTime: time, maxDelayTime: .05 });
+    compressor.connect(new BiquadFilterNode(context, { type: 'lowpass', frequency: 6000 })).connect(tap).connect(new GainNode(context, { gain })).connect(new StereoPannerNode(context, { pan })).connect(master);
+  }
+  return { input, output: master };
 }
 
 export class JarvisVoice {
   status: VoiceStatus = 'off';
   progress = 0;
   engine: 'neural' | 'system' = 'system';
-  voice: VoiceId = 'bm_fable';
+  voice: VoiceId = 'whitcombe';
   muted = false;
   onChange: () => void = () => {};
   private worker: Worker | null = null;
@@ -74,32 +109,32 @@ export class JarvisVoice {
   }
   get busy() { return this.speaking; }
 
+  /** The voice's spectrum in 48 log-spaced bands from 90 Hz to 7 kHz, 0..1 each, for the equaliser rings. */
+  private bins = new Uint8Array(512);
+  private bands = new Float32Array(48);
+  spectrum() {
+    if (!this.speaking) return null;
+    if (this.engine === 'system' || !this.analyser || !this.context) {
+      for (let i = 0; i < this.bands.length; i++) this.bands[i] = this.simulated * (.4 + .6 * Math.abs(Math.sin(performance.now() / 90 + i * 1.7))) * (1 - i / 70);
+      return this.bands;
+    }
+    this.analyser.getByteFrequencyData(this.bins);
+    const nyquist = this.context.sampleRate / 2, count = this.analyser.frequencyBinCount;
+    for (let i = 0; i < this.bands.length; i++) {
+      const lo = 90 * Math.pow(7000 / 90, i / this.bands.length), hi = 90 * Math.pow(7000 / 90, (i + 1) / this.bands.length);
+      const a = Math.floor(lo / nyquist * count), b = Math.max(a + 1, Math.ceil(hi / nyquist * count));
+      let peak = 0;
+      for (let k = a; k < b && k < count; k++) peak = Math.max(peak, this.bins[k]!);
+      this.bands[i] = Math.pow(peak / 255, 1.6);
+    }
+    return this.bands;
+  }
+
   /** Creates the audio graph on the first user gesture. */
   private graph() {
     if (this.context) return this.context;
     const context = new AudioContext({ latencyHint: 'interactive' });
-    const input = context.createGain();
-    const highpass = new BiquadFilterNode(context, { type: 'highpass', frequency: 85, Q: .7 });
-    const mud = new BiquadFilterNode(context, { type: 'peaking', frequency: 280, Q: 1, gain: -2.5 });
-    const presence = new BiquadFilterNode(context, { type: 'peaking', frequency: 3100, Q: .9, gain: 2.5 });
-    const air = new BiquadFilterNode(context, { type: 'highshelf', frequency: 8500, gain: 1.5 });
-    const compressor = new DynamicsCompressorNode(context, { threshold: -20, knee: 8, ratio: 2.6, attack: .004, release: .16 });
-    const master = context.createGain();
-    master.gain.value = .95;
-    input.connect(highpass).connect(mud).connect(presence).connect(air).connect(compressor);
-    compressor.connect(master);
-    // A faint chorus: two slowly wandering delays, panned apart.
-    for (const [delay, rate, depth, pan] of [[.012, .21, .0012, -.35], [.019, .33, .0016, .35]] as const) {
-      const line = new DelayNode(context, { delayTime: delay, maxDelayTime: .05 });
-      const lfo = new OscillatorNode(context, { frequency: rate });
-      const amount = new GainNode(context, { gain: depth });
-      lfo.connect(amount).connect(line.delayTime);
-      lfo.start();
-      compressor.connect(line).connect(new GainNode(context, { gain: .075 })).connect(new StereoPannerNode(context, { pan })).connect(master);
-    }
-    // A short, bright room, as if the voice is in the space with you.
-    const room = new ConvolverNode(context, { buffer: impulse(context, .32, 3.2) });
-    compressor.connect(room).connect(new GainNode(context, { gain: .1 })).connect(master);
+    const { input, output: master } = voiceChain(context);
     const analyser = new AnalyserNode(context, { fftSize: 1024, smoothingTimeConstant: .4 });
     master.connect(analyser).connect(context.destination);
     this.context = context; this.input = input; this.analyser = analyser;
@@ -133,7 +168,7 @@ export class JarvisVoice {
         }
       };
       worker.onerror = () => { this.engine = 'system'; this.status = 'ready'; this.worker = null; this.onChange(); resolve(); };
-      worker.postMessage({ type: 'load', device: 'webgpu' });
+      worker.postMessage({ type: 'load', device: 'webgpu', voice: this.voice });
     });
   }
 
@@ -142,7 +177,7 @@ export class JarvisVoice {
       if (!this.worker) { resolve(null); return; }
       const id = this.nextId++;
       this.pending.set(id, resolve);
-      this.worker.postMessage({ type: 'speak', id, text: speakable(text), voice: this.voice, speed: .96 });
+      this.worker.postMessage({ type: 'speak', id, text: speakable(text), voice: this.voice, speed: VOICES.find(item => item.id === this.voice)?.speed ?? .92 });
     });
   }
 

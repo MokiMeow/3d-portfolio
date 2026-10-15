@@ -36,6 +36,8 @@ function pixel() {
   return position.value ? { x: Math.max(12, position.value.x * maxX), y: Math.max(12, position.value.y * maxY) }
     : { x: Math.max(12, bounds.value.w - size.value - (props.compact ? 16 : 28)), y: Math.max(12, bounds.value.h - size.value - (props.compact ? 112 : 120)) };
 }
+/** The orb's centre in page pixels, so the full display can arrive out of it and fold back into it. */
+const orbCentre = computed(() => { const p = pixel(), rect = layer.value?.getBoundingClientRect(); return { x: (rect?.left ?? 0) + p.x + size.value / 2, y: (rect?.top ?? 0) + p.y + size.value / 2 }; });
 const dockStyle = computed<CSSProperties>(() => { const p = pixel(); return { left: `${p.x}px`, top: `${p.y}px`, width: `${size.value}px`, height: `${size.value}px` }; });
 /** The quick panel and remarks open on whichever side of the orb has room. */
 const side = computed(() => {
@@ -158,7 +160,7 @@ onBeforeUnmount(() => { orb?.stop(); observer?.disconnect(); window.removeEventL
     </div>
 
     <!-- The full HUD -->
-    <JarvisCore v-if="coreOpen" ref="core" :jarvis="jarvis" :docked="docked" :compact="compact" :status="status" @close="closeCore" @dock="setDocked" />
+    <JarvisCore v-if="coreOpen" ref="core" :jarvis="jarvis" :docked="docked" :compact="compact" :status="status" :origin="orbCentre" @close="closeCore" @dock="setDocked" />
   </div>
 </template>
 

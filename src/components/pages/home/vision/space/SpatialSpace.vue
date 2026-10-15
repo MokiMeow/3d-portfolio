@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 import { Vector3 } from 'three';
 import { SpaceEngine, GRAVITY } from './engine';
-import type { GravityMode, Thing } from './engine';
+import type { GravityMode, Structure, Thing } from './engine';
 import { MATERIALS, SHAPES, SHAPE_NAMES, materialFor, outline } from './shapes';
 import type { MaterialId, ShapeId } from './shapes';
 
@@ -160,16 +160,45 @@ function spawnMany(kind: string, amount: number, finish?: string) {
     window.setTimeout(() => {
       const s = SIZES.M * (n > 10 ? .7 : 1) * (.85 + Math.random() * .3);
       const at = e.inFront(n > 1 ? 1.4 : 0).setY(n > 1 ? .2 + Math.random() * .9 : .1);
-      e.spawn(id, chosen ?? (n > 1 && !finish ? palette[i % palette.length]! : material.value), s, at);
+      e.spawn(id, chosen ?? (n > 1 && !finish ? palette[i % palette.length]! : material.value), s, at, { fabricate: n <= 8 });
     }, i * (n > 12 ? 70 : 120));
   }
   return n;
 }
 function clear() { engine.value?.clear(); selected.value = null; }
+
+/** Structures JARVIS can build, placed block by block in front of you. */
+function build(kind: Structure, finish?: string) {
+  const e = engine.value;
+  if (!e) return 0;
+  const material = materialFor(finish) ?? (kind === 'dominoes' ? 'obsidian' : kind === 'circle' ? 'chrome' : 'gold');
+  const { origin, forward, right, yaw } = e.site(kind === 'dominoes' ? 2.1 : 2.4);
+  const at = (x: number, y: number, z = 0) => origin.clone().addScaledVector(right, x).addScaledVector(forward, z).setY(e.floor + y);
+  const jobs: { shape: ShapeId; size: number; position: Vector3; yaw?: number }[] = [];
+  const s = .24;
+  if (kind === 'tower') for (let i = 0; i < 9; i++) jobs.push({ shape: 'cube', size: s, position: at(0, s / 2 + i * s * 1.01), yaw: yaw + (i % 2) * .2 });
+  else if (kind === 'pyramid') for (let level = 0; level < 4; level++) { const n = 4 - level; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) jobs.push({ shape: 'cube', size: s, position: at((i - (n - 1) / 2) * s * 1.02, s / 2 + level * s * 1.01, (j - (n - 1) / 2) * s * 1.02), yaw }); }
+  else if (kind === 'wall') for (let row = 0; row < 4; row++) for (let i = 0; i < 6; i++) jobs.push({ shape: 'cube', size: s * .9, position: at((i - 2.5 + (row % 2) * .5) * s * .92, s * .45 + row * s * .91), yaw });
+  else if (kind === 'stairs') for (let step = 0; step < 6; step++) for (let h = 0; h <= step; h++) jobs.push({ shape: 'cube', size: s * .9, position: at(0, s * .45 + h * s * .91, (step - 2.5) * -s * .92), yaw });
+  else if (kind === 'circle') for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; jobs.push({ shape: 'cylinder', size: .32, position: at(Math.cos(a) * .9, .17, Math.sin(a) * .9), yaw }); }
+  else for (let i = 0; i < 16; i++) {
+    // A gentle S of dominoes, each facing along the curve.
+    const t = i / 15, x = Math.sin(t * Math.PI * 1.6) * .5, z = (t - .5) * -2.6;
+    const next = Math.sin((i + 1) / 15 * Math.PI * 1.6) * .5 - x;
+    jobs.push({ shape: 'domino', size: .3, position: at(x, .155, z), yaw: yaw + Math.atan2(next, -2.6 / 15) });
+  }
+  const made: Thing[] = [];
+  jobs.forEach((job, index) => window.setTimeout(() => {
+    made.push(e.spawn(job.shape, material, job.size, job.position, { spin: false, yaw: job.yaw, fabricate: true }));
+    // Once the run is standing, tip the first domino.
+    if (kind === 'dominoes' && index === jobs.length - 1) window.setTimeout(() => { const first = made[0]; if (first) e.nudge(first, forward.clone().multiplyScalar(-1).applyAxisAngle(new Vector3(0, 1, 0), 0), 1.6); }, 1500);
+  }, index * (kind === 'pyramid' || kind === 'wall' || kind === 'stairs' ? 70 : 140)));
+  return jobs.length;
+}
 function setGravity(mode: GravityMode) { gravity.value = mode; }
 defineExpose({
   open: () => { creating.value = true; }, close: () => { creating.value = false; }, toggle: () => { creating.value = !creating.value; },
-  spawn: spawnMany, clear, setGravity, get count() { return count.value; }, get creating() { return creating.value; },
+  spawn: spawnMany, build, clear, setGravity, get count() { return count.value; }, get creating() { return creating.value; },
 });
 
 function keys(event: KeyboardEvent) {

@@ -12,7 +12,8 @@ import type { MaterialId, ShapeId } from './shapes';
 export type GravityMode = 'earth' | 'moon' | 'mars' | 'zero';
 export const GRAVITY: Record<GravityMode, { g: number; name: string }> = { earth: { g: -9.82, name: 'Earth' }, moon: { g: -1.62, name: 'Moon' }, mars: { g: -3.72, name: 'Mars' }, zero: { g: 0, name: 'Zero-G' } };
 type View = { yaw: number; pitch: number; fov: number };
-export type Thing = { id: number; shape: ShapeId; material: MaterialId; size: number; mesh: THREE.Mesh; body: CANNON.Body; born: number; dying?: number };
+export type Thing = { id: number; shape: ShapeId; material: MaterialId; size: number; mesh: THREE.Mesh; body: CANNON.Body; born: number; dying?: number; wire?: THREE.LineSegments };
+export type Structure = 'tower' | 'pyramid' | 'dominoes' | 'wall' | 'stairs' | 'circle';
 
 // Eye height above the floor, and how far out things are made: far enough to sit in the lower third of the view.
 const FLOOR = -1.05;
@@ -173,7 +174,8 @@ export class SpaceEngine {
     return dir.multiplyScalar(REACH + (Math.random() - .5) * spread * .5).add(side.multiplyScalar((Math.random() - .5) * spread)).setY(-.2 + Math.random() * spread * .4);
   }
 
-  spawn(shape: ShapeId, material: MaterialId, size: number, at: THREE.Vector3, options: { drawn?: THREE.Shape; velocity?: THREE.Vector3; spin?: boolean } = {}) {
+  private wireMaterial = new THREE.LineBasicMaterial({ color: '#ffc15a', transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+  spawn(shape: ShapeId, material: MaterialId, size: number, at: THREE.Vector3, options: { drawn?: THREE.Shape; velocity?: THREE.Vector3; spin?: boolean; yaw?: number; fabricate?: boolean } = {}) {
     const made = make(shape, size, options.drawn);
     const mesh = new THREE.Mesh(made.geometry, this.materials.materials[material]);
     mesh.castShadow = material !== 'glass'; mesh.receiveShadow = true;
@@ -181,12 +183,20 @@ export class SpaceEngine {
     const body = new CANNON.Body({ mass: Math.max(.02, made.mass), position: new CANNON.Vec3(at.x, at.y, at.z), linearDamping: .04, angularDamping: .08, sleepSpeedLimit: .12, sleepTimeLimit: .6 });
     for (const part of made.shapes) body.addShape(part.shape, part.offset, part.orientation);
     if (options.spin !== false) body.quaternion.setFromEuler(Math.random() * .6, Math.random() * Math.PI * 2, Math.random() * .6);
+    else if (options.yaw) body.quaternion.setFromEuler(0, options.yaw, 0);
     if (options.velocity) body.velocity.set(options.velocity.x, options.velocity.y, options.velocity.z);
     if (this.gravity === 'zero') body.angularVelocity.set((Math.random() - .5) * .6, (Math.random() - .5) * .6, (Math.random() - .5) * .6);
     this.world.addBody(body);
     mesh.scale.setScalar(.001);
     this.scene.add(mesh);
     const thing: Thing = { id: this.nextId++, shape, material, size, mesh, body, born: performance.now() };
+    // Fabrication: a gold wireframe first, the solid filling in behind it, the way JARVIS builds things.
+    if (options.fabricate) {
+      const wire = new THREE.LineSegments(new THREE.EdgesGeometry(made.geometry, 25), this.wireMaterial.clone());
+      this.scene.add(wire);
+      thing.wire = wire;
+      mesh.visible = false;
+    }
     this.things.push(thing);
     this.ring(at, size);
     // Oldest first, when the space gets crowded.
@@ -204,6 +214,20 @@ export class SpaceEngine {
     this.scene.add(mesh);
     this.rings.push({ mesh, born: performance.now() });
   }
+
+  /** A shove, for the first domino. */
+  nudge(thing: Thing, direction: THREE.Vector3, strength = 1) {
+    thing.body.wakeUp();
+    thing.body.applyImpulse(new CANNON.Vec3(direction.x, direction.y, direction.z).scale(thing.body.mass * strength), new CANNON.Vec3(thing.body.position.x, thing.body.position.y + thing.size * .35, thing.body.position.z));
+    this.wake();
+  }
+  /** Where to build: on the ground in front of you, facing you. */
+  site(distance = 2.3) {
+    const { yaw } = this.view();
+    const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)), right = new THREE.Vector3(-forward.z, 0, forward.x);
+    return { origin: forward.clone().multiplyScalar(distance).setY(FLOOR), forward, right, yaw };
+  }
+  get floor() { return FLOOR; }
 
   remove(thing: Thing) { if (!thing.dying) { thing.dying = performance.now(); this.world.removeBody(thing.body); this.wake(); this.onChange(); } }
   clear() { [...this.things].forEach(thing => this.remove(thing)); }
@@ -314,6 +338,16 @@ export class SpaceEngine {
         busy = true;
         if (t >= 1) { this.scene.remove(thing.mesh); thing.mesh.geometry.dispose(); this.things.splice(this.things.indexOf(thing), 1); continue; }
       }
+      if (thing.wire) {
+        const t = age / 1.1;
+        if (age > .42) thing.mesh.visible = true;
+        thing.wire.position.copy(thing.mesh.position); thing.wire.quaternion.copy(thing.mesh.quaternion);
+        thing.wire.scale.setScalar(Math.min(1, age / .3) * (1 + Math.max(0, .42 - age)));
+        (thing.wire.material as THREE.LineBasicMaterial).opacity = Math.max(0, 1 - Math.max(0, t - .3) / .7);
+        if (age > .42) scale = Math.min(scale, .6 + (age - .42) * 2);
+        if (t >= 1 || thing.dying) { this.scene.remove(thing.wire); thing.wire.geometry.dispose(); (thing.wire.material as THREE.Material).dispose(); thing.wire = undefined; thing.mesh.visible = true; }
+        busy = true;
+      }
       thing.mesh.scale.setScalar(scale);
       if (!thing.dying && thing.body.sleepState !== CANNON.Body.SLEEPING) busy = true;
     }
@@ -349,7 +383,7 @@ export class SpaceEngine {
     Object.values(this.materials.materials).forEach(material => material.dispose());
     this.materials.textures.forEach(texture => texture.dispose());
     this.envTarget?.dispose(); this.roomEnv.dispose(); this.spaceEnv.dispose(); this.pmrem.dispose();
-    this.ringGeometry.dispose(); this.grid.geometry.dispose(); this.gridMaterial.dispose();
+    this.ringGeometry.dispose(); this.grid.geometry.dispose(); this.gridMaterial.dispose(); this.wireMaterial.dispose();
     this.renderer.dispose();
   }
 }

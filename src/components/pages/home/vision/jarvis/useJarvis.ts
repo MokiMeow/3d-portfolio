@@ -2,13 +2,42 @@ import { reactive, markRaw } from 'vue';
 import { addressRequest, addressed, describeApp, newMemory, think, APP_LINES, PLACE_LINES } from './brain';
 import type { JarvisAction, JarvisContext } from './brain';
 import { JarvisMind, MODELS, validTag } from './mind';
-import { JarvisVoice, VOICES } from './voice';
+import { JarvisVoice, VOICES, voiceOf } from './voice';
+import { PLACES, CONDITIONS, forecast } from '../apps/weather/model';
+
+/** Cities for the world clock card, by the names people say. */
+const ZONES: Record<string, [string, string]> = {
+  tokyo: ['Tokyo', 'Asia/Tokyo'], london: ['London', 'Europe/London'], paris: ['Paris', 'Europe/Paris'], berlin: ['Berlin', 'Europe/Berlin'], 'new york': ['New York', 'America/New_York'], nyc: ['New York', 'America/New_York'],
+  'los angeles': ['Los Angeles', 'America/Los_Angeles'], la: ['Los Angeles', 'America/Los_Angeles'], 'san francisco': ['San Francisco', 'America/Los_Angeles'], sydney: ['Sydney', 'Australia/Sydney'], dubai: ['Dubai', 'Asia/Dubai'],
+  singapore: ['Singapore', 'Asia/Singapore'], 'hong kong': ['Hong Kong', 'Asia/Hong_Kong'], shanghai: ['Shanghai', 'Asia/Shanghai'], beijing: ['Beijing', 'Asia/Shanghai'], seoul: ['Seoul', 'Asia/Seoul'], moscow: ['Moscow', 'Europe/Moscow'],
+  bengaluru: ['Bengaluru', 'Asia/Kolkata'], bangalore: ['Bengaluru', 'Asia/Kolkata'], mumbai: ['Mumbai', 'Asia/Kolkata'], delhi: ['Delhi', 'Asia/Kolkata'], india: ['India', 'Asia/Kolkata'], chennai: ['Chennai', 'Asia/Kolkata'],
+  toronto: ['Toronto', 'America/Toronto'], chicago: ['Chicago', 'America/Chicago'], 'sao paulo': ['São Paulo', 'America/Sao_Paulo'], cairo: ['Cairo', 'Africa/Cairo'], 'cape town': ['Cape Town', 'Africa/Johannesburg'],
+  reykjavik: ['Reykjavík', 'Atlantic/Reykjavik'], lisbon: ['Lisbon', 'Europe/Lisbon'], rome: ['Rome', 'Europe/Rome'], madrid: ['Madrid', 'Europe/Madrid'], istanbul: ['Istanbul', 'Europe/Istanbul'], bangkok: ['Bangkok', 'Asia/Bangkok'],
+};
+const MEMORY = 'lab-jarvis-memory';
+function memories(): string[] { try { const value: unknown = JSON.parse(localStorage.getItem(MEMORY) ?? '[]'); return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []; } catch { return []; } }
 import type { VoiceId } from './voice';
+/** Facts are stored in the wearer's own words; JARVIS repeats them back in the second person. */
+const SWAP: Record<string, string> = { i: 'you', im: 'you are', ive: 'you have', me: 'you', my: 'your', mine: 'yours', myself: 'yourself', am: 'are', was: 'were' };
+function yours(fact: string) {
+  let subject = false;
+  return fact.split(' ').map(word => {
+    const swapped = SWAP[word];
+    if (!swapped || ((word === 'am' || word === 'was') && !subject)) { subject = false; return word; }
+    subject = word === 'i';
+    return swapped;
+  }).join(' ');
+}
+
 
 export type JarvisMode = 'idle' | 'listening' | 'thinking' | 'speaking';
 export type LogLine = { id: number; text: string; kind: 'in' | 'op' | 'ok' | 'say' | 'warn' | 'sys'; at: number };
 export type Remarks = 'off' | 'captions' | 'spoken';
 export type Whisper = { id: number; text: string };
+/** A holographic card JARVIS projects beside himself: world time, weather, a fact, a message, a memory. */
+export type Card = { id: number; kind: 'time' | 'weather' | 'fact' | 'message' | 'memory' | 'build' | 'protocol'; title: string; big?: string; lines: string[]; accent?: string };
+/** A beam of light from JARVIS to the thing he just acted on, in the headset's own pixels. */
+export type Beam = { id: number; x: number; y: number };
 
 const STORE = 'lab-jarvis-v1';
 type Saved = { address?: string; voiceOn?: boolean; voice?: VoiceId; remarks?: Remarks; tier?: 'full' | 'instant'; neural?: boolean; wake?: boolean };
@@ -35,10 +64,12 @@ export function useJarvis(options: {
     spoken: -1,
     log: [] as LogLine[],
     whispers: [] as Whisper[],
+    cards: [] as Card[],
+    beams: [] as Beam[],
     timers: [] as { id: number; label: string; end: number; total: number }[],
     address: initial.address ?? '',
     voiceOn: initial.voiceOn ?? true,
-    voiceId: (initial.voice ?? 'bm_fable') as VoiceId,
+    voiceId: voiceOf(initial.voice ?? 'whitcombe'),
     remarks: (initial.remarks ?? 'captions') as Remarks,
     tier: initial.tier ?? null as 'full' | 'instant' | null,
     voiceStatus: 'off' as JarvisVoice['status'],
@@ -76,7 +107,20 @@ export function useJarvis(options: {
   }
   const address = () => state.address || 'sir';
   function context(): JarvisContext {
-    return { ...options.context(), address: address(), neural: mind.status === 'ready', timers: state.timers.map(item => ({ label: item.label, left: Math.max(0, item.end - Date.now()) / 1000 })) };
+    return { ...options.context(), memories: memories(), address: address(), neural: mind.status === 'ready', timers: state.timers.map(item => ({ label: item.label, left: Math.max(0, item.end - Date.now()) / 1000 })) };
+  }
+
+  let cardId = 0, beamId = 0;
+  function card(data: Omit<Card, 'id'>, seconds = 16) {
+    const item = { ...data, id: ++cardId };
+    state.cards = [...state.cards.slice(-2), item];
+    log(`project.card(${JSON.stringify(data.kind)})`, 'op');
+    window.setTimeout(() => { state.cards = state.cards.filter(entry => entry.id !== item.id); }, seconds * 1000);
+  }
+  function beam(x: number, y: number) {
+    const item = { id: ++beamId, x, y };
+    state.beams = [...state.beams, item];
+    window.setTimeout(() => { state.beams = state.beams.filter(entry => entry.id !== item.id); }, 1400);
   }
 
   /** Speak a line with captions that follow the voice. */
@@ -86,7 +130,7 @@ export function useJarvis(options: {
     state.words = text.split(' ').filter(Boolean);
     state.spoken = state.voiceOn ? -1 : state.words.length;
     log(`say(${JSON.stringify(text.length > 52 ? text.slice(0, 52) + '…' : text)})`, 'say');
-    if (options.visible && !options.visible()) caption(text);
+    if (options.visible && !options.visible() && state.whispers.at(-1)?.text !== text) caption(text);
     if (!state.voiceOn) { state.mode = 'idle'; return; }
     state.mode = 'speaking';
     await voice.speak(text, { words: state.words, onWord: index => { if (mine === run) state.spoken = index; } });
@@ -98,6 +142,51 @@ export function useJarvis(options: {
     for (const action of actions) {
       if (action.type === 'timer') { startTimer(action.seconds, action.label); continue; }
       if (action.type === 'cancelTimers') { state.timers.forEach(timer => clearTimeout(timers.get(timer.id))); state.timers = []; continue; }
+      if (action.type === 'remember') {
+        const list = [...memories().filter(item => item !== action.fact), action.fact].slice(-30);
+        try { localStorage.setItem(MEMORY, JSON.stringify(list)); } catch { /* private mode */ }
+        card({ kind: 'memory', title: 'Memory stored', lines: [yours(action.fact)] });
+        continue;
+      }
+      if (action.type === 'recall') {
+        const list = memories();
+        if (!list.length) { extra.push(addressed('You have not asked me to remember anything yet, {a}.', address())); continue; }
+        card({ kind: 'memory', title: `Memory · ${list.length} items`, lines: list.slice(-5).reverse().map(yours) }, 22);
+        extra.push(addressed(`I remember ${list.length === 1 ? 'one thing' : `${list.length} things`}, {a}. Most recently, that ${yours(list.at(-1)!)}.`, address()));
+        continue;
+      }
+      if (action.type === 'forget') { try { localStorage.removeItem(MEMORY); } catch { /* private mode */ } continue; }
+      if (action.type === 'alarm') {
+        const at = new Date(); at.setHours(action.hour, action.minute, 0, 0);
+        if (at.getTime() <= Date.now()) at.setDate(at.getDate() + 1);
+        const when = at.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true });
+        startTimer(Math.round((at.getTime() - Date.now()) / 1000), action.label || `alarm, ${when}`);
+        card({ kind: 'time', title: 'Alarm set', big: when, lines: [at.getDate() === new Date().getDate() ? 'Today' : 'Tomorrow', action.label || 'I shall wake you myself.'] });
+        extra.push(addressed(`Alarm set for ${when}, {a}.`, address()));
+        continue;
+      }
+      if (action.type === 'worldTime') {
+        const key = Object.keys(ZONES).find(name => action.city.includes(name));
+        if (!key) { extra.push(addressed(`I do not keep a clock for ${action.city}, {a}. Try a major city.`, address())); continue; }
+        const [city, zone] = ZONES[key]!, now = new Date();
+        const time = new Intl.DateTimeFormat('en-GB', { timeZone: zone, hour: 'numeric', minute: '2-digit', hour12: true }).format(now);
+        const day = new Intl.DateTimeFormat('en-GB', { timeZone: zone, weekday: 'long' }).format(now);
+        const there = new Date(now.toLocaleString('en-US', { timeZone: zone })), diff = Math.round((there.getTime() - now.getTime()) / 60000);
+        const ahead = diff === 0 ? 'Same time as you' : `${Math.floor(Math.abs(diff) / 60)}h${Math.abs(diff) % 60 ? ` ${Math.abs(diff) % 60}m` : ''} ${diff > 0 ? 'ahead of' : 'behind'} you`;
+        card({ kind: 'time', title: `World clock · ${city}`, big: time, lines: [day, ahead] });
+        extra.push(addressed(`It is ${time} in ${city}, {a}. ${day}.`, address()));
+        continue;
+      }
+      if (action.type === 'weather') {
+        const asked = action.city?.toLowerCase().trim();
+        const place = (asked && PLACES.find(item => item.name.toLowerCase().includes(asked) || asked.includes(item.id))) || PLACES[0]!;
+        const data = forecast(place, new Date()), now = data.hours[0];
+        const condition = CONDITIONS[now?.condition ?? place.condition];
+        card({ kind: 'weather', title: `Weather · ${place.name}`, big: `${Math.round(data.current)}°`, lines: [condition, `High ${Math.round(data.high)}° · Low ${Math.round(data.low)}°`, 'Simulated forecast'] });
+        if (asked && !place.name.toLowerCase().includes(asked)) extra.push(addressed(`I only keep forecasts for a few cities, {a}. Here is ${place.name}.`, address()));
+        extra.push(addressed(`${place.name}: ${Math.round(data.current)} degrees, ${condition.toLowerCase()}. Simulated, of course, {a}.`, address()));
+        continue;
+      }
       if (action.type === 'scan') {
         const ctx = context();
         await options.act(action);
@@ -303,6 +392,6 @@ export function useJarvis(options: {
     void JarvisMind.supported().then(ok => { state.gpu = ok; });
   }
 
-  return { state, voice, mind, ask, say, interrupt, whisper, remark, log, wakeNeural, setInstant, setVoice, setVoiceOn, setRemarks, setAddress, forget, dispose, address, context, setWake, pauseWake, wakeAvailable };
+  return { state, voice, mind, card, beam, ask, say, interrupt, whisper, remark, log, wakeNeural, setInstant, setVoice, setVoiceOn, setRemarks, setAddress, forget, dispose, address, context, setWake, pauseWake, wakeAvailable };
 }
 export type Jarvis = ReturnType<typeof useJarvis>;

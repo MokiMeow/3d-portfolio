@@ -27,7 +27,21 @@ export type JarvisAction =
   | { type: 'spawn'; shape: string; count: number; material?: string }
   | { type: 'clearSpace' }
   | { type: 'gravity'; mode: 'earth' | 'moon' | 'mars' | 'zero' }
-  | { type: 'scan' };
+  | { type: 'scan' }
+  | { type: 'message'; body: string }
+  | { type: 'readMessages'; from?: string }
+  | { type: 'slackPost'; channel: string; text: string }
+  | { type: 'slackRead'; channel?: string }
+  | { type: 'music'; action: 'play' | 'pause' | 'next'; query?: string }
+  | { type: 'youtube'; query: string }
+  | { type: 'alarm'; hour: number; minute: number; label: string }
+  | { type: 'worldTime'; city: string }
+  | { type: 'weather'; city?: string }
+  | { type: 'build'; kind: 'tower' | 'pyramid' | 'dominoes' | 'wall' | 'stairs' | 'circle'; material?: string }
+  | { type: 'protocol'; name: 'house party' | 'clean slate' | 'focus' | 'blackout' | 'stargazer' }
+  | { type: 'remember'; fact: string }
+  | { type: 'recall' }
+  | { type: 'forget' };
 
 export interface JarvisContext {
   now: Date;
@@ -47,6 +61,8 @@ export interface JarvisContext {
   neural: boolean;
   /** Things created in the space around you. */
   objects: number;
+  /** Things the wearer asked him to remember. */
+  memories?: string[];
 }
 export interface Reply {
   say: string;
@@ -193,6 +209,63 @@ function command(n: string, ctx: JarvisContext): { say: string; actions: JarvisA
     return { say: pick(['Clearing the view, {a}. Say the word and it all comes back.', 'Everything out of the way. Enjoy the scenery.']), actions: [{ type: 'viewOnly', on: true }], trace: ['ui.viewOnly = true'] };
   if (/^(?:show (?:everything|it all|the ui|my windows)|bring (?:everything|it all|my windows) back|restore (?:the )?view)$/.test(n))
     return { say: 'Everything back where it was.', actions: [{ type: 'viewOnly', on: false }], trace: ['ui.viewOnly = false'] };
+  // Protocols: a whole mood at once.
+  const protocol = n.match(/^(?:(?:initiate|engage|activate|run|start|begin) (?:the )?)?(house party|clean slate|focus|blackout|stargazer|stargazing|party) protocol$/);
+  if (protocol) {
+    const name = protocol[1] === 'party' ? 'house party' : protocol[1] === 'stargazing' ? 'stargazer' : protocol[1] as 'house party' | 'clean slate' | 'focus' | 'blackout' | 'stargazer';
+    const lines: Record<string, string> = {
+      'house party': 'House Party Protocol, {a}. Do try to enjoy it responsibly.', 'clean slate': 'Clean Slate Protocol. Everything put away, {a}.',
+      focus: 'Focus Protocol. Notifications held, lights down, somewhere quiet.', blackout: 'Blackout Protocol. Lights out; I shall keep watch.', stargazer: 'Stargazer Protocol. Look up, {a}.',
+    };
+    return { say: lines[name]!, actions: [{ type: 'protocol', name }], trace: [`protocol.engage(${lit(name)})`] };
+  }
+  // Memory.
+  const remember = n.match(/^(?:please )?(?:remember|note|make a note) (?:that )?(.{3,120})$/);
+  if (remember && !/^(?:me|this)$/.test(remember[1]!)) return { say: 'Noted, {a}. I shall remember that.', actions: [{ type: 'remember', fact: remember[1]! }], trace: [`memory.store(${lit(remember[1]!)})`] };
+  if (/^(?:what do you (?:remember|know)(?: about me)?|what have i told you|what do you remember about me)$/.test(n)) return { say: '', actions: [{ type: 'recall' }], trace: ['memory.recall()'] };
+  if (/^forget (?:everything|all of it|what i told you|it all)$/.test(n)) return { say: 'Forgotten, {a}. A clean slate.', actions: [{ type: 'forget' }], trace: ['memory.clear()'] };
+  // Messages: WhatsApp people and groups, and the Slack workspace.
+  const teamPost = n.match(/^tell the team (?:that )?(.+)$/);
+  if (teamPost) return { say: '', actions: [{ type: 'slackPost', channel: 'general', text: teamPost[1]! }], trace: [`slack.post("general", …)`] };
+  const slackPost = n.match(/^(?:post|send|say|write) (?:in|to|on) (?:the )?(?:slack )?(?:channel )?([a-z][a-z-]*?)(?: channel)? (?:that |saying )?(.+)$/);
+  if (slackPost && /general|deploys|random|chai|incidents|duck|bot/.test(slackPost[1]!)) return { say: '', actions: [{ type: 'slackPost', channel: slackPost[1]!, text: slackPost[2]! }], trace: [`slack.post(${lit(slackPost[1]!)}, …)`] };
+  const slackRead = n.match(/^(?:whats|what is) (?:new|happening|going on|up) (?:in|on) (?:the )?([a-z][a-z-]*)(?: channel)?$|^(?:check|read) (?:the )?(?:slack|([a-z][a-z-]*) channel)$/);
+  if (slackRead && (slackRead[2] || !slackRead[1] || /general|deploys|random|chai|incidents|slack/.test(slackRead[1]))) return { say: '', actions: [{ type: 'slackRead', channel: slackRead[1] === 'slack' ? undefined : slackRead[1] ?? slackRead[2] }], trace: ['slack.read()'] };
+  const message = n.match(/^(?:send (?:a )?(?:message|text|whatsapp|note) to|message|text|whatsapp|tell) (?!me\b|us\b|the team\b|a joke|jokes?\b|you\b|him\b|her\b)(.+)$/);
+  if (message) return { say: '', actions: [{ type: 'message', body: message[1]! }], trace: ['whatsapp.compose()'] };
+  const read = n.match(/^(?:read|check|show)(?: me)? (?:my )?(?:new |latest |recent |unread )?(?:messages|texts|whatsapps?|chats)(?: from (.+))?$|^what (?:did|has) (.+?) (?:say|said|sent|send|write|written)$|^any (?:new )?messages(?: from (.+))?$/);
+  if (read) return { say: '', actions: [{ type: 'readMessages', from: read[1] ?? read[2] ?? read[3] }], trace: ['whatsapp.read()'] };
+  // Music.
+  if (/^(?:pause|stop)(?: the)? (?:music|song|playback)$|^(?:pause|stop) playing$/.test(n)) return { say: 'Music paused.', actions: [{ type: 'music', action: 'pause' }], trace: ['music.pause()'] };
+  if (/^(?:next|skip)(?: this)?(?: song| track)?$|^(?:play )?(?:the )?next (?:song|track)$/.test(n)) return { say: 'Next track.', actions: [{ type: 'music', action: 'next' }], trace: ['music.next()'] };
+  const onYouTube = n.match(/^(?:play|watch|put on|show me)(?: me)? (.+?) on youtube$|^(?:search )?youtube (?:for )?(.+)$/);
+  if (onYouTube) {
+    const query = (onYouTube[1] ?? onYouTube[2])!;
+    return { say: `${query.charAt(0).toUpperCase() + query.slice(1)}, on YouTube.`, actions: [{ type: 'open', app: 'youtube' }, { type: 'youtube', query }], trace: [`youtube.play(${lit(query)})`] };
+  }
+  const play = n.match(/^(?:play|put on)(?: me)? (?:some |something |a little |a )?(.*?)(?: music| songs?| playlist| tunes)?$/);
+  if (play && !/video|game|youtube|arcade|minecraft/.test(n) && !ctx.apps.some(app => normalize(app.name) === play[1])) {
+    const query = (play[1] ?? '').replace(/^(?:music|songs?)$/, '');
+    return { say: query ? `Something ${query}, {a}.` : 'Music, {a}.', actions: [{ type: 'open', app: 'music' }, { type: 'music', action: 'play', query }], trace: [`music.play(${lit(query || 'any')})`] };
+  }
+  // Alarms and the world clock.
+  const alarm = n.match(/^(?:set (?:an |my )?alarm|wake me(?: up)?)(?: for| at)? (\d{1,2})(?: (\d{2}))? ?(am|pm)?(?: (?:to|for) (.+))?$/);
+  if (alarm) {
+    let hour = Number(alarm[1]) % 24; const minute = Number(alarm[2] ?? 0);
+    if (alarm[3] === 'pm' && hour < 12) hour += 12; if (alarm[3] === 'am' && hour === 12) hour = 0;
+    return { say: '', actions: [{ type: 'alarm', hour, minute, label: alarm[4] ?? '' }], trace: [`alarm.set(${hour}:${String(minute).padStart(2, '0')})`] };
+  }
+  const worldTime = n.match(/^(?:(?:whats|what is) the )?time (?:in|at) ([a-z ]+)$|^(?:show me the time in|what time is it in|whats the time in) ([a-z ]+)$/);
+  if (worldTime && !/^(?:here|my room)$/.test((worldTime[1] ?? worldTime[2])!)) return { say: '', actions: [{ type: 'worldTime', city: (worldTime[1] ?? worldTime[2])!.trim() }], trace: ['clock.world()'] };
+  const weather = n.match(/^(?:(?:whats|what is|hows|how is) )?(?:the )?(?:weather|forecast)(?: like)?(?: (?:in|for|at) ([a-z ]+))?(?: today| now)?$|^(?:is it|will it) (?:going to )?(?:rain|snow|be sunny)(?: in ([a-z ]+))?(?: today)?$/);
+  if (weather) return { say: '', actions: [{ type: 'weather', city: weather[1] ?? weather[2] }], trace: ['weather.forecast()'] };
+  // Structures in the space.
+  const build = n.match(/^(?:build|make|create|stack|set up|lay out)(?: me)? (?:a |an |some )?(?:(?:tall|small|big|huge|little|long) )?(?:([a-z]+) )?(tower|pyramid|wall|staircase|stairs|domino run|dominoes run|dominoes|domino line|circle|ring)(?: of (?:([a-z]+) )?(?:cubes|blocks|boxes|spheres|balls))?$/);
+  if (build) {
+    const kind = /domino/.test(build[2]!) ? 'dominoes' : /stair/.test(build[2]!) ? 'stairs' : build[2] === 'ring' ? 'circle' : build[2] as 'tower' | 'pyramid' | 'wall' | 'circle';
+    const material = build[3] ?? build[1];
+    return { say: pick(['Building it now, {a}.', 'Fabricating. Stand back.', `One ${kind === 'dominoes' ? 'domino run' : kind}, coming up.`]), actions: [{ type: 'build', kind, material }], trace: [`fabricate.${kind}(${material ? lit(material) : ''})`] };
+  }
   if (/^(?:close|quit|shut) (?:everything|all(?: apps| windows)?|all of (?:them|it))$|^clean up$/.test(n))
     return { say: ctx.open.length ? pick(['Closing everything, {a}.', 'All windows closed. Room to breathe.']) : 'Nothing is open, {a}. Already immaculate.', actions: ctx.open.length ? [{ type: 'closeAll' }] : [], trace: ['windows.forEach(w => w.close())'] };
   if (/^(?:arrange|tidy|organi[sz]e|tile|sort out|line up)(?: up)? (?:my |the |all )?(?:windows|apps|everything|it|this mess)$/.test(n))
@@ -306,7 +379,7 @@ function answer(n: string, ctx: JarvisContext, memory: Memory): { say: string; k
   if (/^(?:who|what) are you$|^(?:introduce yourself|tell me about yourself|whats your name|who am i talking to)$/.test(n))
     return a('I am JARVIS. Just A Rather Very Intelligent System. In this headset I run the place: apps, environments, the things you build, and the occasional remark. I live entirely on this device, {a}. Nothing you say leaves it.', 'self.describe()');
   if (/^(?:what can you do|help|commands|what do you do|how do (?:i|you) use (?:you|this)|abilities|capabilities)$/.test(n))
-    return a('Rather a lot, {a}. Open or close any app, take you anywhere from the Moon to a fireside, set immersion, tidy your windows, clear the view, set timers, take pictures, and build things in the space around you. Try "drop five glass cubes" or "take me to Jupiter".', 'self.capabilities()');
+    return a('Rather a lot, {a}. I run the headset: apps, places, immersion, your windows. I send WhatsApp messages and read the replies, post to Slack, play music, keep timers and alarms, show the time anywhere, and build things in your space. Try "message Amma that I will be late", "build a tower of gold blocks" or "House Party Protocol".', 'self.capabilities()');
   if (/^(?:status|status report|system status|report|diagnostics|run diagnostics|systems check|how are things)$/.test(n)) {
     const apps = ctx.open.length ? `${ctx.open.length} window${ctx.open.length > 1 ? 's' : ''} open: ${listing(ctx.open.map(item => item.name))}.` : 'No windows open.';
     const where = ctx.place.id === 'room' ? 'You are in passthrough, in your room.' : `You are ${placeAt(ctx.place)}, at ${Math.round(ctx.immersion * 100)} percent immersion.`;
@@ -319,7 +392,7 @@ function answer(n: string, ctx: JarvisContext, memory: Memory): { say: string; k
     return a(ctx.place.id === 'room' ? 'Your room, {a}, seen through the passthrough cameras.' : `You are ${placeAt(ctx.place)}, {a}. ${pick(PLACE_LINES[ctx.place.id] ?? ['']).replace(/{a}/g, '{a}')}`, 'visor.environment');
   if (/^(?:whats open|what apps are open|what is open|which apps are running|what am i running)$/.test(n))
     return a(ctx.open.length ? `${listing(ctx.open.map(item => item.name))}${ctx.front ? `, with ${ctx.front.name} in front` : ''}.` : 'Nothing at the moment, {a}.', 'windows.list()');
-  if (/weather|forecast|is it (?:going to )?rain|temperature outside/.test(n)) return a('The Weather app has a forecast for you, {a}, though I should confess it is simulated. I have no window to the outside world, and I prefer it that way.', 'weather.simulated()');
+  if (/temperature outside|real weather/.test(n)) return a('I have no window to the outside world, {a}. The forecasts I show you are simulated, if beautifully so.', 'weather.simulated()');
   if (/joke|make me laugh|something funny|cheer me up/.test(n)) { const line = pick(JOKES.filter(item => item !== memory.lastJoke)); memory.lastJoke = line; return a(line, 'humour.select()'); }
   if (/^(?:are you (?:siri|alexa|google|chatgpt|gpt|an ai|real|alive|sentient|conscious|human))$/.test(n)) {
     if (/siri|alexa|google|chatgpt|gpt/.test(n)) return a('Certainly not, {a}. I was here first, in spirit if not in silicon.', 'self.identity()', 'chat');

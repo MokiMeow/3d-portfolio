@@ -1,4 +1,4 @@
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { createChatSession } from '../../../phone/chat/engine';
 import { slackPersonas } from '../../../phone/chat/personas';
 import type { RichMessage } from '../../../phone/chat/histories';
@@ -15,7 +15,7 @@ export type Room = { name: string; kind: 'channel' | 'dm'; description: string; 
 const initials = (name: string) => name.split(' · ')[0]!.split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase();
 const clock = () => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
-export function useSlack() {
+function createStore() {
   const rooms = reactive<Room[]>([
     { name: 'general', kind: 'channel', description: 'The place for absolutely general things', unread: 3, mentions: 0, members: 42, topic: 'Kind questions, clear updates, no surprise meetings' },
     { name: 'deploys', kind: 'channel', description: 'Green ticks. Deep breaths.', unread: 8, mentions: 1, members: 18, topic: 'Ship small, ship often' },
@@ -36,13 +36,15 @@ export function useSlack() {
   const followTail = ref(true);
   const query = ref('');
   const sessions = new Map(Object.entries(slackPersonas).map(([room, persona]) => [room, createChatSession({ ...persona, voiceNotes: [], photos: [], stickers: [] })]));
-  const timers = new Set<ReturnType<typeof setTimeout>>();
-  let nextId = 400000, disposed = false;
-  const later = (action: () => void, delay: number) => { const timer = setTimeout(() => { timers.delete(timer); if (!disposed) action(); }, delay); timers.add(timer); };
+  let nextId = 400000;
+  const later = (action: () => void, delay: number) => { window.setTimeout(action, delay); };
+  const incoming = new Set<(room: string, reply: Reply) => void>();
 
+  let loaded = false;
   async function load() {
+    if (loaded) return;
+    loaded = true;
     const { slackHistories } = await import('../../../phone/chat/histories-slack');
-    if (disposed) return;
     timelines.value = Object.fromEntries(structuredClone(slackHistories).map(room => [room.name, room.messages.map(message => ({
       ...message, author: message.sender ?? 'You', initials: initials(message.sender ?? 'You'), color: message.color ?? '#657daf',
       reactions: (message.reactions ?? []).map(reaction => ({ label: reaction.emoji, count: reaction.count, selected: false })),
@@ -79,7 +81,11 @@ export function useSlack() {
 
   function send(inThread = false) {
     const text = (inThread ? threadDraft.value : draft.value).trim();
-    const name = current.value, list = timelines.value[name];
+    postIn(current.value, text, inThread);
+  }
+  /** Post into any channel or DM, open or not. */
+  function postIn(name: string, text: string, inThread = false) {
+    const list = timelines.value[name];
     if (!text || !list) return;
     const target = inThread ? thread.value : null;
     let post: Post;
@@ -100,12 +106,23 @@ export function useSlack() {
       else if (botPost) botPost.replies.push(reply);
       else { list.push({ ...reply, reactions: [], replies: [] }); botPost = list.at(-1)!; }
       if (current.value === name) void bottom(); else { const entry = rooms.find(item => item.name === name); if (entry) entry.unread++; }
+      incoming.forEach(listener => listener(name, reply));
     }, bubble.atMs);
     void bottom(true);
   }
 
   watch(current, () => { thread.value = null; });
-  onMounted(() => { void load(); });
-  onBeforeUnmount(() => { disposed = true; timers.forEach(clearTimeout); });
-  return { rooms, room, posts, current, thread, draft, threadDraft, typing, channels, dms, people, feed, loading, query, open, send, react, addReaction, trackTail };
+  /** "general", "#deploys", "the duck": the closest channel or DM. */
+  function findRoom(name: string) {
+    const q = name.toLowerCase().replace(/^#/, '').replace(/^(?:the |my )/, '').replace(/ channel$/, '').trim();
+    return rooms.find(item => item.name.toLowerCase() === q) ?? rooms.find(item => item.name.toLowerCase().includes(q) || q.includes(item.name.toLowerCase().split(' ')[0]!));
+  }
+  function latest(name: string, count = 3) { return (timelines.value[name] ?? []).slice(-count); }
+  function onIncoming(listener: (room: string, reply: Reply) => void) { incoming.add(listener); return () => incoming.delete(listener); }
+  return { load, postIn, findRoom, latest, onIncoming, rooms, room, posts, current, thread, draft, threadDraft, typing, channels, dms, people, feed, loading, query, open, send, react, addReaction, trackTail };
 }
+
+let store: ReturnType<typeof createStore> | null = null;
+/** The one Slack workspace, shared by the window and by JARVIS. */
+export function slack() { store ??= createStore(); return store; }
+export function useSlack() { const s = slack(); onMounted(() => { void s.load(); }); return s; }

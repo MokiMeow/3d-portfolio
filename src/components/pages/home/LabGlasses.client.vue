@@ -8,6 +8,9 @@ import VisionIcon from './vision/VisionIcon.vue';
 import SpatialWidgets from './vision/SpatialWidgets.vue';
 import JarvisOrb from './vision/jarvis/JarvisOrb.vue';
 import SpatialSpace from './vision/space/SpatialSpace.vue';
+import { whatsapp } from './vision/apps/whatsapp/useWhatsApp';
+import { slack } from './vision/apps/slack/useSlack';
+import { sendToApp } from './vision/bus';
 import { useJarvis } from './vision/jarvis/useJarvis';
 import type { JarvisAction } from './vision/jarvis/brain';
 import Spotlight, { type SpotlightResult } from './vision/Spotlight.vue';
@@ -452,6 +455,31 @@ const jarvis = useJarvis({
   onWake: () => { if (viewOnly.value) setViewOnly(false); },
 });
 const jarvisStatus = computed(() => ({ place: inside.value ? here.value.name : 'My Room', immersion: inside.value ? immersion.value : 0, windows: windows.value.length, front: front.value ? NAMES[front.value.id] : '' }));
+/** A beam from JARVIS to an element, or to a point in the headset. */
+function beamTo(target: Element | { x: number; y: number } | null | undefined) {
+  if (!target || !visor.value) return;
+  const box = visor.value.getBoundingClientRect();
+  if (target instanceof Element) { const rect = target.getBoundingClientRect(); jarvis.beam(rect.left - box.left + rect.width / 2, rect.top - box.top + Math.min(60, rect.height / 2)); }
+  else jarvis.beam(target.x, target.y);
+}
+function beamToWindow(id: VisionAppId) { void nextTick(() => window.setTimeout(() => beamTo(visor.value?.querySelector(`.window[aria-label="${NAMES[id]}"]`)), 420)); }
+/* Replies to messages JARVIS sent are announced, wherever you are. */
+const awaiting = new Map<string, number>();
+whatsapp().onIncoming((chat, message) => {
+  const since = awaiting.get('wa:' + chat.id);
+  if (!since || Date.now() - since > 120000) return;
+  const who = chat.group ? message.sender ?? chat.name : chat.name;
+  const text = message.kind === 'voice' ? 'sent a voice message' : message.kind === 'photo' ? 'sent a photo' : `“${message.text}”`;
+  jarvis.card({ kind: 'message', title: `WhatsApp · ${chat.name}`, big: who, lines: [message.kind === 'text' || !message.kind ? message.text : text] });
+  jarvis.whisper(`${who} replied: ${text}`, true);
+});
+slack().onIncoming((room, reply) => {
+  const since = awaiting.get('slack:' + room);
+  if (!since || Date.now() - since > 120000) return;
+  jarvis.card({ kind: 'message', title: `Slack · #${room}`, big: reply.author, lines: [reply.text] });
+  jarvis.whisper(`${reply.author} in #${room}: “${reply.text}”`, true);
+});
+
 /** Everything JARVIS can do to the headset. Returns an extra line for him to say, when there is one. */
 async function jarvisAct(action: JarvisAction): Promise<string | void> {
   jarvisActing = true;
@@ -459,7 +487,7 @@ async function jarvisAct(action: JarvisAction): Promise<string | void> {
   jarvisActingTimer = window.setTimeout(() => { jarvisActing = false; }, 900);
   const aside = () => jarvisOrb.value?.stepAside();
   switch (action.type) {
-    case 'open': if (APP_IDS.has(action.app)) { setViewOnly(false); open(action.app as VisionAppId); aside(); } break;
+    case 'open': if (APP_IDS.has(action.app)) { setViewOnly(false); open(action.app as VisionAppId); aside(); beamToWindow(action.app as VisionAppId); } break;
     case 'close': close(action.app as VisionAppId); break;
     case 'closeAll': windows.value = []; homeOpen.value = false; break;
     case 'environment':
@@ -487,7 +515,87 @@ async function jarvisAct(action: JarvisAction): Promise<string | void> {
       await new Promise(resolve => window.setTimeout(resolve, 900));
       break;
     }
-    case 'spawn': homeOpen.value = false; setViewOnly(false); aside(); await new Promise(resolve => window.setTimeout(resolve, 450)); spatial.value?.spawn(action.shape, action.count, action.material); break;
+    case 'spawn': homeOpen.value = false; setViewOnly(false); aside(); await new Promise(resolve => window.setTimeout(resolve, 450)); beamTo({ x: view.w / 2, y: view.h * .72 }); spatial.value?.spawn(action.shape, action.count, action.material); break;
+    case 'build': homeOpen.value = false; setViewOnly(false); aside(); await new Promise(resolve => window.setTimeout(resolve, 450)); beamTo({ x: view.w / 2, y: view.h * .74 }); spatial.value?.build(action.kind, action.material); break;
+    case 'message': {
+      const wa = whatsapp();
+      await wa.load();
+      // "amma i will be late", "the family group that dinner is at 8": the longest name that matches a chat.
+      const words = action.body.split(' ');
+      for (let take = Math.min(4, words.length - 1); take >= 1; take--) {
+        const chat = wa.findChat(words.slice(0, take).join(' '));
+        if (!chat) continue;
+        const text = words.slice(take).join(' ').replace(/^(?:that|saying|to say|and say)\s+/, '').trim();
+        if (!text) return `What shall I tell ${chat.name}, {a}?`;
+        const sentence = text.charAt(0).toUpperCase() + text.slice(1).replace(/\bi\b/g, 'I');
+        awaiting.set('wa:' + chat.id, Date.now());
+        wa.sendIn(chat, sentence);
+        jarvis.card({ kind: 'message', title: `WhatsApp · ${chat.name}`, big: 'Sent', lines: [sentence] });
+        if (windows.value.some(win => win.id === 'whatsapp')) { wa.open(chat); beamToWindow('whatsapp'); }
+        return `Sent to ${chat.name}, {a}. I shall let you know when they reply.`;
+      }
+      return 'I could not find that chat, {a}. Try Amma, the family group, or the landlord.';
+    }
+    case 'readMessages': {
+      const wa = whatsapp();
+      await wa.load();
+      if (action.from) {
+        const chat = wa.findChat(action.from);
+        if (!chat) return 'I could not find that chat, {a}.';
+        const last = wa.latestFrom(chat, 3);
+        if (!last.length) return `Nothing from ${chat.name} yet, {a}.`;
+        chat.unread = 0;
+        jarvis.card({ kind: 'message', title: `WhatsApp · ${chat.name}`, lines: last.map(m => `${chat.group && m.sender ? m.sender + ': ' : ''}${m.text}`) }, 22);
+        const newest = last.at(-1)!;
+        return `${chat.group && newest.sender ? newest.sender : chat.name} says: ${newest.kind === 'voice' ? 'a voice message' : newest.text}`;
+      }
+      const unread = wa.chats.value.filter(chat => chat.unread);
+      if (!unread.length) return 'No unread messages, {a}. A rare peace.';
+      jarvis.card({ kind: 'message', title: 'WhatsApp · unread', big: String(unread.reduce((sum, chat) => sum + chat.unread, 0)), lines: unread.slice(0, 4).map(chat => `${chat.name}: ${chat.preview}`) }, 22);
+      return `${unread.length} chats waiting, {a}. ${unread[0]!.name} says: ${unread[0]!.preview}`;
+    }
+    case 'slackPost': {
+      const sl = slack();
+      await sl.load();
+      const room = sl.findRoom(action.channel);
+      if (!room) return `There is no channel by that name, {a}.`;
+      const text = action.text.charAt(0).toUpperCase() + action.text.slice(1);
+      awaiting.set('slack:' + room.name, Date.now());
+      sl.postIn(room.name, text);
+      jarvis.card({ kind: 'message', title: `Slack · ${room.kind === 'channel' ? '#' : ''}${room.name}`, big: 'Posted', lines: [text] });
+      return `Posted in ${room.kind === 'channel' ? '#' : ''}${room.name}, {a}.`;
+    }
+    case 'slackRead': {
+      const sl = slack();
+      await sl.load();
+      const room = action.channel ? sl.findRoom(action.channel) : sl.rooms.find(item => item.unread) ?? sl.findRoom('general');
+      if (!room) return 'There is no channel by that name, {a}.';
+      const last = sl.latest(room.name, 3);
+      jarvis.card({ kind: 'message', title: `Slack · #${room.name}`, lines: last.map(post => `${post.author}: ${post.text}`) }, 22);
+      const newest = last.at(-1);
+      return newest ? `In #${room.name}, ${newest.author} says: ${newest.text}` : `#${room.name} is quiet, {a}.`;
+    }
+    case 'music': sendToApp('music', { action: action.action, query: action.query }); break;
+    case 'youtube': sendToApp('youtube', { action: 'play', query: action.query }); break;
+    case 'protocol': {
+      jarvis.card({ kind: 'protocol', title: 'Protocol engaged', big: action.name.toUpperCase(), lines: [{ 'house party': 'Lights, music, and something to look at.', 'clean slate': 'Windows closed, space cleared, back home.', focus: 'Notifications held. A quiet place.', blackout: 'Lights out. Just the view.', stargazer: 'The Milky Way, and a map of it.' }[action.name]] });
+      if (action.name === 'house party') {
+        dark.value = true; homeOpen.value = false; setEnvironment('bund');
+        if (!windows.value.some(win => win.id === 'music')) open('music');
+        sendToApp('music', { action: 'play', query: 'party' });
+        aside();
+        window.setTimeout(() => { spatial.value?.setGravity('zero'); spatial.value?.spawn('sphere', 10, 'neon'); spatial.value?.spawn('star', 6, 'gold'); }, 900);
+      } else if (action.name === 'clean slate') {
+        windows.value = []; spatial.value?.clear(); spatial.value?.setGravity('earth'); dark.value = false; setViewOnly(false); setEnvironment('room'); homeOpen.value = true; tab.value = 'apps';
+      } else if (action.name === 'focus') {
+        focusMode.value = true; homeOpen.value = false; setEnvironment('pines'); glideTo(.85);
+      } else if (action.name === 'blackout') {
+        dark.value = true; setEnvironment('night'); window.setTimeout(() => { void jarvisOrb.value?.close(); setViewOnly(true); }, 1600);
+      } else {
+        setEnvironment('night'); homeOpen.value = false; open('nightsky'); aside(); beamToWindow('nightsky');
+      }
+      break;
+    }
     case 'clearSpace': spatial.value?.clear(); break;
     case 'gravity': spatial.value?.setGravity(action.mode); break;
   }
