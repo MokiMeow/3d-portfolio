@@ -15,6 +15,9 @@ const huddle = ref(false);
 const huddleStart = ref(0);
 const now = ref(Date.now());
 const hovered = ref<number | null>(null);
+/** On narrow windows the channel list slides over the channel instead of sitting beside it. */
+const sideOpen = ref(false);
+function openRoom(name: string) { slack.open(name); sideOpen.value = false; }
 const view = ref<'home' | 'dms' | 'activity'>('home');
 const tab = ref<'messages' | 'canvas' | 'files' | 'pins'>('messages');
 let tick = 0;
@@ -50,7 +53,8 @@ const ACTIVITY = [
 </script>
 
 <template>
-  <div class="slack" :class="{ compact, 'thread-open': !!thread }">
+  <div class="slack-host">
+  <div class="slack" :class="{ compact, 'thread-open': !!thread, 'side-open': sideOpen }">
     <!-- Workspace rail -->
     <nav class="rail" aria-label="Slack">
       <span class="team" title="Pocket Lab">PL</span>
@@ -84,12 +88,12 @@ const ACTIVITY = [
           </div>
           <h3 v-if="view === 'home'"><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" /></svg>Channels</h3>
           <template v-if="view === 'home'">
-            <button v-for="item in channels" :key="item.name" class="item" :class="{ unread: item.unread }" :aria-current="current === item.name" @click="slack.open(item.name)">
+            <button v-for="item in channels" :key="item.name" class="item" :class="{ unread: item.unread }" :aria-current="current === item.name" @click="openRoom(item.name)">
               <span class="hash">#</span><span class="label">{{ item.name }}</span><em v-if="item.mentions" class="mention">{{ item.mentions }}</em>
             </button>
           </template>
           <h3><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" /></svg>Direct messages</h3>
-          <button v-for="item in dms" :key="item.name" class="item dm" :class="{ unread: item.unread }" :aria-current="current === item.name" @click="slack.open(item.name)">
+          <button v-for="item in dms" :key="item.name" class="item dm" :class="{ unread: item.unread }" :aria-current="current === item.name" @click="openRoom(item.name)">
             <span class="mini" :style="{ background: item.color }">{{ item.name.slice(0, 1) }}<i :class="item.status" /></span><span class="label">{{ item.name }}</span><em v-if="item.mentions" class="mention">{{ item.mentions }}</em>
           </button>
           <h3><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" /></svg>Apps</h3>
@@ -108,6 +112,7 @@ const ACTIVITY = [
     <!-- Channel -->
     <section class="channel">
       <header class="chan-head">
+        <button v-hover class="vk-icon small rooms-button" aria-label="Channels" @click="sideOpen = true"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10" /></svg></button>
         <div class="title">
           <h2>{{ roomLabel }} <svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" /></svg></h2>
           <p>{{ typing ? 'Several people are typing…' : room.topic ?? room.description }}</p>
@@ -206,6 +211,8 @@ const ACTIVITY = [
       </aside>
     </Transition>
   </div>
+  </div>
+
 </template>
 
 <style scoped src="./slack/slack.css"></style>

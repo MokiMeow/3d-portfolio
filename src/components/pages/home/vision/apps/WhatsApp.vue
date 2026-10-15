@@ -75,6 +75,7 @@ const CALLS = [
 </script>
 
 <template>
+  <div class="wa-host">
   <div class="wa" :class="{ compact, picked: !!current }">
     <!-- Tabs, as a visionOS tab bar at the window's edge -->
     <nav class="rail vk-tabbar" aria-label="WhatsApp">
@@ -272,6 +273,8 @@ const CALLS = [
       </div>
     </Transition>
   </div>
+  </div>
+
 </template>
 
 <style scoped src="./whatsapp/whatsapp.css"></style>

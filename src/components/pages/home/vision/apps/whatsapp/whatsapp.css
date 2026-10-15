@@ -1,3 +1,4 @@
+.wa-host { width: 100%; height: 100%; container-type: size; border-radius: inherit; overflow: hidden; }
 /* WhatsApp's dark theme, carried onto visionOS glass. */
 .wa {
   --green: #25d366;
@@ -17,7 +18,6 @@
   letter-spacing: -.01em;
   overflow: hidden;
   border-radius: inherit;
-  container-type: size;
 }
 .wa :deep(*) { box-sizing: border-box; }
 .wa button, .wa input, .wa a { font: inherit; color: inherit; }
