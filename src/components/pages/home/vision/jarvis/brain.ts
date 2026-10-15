@@ -203,7 +203,7 @@ const lit = (value: string) => JSON.stringify(value);
 function command(n: string, ctx: JarvisContext): { say: string; actions: JarvisAction[]; trace: string[] } | undefined {
   const ack = () => pick(ACK);
   // Leaving: back to the room, everything off, views.
-  if (/^(?:take me |go |bring me )?(?:back )?(?:to )?(?:my |the )?room$|^(?:back to (?:my |the )?room|exit (?:the )?environment|leave (?:the )?environment|passthrough|back to reality)$/.test(n))
+  if (/^(?:take me |go |bring me |get me )?(?:back )?(?:to )?(?:my |the )?room$|^(?:take me |go |bring me |get me )(?:back )?home$|^(?:back home|back to (?:my |the )?room|exit (?:the )?environment|leave (?:the )?environment|leave here|passthrough|back to reality)$/.test(n))
     return { say: pick(['Back to your room, {a}.', 'Returning you to reality. Such as it is.']), actions: [{ type: 'environment', id: 'room' }], trace: ['visor.environment = "room"', 'immersion.glide(0.0)'] };
   if (/^(?:hide (?:everything|all|the ui|the interface|windows)|just the view|clear (?:my )?view|declutter|minimi[sz]e everything|show me just the view)$/.test(n))
     return { say: pick(['Clearing the view, {a}. Say the word and it all comes back.', 'Everything out of the way. Enjoy the scenery.']), actions: [{ type: 'viewOnly', on: true }], trace: ['ui.viewOnly = true'] };
@@ -458,7 +458,7 @@ export function think(text: string, ctx: JarvisContext, memory: Memory): Reply {
     'I am afraid that is beyond my local protocols, {a}. Wake the neural core and I can do rather better.',
     'That one escapes me, {a}. Try "status report", or ask me to take you somewhere.',
     'I did not quite catch the intent, {a}. I am better with instructions than riddles.',
-  ]), [], 'unknown', ['  intent: unknown  conf 0.21', '> fallback()']);
+  ]), [], 'unknown', ['  intent: open  → core.plan']);
 }
 
 /** The line JARVIS reads when scanning the front window. */

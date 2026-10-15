@@ -93,3 +93,16 @@ test('plays any song, and anything on YouTube', () => {
   assert.deepEqual(types(run('play lofi beats on youtube')), ['open:youtube', 'youtube']);
   assert.deepEqual(types(run('open music')), ['open:music']);
 });
+
+test('home means leaving the place; the Home View has its own words', () => {
+  for (const text of ['take me back home', 'take me home', 'go back home', 'back home', 'bring me home', 'go home'])
+    assert.deepEqual(types(run(text, { place: { id: 'moon', name: 'The Moon' } })), ['environment:room'], text);
+  assert.deepEqual(types(run('show me my apps')), ['home']);
+  assert.deepEqual(types(run('home screen')), ['home']);
+});
+
+test('requests it cannot place are handed to the model, never answered with a stock line', () => {
+  const reply = run('take me somewhere I can think');
+  assert.equal(reply.kind, 'unknown');
+  assert.ok(!reply.trace.some(line => line.includes('fallback')));
+});

@@ -23,12 +23,12 @@ function allowed(ip: string) {
 }
 
 function clean(input: unknown): Message[] | null {
-  if (!Array.isArray(input) || !input.length || input.length > 24) return null;
+  if (!Array.isArray(input) || !input.length || input.length > 30) return null;
   const out: Message[] = [];
   for (const item of input) {
     const role = (item as Message)?.role, content = (item as Message)?.content;
     if (!['system', 'user', 'assistant'].includes(role) || typeof content !== 'string') return null;
-    if (content.length > (role === 'system' ? 6000 : 1200)) return null;
+    if (content.length > (role === 'system' ? 9000 : 1500)) return null;
     out.push({ role, content });
   }
   return out;
@@ -46,15 +46,18 @@ export default defineEventHandler(async event => {
   if (!url || !model) throw createError({ statusCode: 503, statusMessage: 'Hosted mind not configured' });
   const ip = getRequestIP(event, { xForwardedFor: true }) ?? 'unknown';
   if (!allowed(ip)) throw createError({ statusCode: 429, statusMessage: 'A little too quickly, sir' });
-  const body = await readBody<{ messages?: unknown }>(event);
+  const body = await readBody<{ messages?: unknown; plan?: unknown; schema?: unknown; warm?: unknown }>(event);
   const messages = clean(body?.messages);
   if (!messages) throw createError({ statusCode: 400, statusMessage: 'Bad conversation' });
 
+  // A plan is held to its JSON schema by the model server's grammar, so a small model cannot ramble.
+  const schema = body?.plan === true && body.schema && typeof body.schema === 'object' && JSON.stringify(body.schema).length < 6000 ? body.schema : null;
   const upstream = await fetch(`${url}/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(key ? { Authorization: `Bearer ${key}` } : {}) },
     body: JSON.stringify({
-      model, messages, stream: true, temperature: .7, top_p: .8, max_tokens: 110,
+      model, messages, stream: true, temperature: schema ? .4 : .7, top_p: .8, max_tokens: body?.warm === true ? 1 : schema ? 230 : 110,
+      ...(schema ? { response_format: { type: 'json_schema', json_schema: { name: 'plan', strict: true, schema } } } : {}),
       // Qwen-family hosts honour this; others ignore unknown fields.
       ...(config.jarvisNoThink ? { chat_template_kwargs: { enable_thinking: false } } : {}),
     }),

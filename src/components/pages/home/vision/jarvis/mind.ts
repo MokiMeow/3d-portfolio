@@ -7,6 +7,7 @@
  */
 import type { ChatCompletionMessageParam, MLCEngineInterface } from '@mlc-ai/web-llm';
 import type { Entry, JarvisContext } from './brain';
+import { PLAN_SCHEMA, planMessages } from './plan';
 
 export type MindModel = { id: string; name: string; size: string; line: string };
 // Auditioned on WebGPU against Qwen3 0.6B and 1.7B: the 2B held character, admitted its limits and kept its
@@ -195,6 +196,52 @@ export class JarvisMind {
     } catch (error) { if (!(error instanceof DOMException && error.name === 'AbortError')) throw error; }
     if (first) this.tokensPerSecond = Math.round(tokens / Math.max(.05, (performance.now() - first) / 1000));
     return { ...tidy(raw, ctx.address), ms: Math.round(performance.now() - started) };
+  }
+
+  /**
+   * Ask for a plan: the model answers with {"actions": [...], "say": "..."}, constrained to that JSON.
+   * `onDelta` receives the raw text as it streams, for the plan reader to act on early.
+   */
+  async plan(ctx: JarvisContext, history: { you: string; jarvis: string }[], text: string, onDelta: (delta: string) => void) {
+    const started = performance.now();
+    let tokens = 0, first = 0;
+    const count = (delta: string) => { if (!delta) return; if (!first) first = performance.now(); tokens++; onDelta(delta); };
+    const messages = planMessages(ctx, history, text);
+    if (this.mode === 'hosted') {
+      this.abort?.abort(); this.abort = new AbortController();
+      const response = await fetch('/api/jarvis', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: this.abort.signal,
+        body: JSON.stringify({ messages, plan: true, schema: PLAN_SCHEMA }),
+      });
+      if (!response.ok || !response.body) throw new Error(response.status === 429 ? 'Hosted mind is busy' : `Hosted mind ${response.status}`);
+      const reader = response.body.getReader(), decoder = new TextDecoder();
+      let buffer = '';
+      try {
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split(String.fromCharCode(10)); buffer = lines.pop() ?? '';
+          for (const line of lines) {
+            const data = line.trim();
+            if (!data.startsWith('data:')) continue;
+            const payload = data.slice(5).trim();
+            if (payload === '[DONE]') continue;
+            try { count((JSON.parse(payload) as { choices?: { delta?: { content?: string } }[] }).choices?.[0]?.delta?.content ?? ''); } catch { /* keep-alive */ }
+          }
+        }
+      } catch (error) { if (!(error instanceof DOMException && error.name === 'AbortError')) throw error; }
+    } else {
+      if (!this.engine) throw new Error('Neural core offline');
+      const stream = await this.engine.chat.completions.create({
+        messages, stream: true, temperature: .4, top_p: .8, max_tokens: 220,
+        response_format: { type: 'json_object', schema: JSON.stringify(PLAN_SCHEMA) },
+        extra_body: { enable_thinking: false },
+      } as Parameters<MLCEngineInterface['chat']['completions']['create']>[0] & { stream: true });
+      for await (const chunk of stream) count(chunk.choices[0]?.delta?.content ?? '');
+    }
+    if (first) this.tokensPerSecond = Math.round(tokens / Math.max(.05, (performance.now() - first) / 1000));
+    return { ms: Math.round(performance.now() - started) };
   }
 
   stop() { this.abort?.abort(); void this.engine?.interruptGenerate(); }

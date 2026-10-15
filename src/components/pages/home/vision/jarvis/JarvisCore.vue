@@ -317,7 +317,7 @@ onBeforeUnmount(() => {
 
     <section class="transcript" aria-live="polite">
       <p v-if="state.you && !needsSetup" class="you"><em>You</em>{{ state.you }}</p>
-      <p v-if="state.mode === 'thinking' && !state.caption" class="said thinking"><i /><i /><i /></p>
+      <p v-if="(state.mode === 'thinking' || state.mode === 'speaking') && state.spoken < 0" class="said thinking"><i /><i /><i /></p>
       <p v-else-if="state.words.length" class="said"><span v-for="(word, index) in state.words" :key="index" :class="{ lit: index <= state.spoken }">{{ `${word} ` }}</span></p>
     </section>
 
@@ -556,7 +556,7 @@ onBeforeUnmount(() => {
 .transcript .you{margin:0;font-size:15px;color:rgb(255 241 202 / .62)}
 .transcript .you em{font:600 10px/1 'Rajdhani','Inter',sans-serif;font-style:normal;letter-spacing:.3em;text-transform:uppercase;color:var(--gold);margin-right:12px;vertical-align:2px}
 .transcript .said{margin:0;font-size:27px;font-weight:300;line-height:1.36;letter-spacing:-.01em;text-wrap:balance;text-shadow:0 0 24px rgb(255 150 40 / .35)}
-.transcript .said span{opacity:.24;transition:opacity .28s ease,color .28s}
+.transcript .said span{opacity:0;transition:opacity .35s ease}
 .transcript .said span.lit{opacity:1}
 .transcript .thinking{display:flex;justify-content:center;gap:8px;height:36px;align-items:center}
 .transcript .thinking i{width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 12px var(--gold);animation:dots 1s ease-in-out infinite}

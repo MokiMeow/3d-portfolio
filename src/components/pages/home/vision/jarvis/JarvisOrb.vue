@@ -76,8 +76,10 @@ async function closeCore() {
   emit('core', 'closed');
 }
 function setDocked(value: boolean) { docked.value = value; emit('core', value ? 'docked' : 'open'); }
-/** JARVIS steps aside on his own when he changes what you see, so you can watch it happen. */
-function stepAside() { if (coreOpen.value && !docked.value) setDocked(true); }
+/** When he changes what you see, JARVIS returns to his corner so the apps and the place are yours to use. */
+function stepAside() { if (coreOpen.value) void closeCore(); }
+/** What he is saying right now, shown beside the orb while the full display is closed. */
+const live = computed(() => state.words.slice(0, Math.max(0, state.spoken + 1)).join(' '));
 defineExpose({ activate, talk, stepAside, close: closeCore, get open() { return coreOpen.value; }, get visible() { return coreOpen.value || panel.value; } });
 
 /* Dragging the orb */
@@ -125,6 +127,13 @@ onBeforeUnmount(() => { orb?.stop(); observer?.disconnect(); window.removeEventL
     <TransitionGroup name="whisper" tag="div" class="whispers" :class="{ left: side.left }" :style="whisperStyle">
       <button v-for="item in state.whispers" v-show="!coreOpen && !panel" :key="item.id" class="whisper" @click="panel = true">{{ item.text }}</button>
     </TransitionGroup>
+
+    <!-- His words beside the orb while he speaks from the corner -->
+    <Transition name="whisper">
+      <button v-if="!coreOpen && !panel && state.mode !== 'idle' && (live || state.mode === 'thinking')" class="whisper live" :class="{ left: side.left }" :style="whisperStyle" @click="panel = true">
+        <i v-if="!live" class="dots"><i /><i /><i /></i><template v-else>{{ live }}</template>
+      </button>
+    </Transition>
 
     <!-- Quick panel -->
     <Transition name="quick">
@@ -218,6 +227,10 @@ onBeforeUnmount(() => { orb?.stop(); observer?.disconnect(); window.removeEventL
 
 .whispers{position:absolute;display:grid;gap:8px;translate:0 -50%;pointer-events:auto;max-width:min(330px,calc(100vw - 110px))}
 .whispers.left{justify-items:end}
+.jarvis-layer .whisper.live{position:absolute;translate:0 -50%;pointer-events:auto;max-width:min(360px,calc(100vw - 110px));font-size:14px;padding:10px 15px;border-radius:16px;background:linear-gradient(160deg,rgb(255 200 120 / .14),rgb(255 255 255 / .02)),rgb(24 17 8 / .86)!important;border:1px solid rgb(255 193 90 / .3)!important;box-shadow:0 16px 40px rgb(0 0 0 / .35)}
+@keyframes blink{50%{opacity:.25}}
+.jarvis-layer .whisper.live .dots{display:inline-flex;gap:5px}.jarvis-layer .whisper.live .dots i{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:blink 1s ease-in-out infinite}.jarvis-layer .whisper.live .dots i:nth-child(2){animation-delay:.15s}.jarvis-layer .whisper.live .dots i:nth-child(3){animation-delay:.3s}
+.whisper.live.left{text-align:right}
 .whisper{padding:10px 15px;border-radius:16px;font-size:13.5px;line-height:1.4;text-align:left;color:var(--white)!important;background:linear-gradient(160deg,rgb(255 200 120 / .12),rgb(255 255 255 / .02)),rgb(24 17 8 / .82)!important;border:1px solid rgb(255 193 90 / .26)!important;backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);box-shadow:0 16px 40px rgb(0 0 0 / .35);animation:type-in .9s steps(40) both}
 @keyframes type-in{from{clip-path:inset(0 100% 0 0 round 16px)}to{clip-path:inset(0 0 0 0 round 16px)}}
 .whisper-leave-active{transition:opacity .5s,translate .5s}

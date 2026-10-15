@@ -3,6 +3,7 @@ import { addressRequest, addressed, describeApp, newMemory, think, APP_LINES, PL
 import type { JarvisAction, JarvisContext } from './brain';
 import { JarvisMind, MODELS, validTag } from './mind';
 import { JarvisVoice, VOICES, voiceOf } from './voice';
+import { PLAN_SCHEMA, planMessages, planReader, toActions, type Step } from './plan';
 import { PLACES, CONDITIONS, forecast } from '../apps/weather/model';
 
 /** Cities for the world clock card, by the names people say. */
@@ -242,8 +243,11 @@ export function useJarvis(options: {
       if (mine !== run) return;
       state.caption = ''; state.words = [];
     }
-    if (reply.kind === 'command' || reply.kind === 'answer' || ((reply.kind === 'chat' || reply.kind === 'unknown') && mind.status !== 'ready')) {
-      await new Promise(resolve => window.setTimeout(resolve, 260 + Math.random() * 220));
+    // Reflexes: one clear command, and certain answers (the time, a status report), happen at once.
+    // Several steps in one request need context ("open YouTube and play…"), so the model plans those when it can.
+    const sequence = reply.trace.some(line => line.includes('intent: sequence'));
+    if (reply.kind === 'command' || reply.kind === 'answer') if (!(sequence && mind.status === 'ready')) {
+      await new Promise(resolve => window.setTimeout(resolve, 120));
       const extra = await run_actions(reply.actions);
       if (reply.actions.length) log(`done  ${Math.round(performance.now() - started)}ms  ✓`, 'ok');
       state.lastMs = Math.round(performance.now() - started);
@@ -251,45 +255,77 @@ export function useJarvis(options: {
       if (line) await say(line); else state.mode = 'idle';
       return;
     }
-    // Conversation goes to the neural core when it is awake.
-    // The local brain already noted its own placeholder reply; the model must not see it and copy it.
+    if (sequence) log('  intent: sequence → core.plan', 'sys');
+    // Everything else is understood by the model, which answers with a plan: what to do, and what to say.
     if (memory.turns.at(-1)?.you === text) memory.turns.pop();
-    log(`core.generate(tokens ≤ 90)`, 'sys');
+    if (mind.status !== 'ready') {
+      log('core.offline', 'warn');
+      await say(reply.kind === 'chat' ? reply.say : addressed('My neural core is offline at the moment, {a}. Plain commands still work: try "take me to the Moon".', address()));
+      return;
+    }
+    log('core.plan()', 'sys');
+    const mine = run;
     try {
-      const mine = run;
-      const speech = state.voiceOn ? voice.stream(index => { if (mine === run) state.spoken = index; }) : null;
-      let said = 0;
-      const feed = (partial: string, final: boolean) => {
-        // Hand each finished sentence to the voice as soon as it exists.
-        const done = final ? partial.length : (partial.match(/^[\s\S]*[.!?]["')\]]?(?=\s)/)?.[0].length ?? 0);
-        if (done > said) { speech?.push(partial.slice(said, done)); said = done; }
-      };
-      const result = await mind.reply(context(), memory.turns, text, partial => {
+      const speech = state.voiceOn ? voice.stream((index, start) => {
         if (mine !== run) return;
-        state.caption = partial; state.words = partial.split(' ').filter(Boolean);
-        if (state.mode === 'thinking' && speech && /[.!?]/.test(partial)) state.mode = 'speaking';
-        feed(partial, false);
+        state.spoken = index;
+        if (start) state.mode = 'speaking';
+      }) : null;
+      let pushed = 0, actions: Promise<string[]> = Promise.resolve([]);
+      const act = (steps: Step[]) => {
+        const mapped = toActions(steps, context(), text);
+        mapped.trace.forEach(line => log(`> ${line}`, 'op'));
+        if (mapped.actions.length) actions = run_actions(mapped.actions).then(extra => { log(`done  ${Math.round(performance.now() - started)}ms  ✓`, 'ok'); return extra; });
+      };
+      // Speech goes out in short natural phrases: a sentence, or a clause at a comma or a joining word.
+      // The first starts within a moment of the words arriving, and each next phrase is ready before the last ends.
+      const feed = (said: string, final: boolean) => {
+        for (;;) {
+          const rest = said.slice(pushed);
+          const sentence = rest.match(/^[\s\S]*?[.!?]["')\]]?(?=\s|$)/);
+          let cut = sentence && (final || rest.length > sentence[0].length) ? sentence[0].length : 0;
+          if (!cut) {
+            const comma = rest.match(/^(?:\S+\s+){2,}?\S+?[,;:—–](?=\s)/);
+            const joint = rest.match(/^(?:\S+\s+){3,}?\S+?(?=\s+(?:because|and|but|which|while|though|although|where|when|since|then)\s)/);
+            cut = Math.min(comma ? comma[0].length : Infinity, joint ? joint[0].length : Infinity);
+            if (!Number.isFinite(cut)) cut = 0;
+            // Ten words with no natural break yet: say them rather than keep the listener waiting.
+            if (!cut && !final) { const run = rest.match(/^(?:\S+\s+){10}/); if (run) cut = run[0].trimEnd().length; }
+          }
+          if (!cut && final && rest.trim()) cut = rest.length;
+          if (!cut) return;
+          speech?.push(rest.slice(0, cut)); pushed += cut;
+        }
+      };
+      const reader = planReader(steps => { if (mine === run) act(steps); }, said => {
+        if (mine !== run) return;
+        state.caption = said; state.words = said.split(' ').filter(Boolean);
+        if (!speech) state.spoken = state.words.length;
+        feed(said, false);
       });
+      const result = await mind.plan(context(), memory.turns, text, delta => { if (mine === run) reader.push(delta); });
       if (mine !== run) return;
-      feed(result.text, true);
+      const plan = reader.end();
+      if (!reader.fired) act(plan.steps);
+      const said = addressed(plan.say || '', address()).trim();
+      state.caption = said; state.words = said.split(' ').filter(Boolean);
+      feed(said, true);
       state.tokensPerSecond = mind.tokensPerSecond; state.lastMs = result.ms;
       log(`core.reply  ${result.ms}ms  ${mind.tokensPerSecond} t/s`, 'ok');
-      memory.turns.push({ you: text, jarvis: result.text });
+      const extra = await actions;
+      if (mine !== run) return;
+      // Anything the actions found out (a forecast, a world clock) is said after his own line.
+      if (extra.length) { const more = extra.join(' '); state.caption = `${said} ${more}`.trim(); state.words = state.caption.split(' ').filter(Boolean); speech?.push(more); }
+      memory.turns.push({ you: text, jarvis: state.caption });
       if (memory.turns.length > 8) memory.turns.shift();
-      const ctx = context();
-      const tag = validTag(result.tag, ctx.apps, ctx.environments, text, ctx.place.id, ctx.open);
-      if (tag) {
-        log(`suggest ${tag.kind}:${tag.id}`, 'op');
-        await run_actions([tag.kind === 'place' ? { type: 'environment', id: tag.id } : { type: 'open', app: tag.id }]);
-      }
-      log(`say(${JSON.stringify(result.text.slice(0, 52))})`, 'say');
-      if (!result.text) { await say(addressed('Forgive me, {a}. I lost my train of thought.', address())); return; }
-      state.caption = result.text; state.words = result.text.split(' ').filter(Boolean);
-      if (speech) { state.mode = 'speaking'; await speech.end(); }
+      log(`say(${JSON.stringify(state.caption.slice(0, 52))})`, 'say');
+      if (!state.caption) { await say(addressed('Done, {a}.', address())); return; }
+      if (speech) { await speech.end(); }
       if (mine === run) { state.spoken = state.words.length; state.mode = 'idle'; }
     } catch (error) {
+      if (mine !== run) return;
       log(`core.error  ${String(error).slice(0, 50)}`, 'warn');
-      await say(reply.say);
+      await say(addressed('Forgive me, {a}. My neural core did not answer. Plain commands still work.', address()));
     }
   }
 
@@ -417,6 +453,8 @@ export function useJarvis(options: {
     if (!service.name) return;
     state.tier = 'full'; persist();
     void voice.load(); void mind.load(MODELS[0]);
+    void fetch('/api/jarvis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: planMessages(context(), [], 'Good day.'), plan: true, schema: PLAN_SCHEMA, warm: true }) })
+      .then(response => response.body?.cancel()).catch(() => {});
   });
   // Returning visitors who chose the full JARVIS get it back without asking again.
   if (initial.tier === 'full' && initial.neural) {

@@ -290,7 +290,7 @@ export class JarvisVoice {
    * Speak while the text is still arriving. `push` takes each finished sentence in order; `end` resolves
    * once everything pushed has been heard. Captions follow word by word across the whole stream.
    */
-  stream(onWord?: (index: number) => void) {
+  stream(onWord?: (index: number, start?: boolean) => void) {
     this.stop();
     const run = this.generation;
     let chain: Promise<void> = Promise.resolve();
@@ -316,7 +316,7 @@ export class JarvisVoice {
           source.start(at);
           this.sources.add(source); source.onended = () => this.sources.delete(source);
           this.follow(words, base, at, buffer.duration, run, onWord);
-          at += buffer.duration + .08;
+          at += buffer.duration + (/[.!?]["')\]]?\s*$/.test(clean) ? .14 : .03);
         });
       } else chain = chain.then(() => run === this.generation ? this.system(clean, run, index => onWord?.(base + index)) : undefined);
     };
@@ -329,8 +329,11 @@ export class JarvisVoice {
   }
 
   /** Reveal words across a sentence's audio, weighted by length, so captions keep pace with speech. */
-  private follow(words: string[], base: number, start: number, duration: number, run: number, onWord?: (index: number) => void) {
+  private follow(words: string[], base: number, start: number, duration: number, run: number, onWord?: (index: number, start?: boolean) => void) {
     if (!onWord || !this.context) return;
+    // The whole sentence appears the moment its audio begins: captions stay exactly with the voice.
+    window.setTimeout(() => { if (run === this.generation) onWord(base + words.length - 1, true); }, Math.max(0, (start + this.lag - this.context.currentTime) * 1000));
+    if (words.length) return;
     const weights = words.map(word => Math.max(2, word.replace(/[^a-z0-9]/gi, '').length + 1.5));
     const total = weights.reduce((a, b) => a + b, 0);
     let elapsed = 0;

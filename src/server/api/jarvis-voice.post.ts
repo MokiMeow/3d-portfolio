@@ -2,7 +2,7 @@
  * JARVIS's hosted voice: one sentence in, a WAV out, from the JARVIS server's Kokoro
  * (NUXT_JARVIS_VOICE_URL, keyed by NUXT_JARVIS_VOICE_KEY or NUXT_JARVIS_KEY). Visitors download no voice model.
  */
-const WINDOW = 10 * 60_000, PER_WINDOW = 90, BURST = 12, BURST_WINDOW = 15_000;
+const WINDOW = 10 * 60_000, PER_WINDOW = 240, BURST = 30, BURST_WINDOW = 15_000;
 const visits = new Map<string, number[]>();
 
 function allowed(ip: string) {
