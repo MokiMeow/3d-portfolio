@@ -54,6 +54,8 @@ export default defineNuxtConfig({
 	],
 	modules: ["@nuxtjs/i18n", "@nuxt/content", "@nuxtjs/tailwindcss"],
 	runtimeConfig: {
+		// Server only: the YouTube Data API key, from NUXT_YOUTUBE_KEY. Never sent to the browser.
+		youtubeKey: "",
 		public: {
 			MODE: process.env.MODE,
 			GITHUB_LINK: process.env.GITHUB_LINK || "https://github.com/MokiMeow",

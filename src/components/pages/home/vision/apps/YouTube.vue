@@ -4,6 +4,8 @@ import { VISION } from "../vision";
 import { vHover } from "../kit/hover";
 import { catalogue, categories, rickId, videoFromInput, avatarColor } from "../youtube/catalogue";
 import type { Video } from "../youtube/catalogue";
+import { searchYouTube, trendingYouTube } from "../youtube/remote";
+import { listenAsApp } from "../bus";
 import { useLibrary, uniqueId } from "../youtube/useLibrary";
 import { usePlayer } from "../youtube/usePlayer";
 import YtIcon from "../youtube/YtIcon.vue";
@@ -92,11 +94,30 @@ const heading = computed(() => {
   if (page.value === "search") return query.value.trim() ? `Results for “${query.value.trim()}”` : "Search your shelf";
   return nav.find(item => item.id === page.value)?.title ?? "Home";
 });
+/* Real YouTube: what you search for, and what is trending in India, through the site's own server. */
+const remote = ref<Video[]>([]);
+const trending = ref<Video[]>([]);
+const searching = ref(false);
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+watch([page, query], ([where, text]) => {
+  clearTimeout(searchTimer);
+  const term = text.trim();
+  if (where !== "search" || !term || videoFromInput(term)) { remote.value = []; return; }
+  searching.value = true;
+  searchTimer = setTimeout(async () => {
+    const found = await searchYouTube(term);
+    if (query.value.trim() === term) { remote.value = found; searching.value = false; }
+  }, 450);
+});
+watch(category, value => { if (value === "Trending" && !trending.value.length) void trendingYouTube().then(list => { trending.value = list; }); });
+/** Remember a video from YouTube so history, playlists and Watch later can find it again. */
+function keep(video: Video) { if (!resolve(video.id)) library.value.pasted.push({ ...video }); }
 const filtered = computed(() => {
   let list = [...videos.value];
   if (page.value === "search") {
     const term = query.value.trim().toLowerCase();
     list = list.filter(video => [video.title, video.channel, video.category].some(text => text.toLowerCase().includes(term)));
+    list = [...list, ...remote.value.filter(video => !list.some(item => item.id === video.id))];
     if (/never|give you up|rick|roll/.test(term)) {
       const rick = resolve(rickId);
       if (rick) list = [rick, ...list.filter(video => video.id !== rickId)];
@@ -112,6 +133,7 @@ const filtered = computed(() => {
   if (page.value === "home") {
     if (category.value === "Watched") list = list.filter(video => library.value.history.some(item => item.id === video.id));
     else if (category.value === "Recently uploaded") list.sort((a, b) => b.year - a.year);
+    else if (category.value === "Trending") list = trending.value;
     else if (category.value !== "All") list = list.filter(video => video.category === category.value);
   }
   return list;
@@ -162,6 +184,7 @@ function beginCountdown(reason: "ended" | "error") {
   }, 1000);
 }
 function playVideo(video: Video, resume = true) {
+  keep(video);
   cancelCountdown();
   menu.value = undefined;
   modal.value = undefined;
@@ -226,6 +249,16 @@ function removeVideo(video: Video) {
   if (page.value === "history") library.value.history = library.value.history.filter(item => item.id !== video.id);
   if (page.value === "playlist" && activePlaylist.value) activePlaylist.value.videos = activePlaylist.value.videos.filter(id => id !== video.id);
 }
+/* JARVIS: "play lofi on YouTube" searches and plays the top result. */
+const stopListening = listenAsApp("youtube", async command => {
+  if (command.action !== "play") return;
+  const term = String(command.query ?? "").trim();
+  if (!term) return;
+  search(term);
+  const found = await searchYouTube(term);
+  if (found[0]) playVideo(found[0]);
+});
+onBeforeUnmount(stopListening);
 function search(value = query.value) {
   query.value = value;
   const term = value.trim();
@@ -744,7 +777,7 @@ onBeforeUnmount(() => {
 
         <template v-else>
           <div v-if="page === 'home'" class="chips vk-scroll" aria-label="Video categories">
-            <button v-hover v-for="chip in ['All', ...categories, 'Recently uploaded', 'Watched']" :key="chip"
+            <button v-hover v-for="chip in ['All', 'Trending', ...categories, 'Recently uploaded', 'Watched']" :key="chip"
               :class="{ active: category === chip }" :aria-pressed="category === chip" @click="category = chip">{{ chip }}</button>
           </div>
           <div class="browse-body">

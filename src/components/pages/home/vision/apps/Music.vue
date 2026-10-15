@@ -10,6 +10,11 @@ import TrackRows from './music/TrackRows.vue';
 import Playback from './music/Playback.vue';
 import { MusicEngine, type SoundProfile } from './music/audio';
 import { focusCollection } from './music/keyboard';
+import { listenAsApp } from '../bus';
+import YtMusicPlayer from './music/YtMusicPlayer.vue';
+import YtShelf from './music/YtShelf.vue';
+import { searchYouTube, trendingYouTube } from '../youtube/remote';
+import type { Video } from '../youtube/catalogue';
 import { albums, albumTracks, firstTrack, formatTime, genres, playlists, songsFor, stations, tracks, type Album, type Artwork, type Genre, type Track } from './music/catalog';
 
 defineProps<{ compact?: boolean }>();
@@ -91,7 +96,7 @@ async function start(song=track.value,position=elapsed.value):Promise<void> {
 }
 function pause():void {++operation;elapsed.value=engine?.position ?? elapsed.value;engine?.pause();playing.value=false;busy.value=false;stopClock();}
 function toggle():void {resumeWhenVisible=false;if(playing.value||busy.value)pause();else void start();}
-function select(song:Track):void {resumeWhenVisible=false;if(!queue.value.includes(song.id))queue.value.push(song.id);currentId.value=song.id;elapsed.value=0;void start(song,0);}
+function select(song:Track):void {resumeWhenVisible=false;ytQueue.value=[];if(!queue.value.includes(song.id))queue.value.push(song.id);currentId.value=song.id;elapsed.value=0;void start(song,0);}
 function playCollection(ids:string[],random=false):void {
  if(!ids.length)return; shuffle.value=random; queue.value=[...ids];
  if(random) {for(let i=queue.value.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const a=queue.value[i]!;queue.value[i]=queue.value[j]!;queue.value[j]=a;}}
@@ -162,7 +167,30 @@ onMounted(()=>{
  preference=matchMedia('(prefers-reduced-motion: reduce)');motion();preference.addEventListener('change',motion);document.addEventListener('visibilitychange',visibility);
  if(rootElement.value){observer=new IntersectionObserver(entries=>{if(!entries[0]?.isIntersecting && (playing.value||busy.value)){pause();announce('Playback paused while Music is out of view.');}},{threshold:0});observer.observe(rootElement.value);}
 });
-onBeforeUnmount(()=>{disposed=true;++operation;stopClock();clearTimeout(noticeTimer);observer?.disconnect();document.removeEventListener('visibilitychange',visibility);preference?.removeEventListener('change',motion);engine?.dispose();if(vision && pane.value)vision.dim.value=previousDim;});
+/* JARVIS can ask for music by mood, genre or name. */
+const MOODS:Record<string,string[]>={calm:['Ambient','Piano','Drone'],relax:['Ambient','Piano','Drone'],sleep:['Drone','Ambient'],focus:['Lo-fi','Piano'],work:['Lo-fi'],study:['Lo-fi','Piano'],party:['Synthwave','Drum & bass'],energy:['Drum & bass','Synthwave'],upbeat:['Synthwave','Drum & bass'],chill:['Lo-fi','Ambient']};
+/* YouTube Music: trending songs on Home, any song in Search, played in a docked visible player. */
+const ytQueue=ref<Video[]>([]);
+const ytIndex=ref(0);
+const ytTrending=ref<Video[]>([]);
+const ytFound=ref<Video[]>([]);
+const ytSearching=ref(false);
+let ytTimer:ReturnType<typeof setTimeout>|undefined;
+function playYt(list:Video[],index:number):void { if(playing.value||busy.value)pause(); ytQueue.value=[...list]; ytIndex.value=index; }
+watch(playing,value=>{ if(value && ytQueue.value.length) ytQueue.value=[]; });
+watch(query,value=>{ clearTimeout(ytTimer); const term=value.trim(); if(!term){ytFound.value=[];return;} ytSearching.value=true; ytTimer=setTimeout(async()=>{ const found=await searchYouTube(term,true); if(query.value.trim()===term){ytFound.value=found;ytSearching.value=false;} },500); });
+let unlisten=():void=>{};
+onMounted(()=>{void trendingYouTube(true).then(list=>{ytTrending.value=list;});unlisten=listenAsApp('music',async command=>{
+ if(command.action==='pause'){pause();return;}
+ if(command.action==='next'){void next();return;}
+ const q=String(command.query??'').toLowerCase().trim();
+ const moods=Object.entries(MOODS).filter(([word])=>q.includes(word)).flatMap(([,list])=>list);
+    const pool=q?tracks.filter(item=>moods.includes(item.genre)||[item.title,item.artist,item.album,item.genre].join(' ').toLowerCase().includes(q)):tracks;
+ // Anything that is not a mood or one of ours, like an artist or a song name, comes from YouTube Music.
+ if(q && !pool.length){ const found=await searchYouTube(q,true); if(found.length){ playYt(found,0); return; } }
+ playCollection((pool.length?pool:tracks).map(item=>item.id),true);
+});});
+onBeforeUnmount(()=>{unlisten();disposed=true;++operation;stopClock();clearTimeout(noticeTimer);observer?.disconnect();document.removeEventListener('visibilitychange',visibility);preference?.removeEventListener('change',motion);engine?.dispose();if(vision && pane.value)vision.dim.value=previousDim;});
 </script>
 
 <template>
@@ -190,6 +218,7 @@ onBeforeUnmount(()=>{disposed=true;++operation;stopClock();clearTimeout(noticeTi
     </template>
     <template v-else-if="tab==='Home'">
      <div class="home-lead"><section class="top-picks"><div class="section-heading"><h2>Top Picks</h2><span>A soundtrack for right now</span></div><div class="picks vk-scroll" aria-label="Top Picks, scroll horizontally"><button v-for="album in [albums[0]!,albums[1]!]" :key="album.id" v-hover class="pick" :style="{'--pick-color':album.colors[1]}" @click="openDetail('album',album.id)" @contextmenu.prevent="albumMenu(album.id)"><div class="pick-copy"><span class="eyebrow">{{ album.id==='soft'?'ON REPEAT':'FIND YOUR QUIET' }}</span><h3>{{ album.album }}</h3><p>{{ album.artist }}</p><span class="pick-note">{{ album.tagline }}</span></div><span class="pick-art"><AlbumArt :track="album" /></span></button></div></section><div class="daily-note vk-well"><AppIcon name="clock" /><div><strong>A small pause, just for you.</strong><span>Five Quiet Minutes · Steep Mode</span></div><button v-hover class="vk-icon plain" aria-label="Play Five Quiet Minutes" @click="playCollection(albumTracks('chai').map(item=>item.id))"><AppIcon name="play" filled /></button></div><AlbumShelf class="first-shelf" title="Made for your day" :items="playlists" @open="openDetail('playlist',$event)" @more="playlistMenu" /></div>
+     <YtShelf v-if="ytTrending.length" title="Trending on YouTube Music" subtitle="What India is playing right now" :items="ytTrending" @play="playYt(ytTrending,$event)" />
      <div class="more-home"><AlbumShelf class="short-shelf" title="Made for your day" :items="playlists" @open="openDetail('playlist',$event)" @more="playlistMenu" /><AlbumShelf title="New in the neighborhood" subtitle="Small stories. Beautiful sounds." :items="albums.slice(2)" @open="openDetail('album',$event)" @more="albumMenu" /><section class="editorial vk-platter"><span class="editorial-icon"><AppIcon name="radio" /></span><div><p class="eyebrow">TUNE IN, SLOW DOWN</p><h2>A frequency for every feeling.</h2><p>Three stations. A thousand reasons to stay a little longer.</p></div><button v-hover class="vk-button" @click="navigate('Radio')">Explore Radio<AppIcon name="right" /></button></section><AlbumShelf v-if="recent.length" title="Recently played" :items="albums.filter(item=>recent.some(song=>song.albumId===item.id))" @open="openDetail('album',$event)" @more="albumMenu" /><p class="catalog-footnote">An original, fictional catalogue. Every song plays right here.</p></div>
     </template>
     <template v-else-if="tab==='Browse'">
@@ -202,11 +231,12 @@ onBeforeUnmount(()=>{disposed=true;++operation;stopClock();clearTimeout(noticeTi
      <div class="library-tabs filters vk-scroll"><button v-for="item in (['Albums','Artists','Songs','Playlists','Favorites'] as const)" :key="item" v-hover class="vk-button" :aria-pressed="library===item" @click="library=item">{{ item }}</button></div><div class="section-heading"><h2>{{ library==='Favorites'?'Your favorites':library==='Albums'?'Recently Added':library }}</h2><span>{{ library==='Songs'?'40 songs':library==='Albums'?'8 albums':'' }}</span></div><div v-if="library==='Albums'||library==='Artists'||library==='Playlists'" class="album-grid"><article v-for="item in library==='Artists'?artists:library==='Playlists'?playlists:albums" :key="item.id"><button v-hover class="art-button" :class="{'artist-circle':library==='Artists'}" @click="openDetail(library==='Artists'?'artist':library==='Playlists'?'playlist':'album',item.id)"><AlbumArt :track="item" /></button><button class="album-name" @click="openDetail(library==='Artists'?'artist':library==='Playlists'?'playlist':'album',item.id)">{{ item.album }}</button><span class="subtle-link">{{ item.artist }}</span></article></div><TrackRows v-else-if="library==='Songs'||favorites.length" :tracks="library==='Favorites'?tracks.filter(item=>favorites.includes(item.id)):tracks" :current-id="currentId" :playing="playing" :favorites="favorites" @play="select" @favorite="favorite" @more="trackMenu=$event" /><div v-else class="empty vk-well"><AppIcon name="star" /><h2>Keep the ones you love.</h2><p>Favorite a song from its options menu. Your favorites stay here for your next visit.</p><button v-hover class="vk-button" @click="navigate('Browse')">Explore Music</button></div>
     </template>
     <template v-else-if="tab==='Search'">
-     <label class="search-field vk-well"><AppIcon name="search" /><input ref="searchInput" v-model="query" type="search" placeholder="Artists, songs, albums, and more" aria-label="Search Music" /><kbd>⌘ K</kbd></label><template v-if="!query.trim()"><div class="section-heading"><h2>Find your next favorite</h2></div><div class="search-genres"><button v-for="(item,index) in genres" :key="item" v-hover :style="{'--genre-a':albums[index]!.colors[1],'--genre-b':albums[index]!.colors[2]}" @click="genre=item;navigate('Browse')"><span>{{ item }}</span><AppIcon name="music" /></button></div><AlbumShelf title="Start somewhere lovely" :items="playlists" @open="openDetail('playlist',$event)" @more="playlistMenu" /></template><template v-else><p class="search-count">{{ foundTracks.length }} songs · {{ foundAlbums.length }} albums</p><AlbumShelf v-if="foundAlbums.length" title="Albums & Artists" :items="foundAlbums" @open="openDetail('album',$event)" @more="albumMenu" /><div v-if="foundTracks.length" class="section-heading"><h2>Songs</h2></div><TrackRows :tracks="foundTracks" :current-id="currentId" :playing="playing" :favorites="favorites" @play="select" @favorite="favorite" @more="trackMenu=$event" /><div v-if="!foundTracks.length&&!foundAlbums.length" class="empty vk-well"><AppIcon name="search" /><h2>No matches for “{{ query }}”</h2><p>Try an artist, a mood, or a little chai.</p><button class="vk-button" @click="query=''">Clear Search</button></div></template>
+     <label class="search-field vk-well"><AppIcon name="search" /><input ref="searchInput" v-model="query" type="search" placeholder="Artists, songs, albums, and more" aria-label="Search Music" /><kbd>⌘ K</kbd></label><YtShelf v-if="query.trim()" title="On YouTube Music" layout="list" :loading="ytSearching" :items="ytFound.slice(0,8)" @play="playYt(ytFound,$event)" /><template v-if="!query.trim()"><div class="section-heading"><h2>Find your next favorite</h2></div><div class="search-genres"><button v-for="(item,index) in genres" :key="item" v-hover :style="{'--genre-a':albums[index]!.colors[1],'--genre-b':albums[index]!.colors[2]}" @click="genre=item;navigate('Browse')"><span>{{ item }}</span><AppIcon name="music" /></button></div><AlbumShelf title="Start somewhere lovely" :items="playlists" @open="openDetail('playlist',$event)" @more="playlistMenu" /></template><template v-else><p class="search-count">{{ foundTracks.length }} songs · {{ foundAlbums.length }} albums</p><AlbumShelf v-if="foundAlbums.length" title="Albums & Artists" :items="foundAlbums" @open="openDetail('album',$event)" @more="albumMenu" /><div v-if="foundTracks.length" class="section-heading"><h2>Songs</h2></div><TrackRows :tracks="foundTracks" :current-id="currentId" :playing="playing" :favorites="favorites" @play="select" @favorite="favorite" @more="trackMenu=$event" /><div v-if="!foundTracks.length&&!foundAlbums.length" class="empty vk-well"><AppIcon name="search" /><h2>No matches for “{{ query }}”</h2><p>Try an artist, a mood, or a little chai.</p><button class="vk-button" @click="query=''">Clear Search</button></div></template>
     </template>
    </main>
   </div>
-  <Playback :track="track" :playing="playing" :busy="busy" :elapsed="elapsed" :shuffle="shuffle" :repeat="repeat" :mode="pane" @toggle="toggle" @shuffle="shuffle=!shuffle" @repeat="cycleRepeat" @next="next()" @previous="previous" @seek="seek" @now="showPane('artwork')" @mode="showPane" @output="sheet=sheet==='output'?null:'output'" />
+  <Playback v-if="!ytQueue.length" :track="track" :playing="playing" :busy="busy" :elapsed="elapsed" :shuffle="shuffle" :repeat="repeat" :mode="pane" @toggle="toggle" @shuffle="shuffle=!shuffle" @repeat="cycleRepeat" @next="next()" @previous="previous" @seek="seek" @now="showPane('artwork')" @mode="showPane" @output="sheet=sheet==='output'?null:'output'" />
+  <YtMusicPlayer v-if="ytQueue.length" :queue="ytQueue" :index="ytIndex" @index="ytIndex=$event" @close="ytQueue=[]" />
   <Transition name="notice"><div v-if="status" class="status vk-ornament" role="status">{{ status }}</div></Transition>
   <div v-if="sheet||trackMenu||collectionMenu" class="sheet-backdrop" @click.self="closeSheets" @keydown.esc.stop="closeSheets">
    <section ref="dialogElement" class="music-sheet vk-sheet vk-scroll" @keydown="trapDialog" role="dialog" aria-modal="true" :aria-label="sheet==='output'?'Sound settings':sheet==='about'?'About Music':'Music options'" tabindex="-1">
