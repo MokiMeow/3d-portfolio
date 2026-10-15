@@ -274,6 +274,13 @@ export class JarvisVoice {
           source.onended = () => this.sources.delete(source);
           this.follow(words, wordBase, at, buffer.duration, run, speech.onWord);
           at += buffer.duration + .08;
+        } else {
+          // The hosted voice is away (the laptop is off): the browser's own voice takes this sentence, in turn.
+          await new Promise(resolve => window.setTimeout(resolve, Math.max(0, (at - context.currentTime) * 1000)));
+          if (run !== this.generation) return;
+          const base = wordBase;
+          await this.system(parts[index]!, run, speech.onWord ? index => speech.onWord!(base + index) : undefined);
+          at = context.currentTime + .05;
         }
         wordBase += words.length;
       }
@@ -307,7 +314,9 @@ export class JarvisVoice {
         const job = this.synthesize(clean);
         chain = chain.then(async () => {
           const audio = await job;
-          if (!audio || run !== this.generation) return;
+          if (run !== this.generation) return;
+          // The hosted voice is away (the laptop is off): the browser's own voice says it, rather than silence.
+          if (!audio) { await this.system(clean, run, index => onWord?.(base + index)); return; }
           const buffer = context.createBuffer(1, audio.samples.length, audio.rate);
           buffer.copyToChannel(new Float32Array(audio.samples), 0);
           const source = context.createBufferSource();
