@@ -95,6 +95,11 @@ export class JarvisMind {
     return JarvisMind.hostedCheck;
   }
   static async hosted() { return (await JarvisMind.service()).name; }
+  /** Asks again when the last answer was "nothing hosted": a deploy or a cold start may have changed it since. */
+  static async recheck() {
+    if (!(await JarvisMind.service()).name) JarvisMind.hostedCheck = null;
+    return JarvisMind.service();
+  }
 
   static async supported() {
     const gpu = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<{ features: Set<string> } | null> } }).gpu;

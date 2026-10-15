@@ -271,6 +271,15 @@ export function useJarvis(options: {
     if (sequence) log('  intent: sequence → core.plan', 'sys');
     // Everything else is understood by the model, which answers with a plan: what to do, and what to say.
     if (memory.turns.at(-1)?.you === text) memory.turns.pop();
+    // Offline when the page loaded is not offline for good: the site may have its mind now.
+    if (mind.status !== 'ready' && mind.status !== 'loading') {
+      const service = await JarvisMind.recheck();
+      if (service.name) {
+        state.hosted = service.name; state.hostedVoice = service.voice; state.hostedHear = service.hear; state.tier = 'full'; persist();
+        log(`core.connect(${service.name})`, 'sys');
+        await Promise.all([voice.load(), mind.load(MODELS[0])]);
+      }
+    }
     if (mind.status !== 'ready') {
       log('core.offline', 'warn');
       await say(reply.kind === 'chat' ? reply.say : addressed('My neural core is offline at the moment, {a}. Plain commands still work: try "take me to the Moon".', address()));
