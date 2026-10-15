@@ -27,6 +27,8 @@ export const VISION_APPS = [
   { id: 'beatstudio', name: 'Beat Studio', size: [1100, 680] },
   { id: 'zengarden', name: 'Zen Garden', size: [1000, 640] },
   { id: 'gravity', name: 'Gravity', size: [1100, 700] },
+  { id: 'whatsapp', name: 'WhatsApp', size: [1120, 700] },
+  { id: 'slack', name: 'Slack', size: [1180, 720] },
 ] as const;
 export type VisionAppId = (typeof VISION_APPS)[number]['id'];
 

@@ -114,6 +114,8 @@ export const APP_LINES: Record<string, readonly string[]> = {
   photos: ['Photos. Memories, neatly indexed.'],
   maps: ['Maps, {a}. Where to?'],
   clock: ['The Clock. Time, as ever, is passing.'],
+  whatsapp: ['WhatsApp. I see the family group has been busy, {a}.'],
+  slack: ['Slack, {a}. I shall pretend not to see the unread count.'],
 };
 
 const JOKES = [
@@ -151,6 +153,7 @@ const APP_ALIASES: Record<string, string[]> = {
   messages: ['texts', 'imessage'], settings: ['preferences'], weather: ['forecast'], maps: ['map', 'directions'], keynote: ['slides', 'presentation'],
   freeform: ['whiteboard', 'board'], files: ['finder', 'documents'], objects: ['3d objects', 'models'], mindfulness: ['breathe', 'meditation', 'breathing'],
   encounter: ['dinosaurs', 'dinosaur'], arcade: ['games', 'apple arcade'], clock: ['alarm', 'stopwatch', 'world clock'],
+  whatsapp: ['whats app', 'whatsapp', 'family group', 'amma'], slack: ['work chat', 'channels', 'the team'],
 };
 const PLACE_ALIASES: Record<string, string[]> = {
   night: ['stars', 'starry night', 'milky way', 'night sky outside', 'space at night'], moon: ['lunar', 'the moon', 'moon surface'], room: ['my room', 'home room', 'passthrough', 'reality', 'real world'],
@@ -397,6 +400,7 @@ export function describeApp(id: string, name: string): string {
     clock: 'The Clock: world time, alarms, a stopwatch and timers.', keynote: 'Keynote. Presentation slides with an inspector.', nightsky: 'Night Sky. A planetarium, with the stars where they should be tonight.',
     objects: '3D Objects. Models you can turn and measure.', beatstudio: 'Beat Studio. A drum machine with a step sequencer, {a}. Do be gentle with the volume.', zengarden: 'A Zen garden, with sand to rake and koi to watch.',
     gravity: 'Gravity. A physics playground for dropping and throwing things.',
+    whatsapp: 'WhatsApp, {a}. The family group is, as ever, very active.', slack: 'Slack. The Pocket Lab workspace, and a huddle nobody has joined.',
   };
   return lines[id] ?? `${name}, {a}.`;
 }
