@@ -1,0 +1,17 @@
+{
+  "name": "jarvis-server",
+  "private": true,
+  "version": "1.0.0",
+  "description": "JARVIS's mind and voice, served for the Mohith Lab headset",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "kokoro-js": "1.2.1"
+  }
+}

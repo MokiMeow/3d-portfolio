@@ -4,7 +4,10 @@
  * through a small WebAudio chain: cleanup EQ, gentle compression, a faint chorus and a short room,
  * which gives the stock voice a quiet, synthetic polish without turning it into a robot. An
  * analyser on the output drives the hologram. Without WebGPU, the best British system voice stands in.
+ * When the site hosts JARVIS's voice (see server/api/jarvis-voice.post.ts), sentences come from the server
+ * instead and nothing is downloaded.
  */
+import { JarvisMind } from './mind';
 /**
  * Original voices made for JARVIS: weighted blends of Kokoro's four British male style packs, measured
  * against a brief of a calm, crisp, low British voice (about 120 Hz, 145 to 160 words a minute, restrained
@@ -12,13 +15,13 @@
  */
 export type VoiceId = 'whitcombe' | 'ravenhill' | 'sterling' | 'ashford' | 'kensington';
 export const VOICES: { id: VoiceId; name: string; line: string; speed: number }[] = [
+  { id: 'sterling', name: 'Sterling', line: 'Crisp, composed, quietly bright', speed: .93 },
   { id: 'whitcombe', name: 'Whitcombe', line: 'Low, measured and unhurried', speed: .92 },
   { id: 'ravenhill', name: 'Ravenhill', line: 'The calmest; very even', speed: .86 },
-  { id: 'sterling', name: 'Sterling', line: 'Crisper and a little brighter', speed: .93 },
   { id: 'ashford', name: 'Ashford', line: 'Warm, with a softer edge', speed: .88 },
   { id: 'kensington', name: 'Kensington', line: 'More expressive, a touch theatrical', speed: .9 },
 ];
-export const voiceOf = (id: string): VoiceId => (VOICES.some(item => item.id === id) ? id as VoiceId : 'whitcombe');
+export const voiceOf = (id: string): VoiceId => (VOICES.some(item => item.id === id) ? id as VoiceId : 'sterling');
 
 export type VoiceStatus = 'off' | 'loading' | 'ready' | 'error';
 type Speech = { words: string[]; onWord?: (index: number) => void };
@@ -78,17 +81,28 @@ export function voiceChain(context: BaseAudioContext) {
   return { input, output: master };
 }
 
+type Stretch = AudioNode & { start(when?: number): void; schedule(change: Record<string, number | boolean>): void; latency(): number };
+
 export class JarvisVoice {
   status: VoiceStatus = 'off';
   progress = 0;
   engine: 'neural' | 'system' = 'system';
-  voice: VoiceId = 'whitcombe';
+  voice: VoiceId = 'sterling';
   muted = false;
   onChange: () => void = () => {};
   private worker: Worker | null = null;
+  /** Speech comes from the site's server: nothing to download. */
+  hosted = false;
   private context: AudioContext | null = null;
   private input: GainNode | null = null;
   private analyser: AnalyserNode | null = null;
+  /** Where speech enters the finishing chain; `input` feeds it directly, or through the pitch shifter. */
+  private chainInput: AudioNode | null = null;
+  private stretch: Stretch | null = null;
+  /** Pitch, in semitones, for a deeper or lighter voice. 0 bypasses the shifter entirely. */
+  depth = 0;
+  /** How late the shifter makes speech, so captions can wait for it. */
+  private lag = 0;
   private samples = new Float32Array(1024);
   private sources = new Set<AudioBufferSourceNode>();
   private pending = new Map<number, (audio: { samples: Float32Array; rate: number } | null) => void>();
@@ -134,11 +148,36 @@ export class JarvisVoice {
   private graph() {
     if (this.context) return this.context;
     const context = new AudioContext({ latencyHint: 'interactive' });
-    const { input, output: master } = voiceChain(context);
+    const { input: chainInput, output: master } = voiceChain(context);
     const analyser = new AnalyserNode(context, { fftSize: 1024, smoothingTimeConstant: .4 });
     master.connect(analyser).connect(context.destination);
-    this.context = context; this.input = input; this.analyser = analyser;
+    const input = context.createGain();
+    input.connect(chainInput);
+    this.context = context; this.input = input; this.chainInput = chainInput; this.analyser = analyser;
+    if (this.depth) void this.setDepth(this.depth);
     return context;
+  }
+
+  /**
+   * Shift the voice's pitch with Signalsmith Stretch, keeping its formants so it stays natural rather than
+   * chipmunk or giant. Speech keeps its length; it only arrives a little later, which captions allow for.
+   */
+  async setDepth(semitones: number) {
+    this.depth = Math.max(-4, Math.min(3, Math.round(semitones * 2) / 2));
+    const context = this.context, input = this.input, chainInput = this.chainInput;
+    if (!context || !input || !chainInput) return;
+    input.disconnect();
+    if (!this.depth) { input.connect(chainInput); this.lag = 0; return; }
+    if (!this.stretch) {
+      const { default: SignalsmithStretch } = await import('signalsmith-stretch');
+      this.stretch = await SignalsmithStretch(context) as Stretch;
+      this.stretch.connect(chainInput);
+      this.stretch.start();
+    }
+    this.stretch.schedule({ semitones: this.depth, formantCompensation: true, formantBaseHz: 120 });
+    input.disconnect();
+    input.connect(this.stretch);
+    this.lag = this.stretch.latency();
   }
 
   /** Stay with the system voice: nothing to download. */
@@ -147,6 +186,7 @@ export class JarvisVoice {
   /** Download and warm the neural voice. Resolves when it is ready, or falls back to the system voice. */
   async load() {
     if (this.status === 'ready' || this.status === 'loading') return;
+    if ((await JarvisMind.service()).voice) { this.hosted = true; this.engine = 'neural'; this.status = 'ready'; this.progress = 1; this.onChange(); return; }
     const gpu = 'gpu' in navigator && await (navigator as Navigator & { gpu: { requestAdapter(): Promise<unknown> } }).gpu.requestAdapter().catch(() => null);
     if (!gpu) { this.engine = 'system'; this.status = 'ready'; this.onChange(); return; }
     this.status = 'loading'; this.progress = 0; this.onChange();
@@ -173,12 +213,27 @@ export class JarvisVoice {
   }
 
   private synthesize(text: string) {
+    if (this.hosted) return this.synthesizeHosted(text);
     return new Promise<{ samples: Float32Array; rate: number } | null>(resolve => {
       if (!this.worker) { resolve(null); return; }
       const id = this.nextId++;
       this.pending.set(id, resolve);
       this.worker.postMessage({ type: 'speak', id, text: speakable(text), voice: this.voice, speed: VOICES.find(item => item.id === this.voice)?.speed ?? .92 });
     });
+  }
+
+  /** One sentence from the hosted voice, decoded to samples. Null on any failure, so speech carries on. */
+  private async synthesizeHosted(text: string) {
+    try {
+      const response = await fetch('/api/jarvis-voice', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: speakable(text), voice: this.voice, speed: VOICES.find(item => item.id === this.voice)?.speed ?? .93 }),
+      });
+      if (!response.ok) return null;
+      const context = this.context ?? new OfflineAudioContext(1, 1, 24000);
+      const buffer = await context.decodeAudioData(await response.arrayBuffer());
+      return { samples: buffer.getChannelData(0), rate: buffer.sampleRate };
+    } catch { return null; }
   }
 
   stop() {
@@ -199,7 +254,7 @@ export class JarvisVoice {
     this.speaking = true;
     const parts = sentences(text);
     let wordBase = 0;
-    if (this.engine === 'neural' && this.worker) {
+    if (this.engine === 'neural' && (this.worker || this.hosted)) {
       // Ask for every sentence at once; the worker answers in order and playback chains them.
       const jobs = parts.map(part => this.synthesize(part));
       let at = context.currentTime + .05;
@@ -222,7 +277,7 @@ export class JarvisVoice {
         }
         wordBase += words.length;
       }
-      const left = (at - context.currentTime) * 1000;
+      const left = (at + this.lag - context.currentTime) * 1000;
       await new Promise(resolve => window.setTimeout(resolve, Math.max(0, left)));
       if (run === this.generation) this.speaking = false;
       return;
@@ -248,7 +303,7 @@ export class JarvisVoice {
       this.speaking = true;
       const words = clean.split(' ').filter(Boolean), base = wordBase;
       wordBase += words.length;
-      if (this.engine === 'neural' && this.worker && context) {
+      if (this.engine === 'neural' && (this.worker || this.hosted) && context) {
         const job = this.synthesize(clean);
         chain = chain.then(async () => {
           const audio = await job;
@@ -267,7 +322,7 @@ export class JarvisVoice {
     };
     const end = async () => {
       await chain;
-      if (context && this.engine === 'neural') await new Promise(resolve => window.setTimeout(resolve, Math.max(0, (at - context.currentTime) * 1000)));
+      if (context && this.engine === 'neural') await new Promise(resolve => window.setTimeout(resolve, Math.max(0, (at + this.lag - context.currentTime) * 1000)));
       if (run === this.generation) this.speaking = false;
     };
     return { push, end };
@@ -280,7 +335,7 @@ export class JarvisVoice {
     const total = weights.reduce((a, b) => a + b, 0);
     let elapsed = 0;
     words.forEach((_, index) => {
-      const delay = (start - this.context!.currentTime + duration * .92 * elapsed / total) * 1000;
+      const delay = (start + this.lag - this.context!.currentTime + duration * .92 * elapsed / total) * 1000;
       elapsed += weights[index]!;
       window.setTimeout(() => { if (run === this.generation) onWord(base + index); }, Math.max(0, delay));
     });

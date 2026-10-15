@@ -26,7 +26,7 @@ const size = reactive({ w: 1280, h: 720 });
 let sphere: JarvisSphere | null = null;
 let frame = 0, clock = 0, observer: ResizeObserver | undefined;
 
-const needsSetup = computed(() => state.tier === null);
+const needsSetup = computed(() => state.tier === null && state.serviceKnown && !state.hosted);
 const loading = computed(() => state.mindStatus === 'loading' || state.voiceStatus === 'loading');
 const needsAddress = computed(() => !needsSetup.value && !state.address);
 const progress = computed(() => {
@@ -41,10 +41,11 @@ const SUGGESTIONS = [
 const suggestionPage = ref(0);
 const suggestions = computed(() => needsAddress.value ? [] : SUGGESTIONS[suggestionPage.value % SUGGESTIONS.length]!);
 
-const mindLine = computed(() => state.mindStatus === 'ready' ? `${MODELS[0]!.name.toUpperCase()} · ONLINE${state.tokensPerSecond ? ` · ${state.tokensPerSecond} T/S` : ''}`
+const mindName = computed(() => state.hosted ?? MODELS[0]!.name);
+const mindLine = computed(() => state.mindStatus === 'ready' ? `${mindName.value.toUpperCase()} · ONLINE${state.tokensPerSecond ? ` · ${state.tokensPerSecond} T/S` : ''}`
   : state.mindStatus === 'loading' ? `LOADING · ${Math.round(state.mindProgress * 100)}%` : state.mindStatus === 'error' ? 'OFFLINE · LOCAL PROTOCOLS' : 'LOCAL PROTOCOLS');
 const voiceLine = computed(() => !state.voiceOn ? 'MUTED' : state.voiceStatus === 'loading' ? `LOADING · ${Math.round(state.voiceProgress * 100)}%`
-  : state.voiceEngine === 'neural' ? `${VOICES.find(item => item.id === state.voiceId)!.name.toUpperCase()} · NEURAL` : 'SYSTEM VOICE');
+  : state.voiceEngine === 'neural' ? `${VOICES.find(item => item.id === state.voiceId)!.name.toUpperCase()} · ${state.hostedVoice ? 'HOSTED' : 'NEURAL'}` : 'SYSTEM VOICE');
 const statusLine = computed(() => state.mode === 'listening' ? 'LISTENING' : state.mode === 'thinking' ? 'PROCESSING' : state.mode === 'speaking' ? 'SPEAKING' : loading.value ? 'INITIALISING' : 'STANDING BY');
 const time = computed(() => new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(now.value));
 const tail = computed(() => state.log.slice(-(props.compact ? 6 : 16)));
@@ -345,13 +346,20 @@ onBeforeUnmount(() => {
         <section>
           <h4>Voice <button class="toggle" :aria-pressed="state.voiceOn" @click="jarvis.setVoiceOn(!state.voiceOn)">{{ state.voiceOn ? 'On' : 'Off' }}</button></h4>
           <p v-if="state.voiceEngine !== 'neural'" class="note">{{ state.voiceStatus === 'loading' ? `Neural voice loading · ${Math.round(state.voiceProgress * 100)}%` : 'Using your system voice. Wake the neural core for Kokoro.' }}</p>
+          <div class="depth" :class="{ off: state.voiceEngine !== 'neural' }">
+            <span>Depth</span>
+            <button aria-label="Deeper" :disabled="state.voiceEngine !== 'neural' || state.depth <= -4" @click="jarvis.setDepth(state.depth - .5)">−</button>
+            <b>{{ state.depth === 0 ? 'Natural' : `${state.depth > 0 ? '+' : ''}${state.depth} st` }}</b>
+            <button aria-label="Lighter" :disabled="state.voiceEngine !== 'neural' || state.depth >= 3" @click="jarvis.setDepth(state.depth + .5)">+</button>
+            <button v-if="state.depth" class="reset" @click="jarvis.setDepth(0)">Reset</button>
+          </div>
           <div class="voices">
             <button v-for="item in VOICES" :key="item.id" :aria-pressed="state.voiceId === item.id" :disabled="state.voiceEngine !== 'neural'" @click="jarvis.setVoice(item.id)"><b>{{ item.name }}</b><small>{{ item.line }}</small></button>
           </div>
         </section>
         <section>
           <h4>Neural core</h4>
-          <p class="note">{{ MODELS[0]!.name }} · {{ MODELS[0]!.size }} · {{ mindLine.toLowerCase() }}</p>
+          <p class="note">{{ state.hosted ? `${state.hosted} · served by the JARVIS server, nothing to download` : `${MODELS[0]!.name} · ${MODELS[0]!.size}` }} · {{ mindLine.toLowerCase() }}</p>
           <button v-if="state.mindStatus !== 'ready' && state.mindStatus !== 'loading'" class="wide" @click="full">Bring it online</button>
           <button v-else-if="state.mindStatus === 'ready'" class="wide" @click="jarvis.mind.unload()">Put it to sleep</button>
         </section>
@@ -533,6 +541,10 @@ onBeforeUnmount(() => {
 .seg input{width:96px;color:var(--white);outline:0;text-transform:none}
 .seg button[aria-pressed=true],.toggle[aria-pressed=true]{background:var(--gold);color:#1a1206;border-color:transparent}
 .toggle{height:24px;padding:0 10px!important;border-radius:12px;font-size:11.5px;border:1px solid rgb(255 193 90 / .3)!important}
+.depth{display:flex;align-items:center;gap:6px;margin:0 0 8px;font-size:12px;color:rgb(255 225 170 / .7)}
+.depth span{flex:1}.depth b{min-width:64px;text-align:center;font-size:12.5px;color:var(--white);font-variant-numeric:tabular-nums}
+.depth button{width:28px;height:28px;border-radius:9px;border:1px solid rgb(255 193 90 / .2);font-size:15px;line-height:1}
+.depth button.reset{width:auto;padding:0 9px;font-size:11px}.depth.off{opacity:.45}
 .voices{display:grid;gap:5px}
 .voices button{display:grid;gap:1px;text-align:left;padding:8px 11px;border-radius:11px;border:1px solid rgb(255 193 90 / .14)}
 .voices button[aria-pressed=true]{border-color:var(--gold);background:rgb(255 170 60 / .12)}

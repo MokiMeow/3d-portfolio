@@ -40,7 +40,7 @@ export type Card = { id: number; kind: 'time' | 'weather' | 'fact' | 'message' |
 export type Beam = { id: number; x: number; y: number };
 
 const STORE = 'lab-jarvis-v1';
-type Saved = { address?: string; voiceOn?: boolean; voice?: VoiceId; remarks?: Remarks; tier?: 'full' | 'instant'; neural?: boolean; wake?: boolean };
+type Saved = { address?: string; voiceOn?: boolean; voice?: VoiceId; voiceChosen?: boolean; depth?: number; remarks?: Remarks; tier?: 'full' | 'instant'; neural?: boolean; wake?: boolean };
 function saved(): Saved { try { return JSON.parse(localStorage.getItem(STORE) ?? '{}') as Saved; } catch { return {}; } }
 
 /**
@@ -71,7 +71,8 @@ export function useJarvis(options: {
     timers: [] as { id: number; label: string; end: number; total: number }[],
     address: initial.address ?? '',
     voiceOn: initial.voiceOn ?? true,
-    voiceId: voiceOf(initial.voice ?? 'whitcombe'),
+    depth: typeof initial.depth === 'number' ? initial.depth : 0,
+    voiceId: voiceOf(!initial.voice || (initial.voice === 'whitcombe' && !initial.voiceChosen) ? 'sterling' : initial.voice),
     remarks: (initial.remarks ?? 'captions') as Remarks,
     tier: initial.tier ?? null as 'full' | 'instant' | null,
     voiceStatus: 'off' as JarvisVoice['status'],
@@ -84,6 +85,11 @@ export function useJarvis(options: {
     wake: false,
     wakeHeard: '',
     gpu: null as boolean | null,
+    /** The site's hosted mind, by name, when it has one; null while unknown or absent. */
+    hosted: null as string | null,
+    hostedVoice: false,
+    /** True once the site has said whether it hosts JARVIS, so the setup card never flashes. */
+    serviceKnown: false,
     turns: 0,
     lastMs: 0,
   });
@@ -91,6 +97,7 @@ export function useJarvis(options: {
   const mind = markRaw(new JarvisMind());
   const memory = newMemory();
   voice.voice = state.voiceId;
+  voice.depth = state.depth;
   voice.muted = !state.voiceOn;
   voice.onChange = () => { state.voiceStatus = voice.status; state.voiceEngine = voice.engine; state.voiceProgress = voice.progress; };
   let lastMindProgress = 0;
@@ -102,7 +109,8 @@ export function useJarvis(options: {
   };
 
   let lineId = 0, whisperId = 0, timerId = 0, run = 0;
-  const persist = () => { try { localStorage.setItem(STORE, JSON.stringify({ address: state.address, voiceOn: state.voiceOn, voice: state.voiceId, remarks: state.remarks, tier: state.tier, neural: mind.status === 'ready', wake: state.wake })); } catch { /* private mode */ } };
+  let voiceChosen = initial.voiceChosen ?? false;
+  const persist = () => { try { localStorage.setItem(STORE, JSON.stringify({ address: state.address, voiceOn: state.voiceOn, voice: state.voiceId, voiceChosen, depth: state.depth, remarks: state.remarks, tier: state.tier, neural: mind.status === 'ready', wake: state.wake })); } catch { /* private mode */ } };
   function log(text: string, kind: LogLine['kind'] = 'op') {
     state.log.push({ id: ++lineId, text, kind, at: Date.now() });
     if (state.log.length > 60) state.log.splice(0, state.log.length - 60);
@@ -336,6 +344,13 @@ export function useJarvis(options: {
 
   async function wakeNeural() {
     state.tier = 'full'; persist();
+    const service = await JarvisMind.service();
+    if (service.name) {
+      log(`core.connect(${service.name})`, 'sys');
+      if (service.voice) log(`voice.connect(${state.voiceId})`, 'sys');
+      await Promise.all([voice.load(), mind.load(MODELS[0])]);
+      return mind.status === 'ready';
+    }
     state.gpu ??= await JarvisMind.supported();
     if (!state.gpu) { log('webgpu.unavailable → local protocols', 'warn'); state.tier = 'instant'; persist(); return false; }
     log('core.boot()', 'sys');
@@ -346,7 +361,15 @@ export function useJarvis(options: {
     return mind.status === 'ready';
   }
   function setInstant() { state.tier = 'instant'; persist(); voice.useSystem(); }
-  function setVoice(id: VoiceId) { state.voiceId = id; voice.voice = id; persist(); void say(addressed(`This is ${VOICES.find(item => item.id === id)!.name}, {a}. Will this do?`, address())); }
+  function setVoice(id: VoiceId) { state.voiceId = id; voice.voice = id; voiceChosen = true; persist(); void say(addressed(`This is ${VOICES.find(item => item.id === id)!.name}, {a}. Will this do?`, address())); }
+  /** Deeper or lighter, in semitones; 0 is the voice exactly as blended. */
+  let depthSample = 0;
+  function setDepth(semitones: number) {
+    state.depth = Math.max(-4, Math.min(3, Math.round(semitones * 2) / 2));
+    void voice.setDepth(state.depth); persist();
+    clearTimeout(depthSample);
+    depthSample = window.setTimeout(() => void say(addressed(state.depth ? 'Like this, {a}?' : 'My natural register, {a}.', address())), 450);
+  }
   function setVoiceOn(on: boolean) { state.voiceOn = on; voice.muted = !on; if (!on) voice.stop(); persist(); }
   function setRemarks(value: Remarks) { state.remarks = value; persist(); }
   function setAddress(value: string) { state.address = value; persist(); }
@@ -388,6 +411,13 @@ export function useJarvis(options: {
 
   function dispose() { stopWake(); voice.dispose(); void mind.unload(); timers.forEach(handle => clearTimeout(handle)); }
 
+  // When the site hosts JARVIS's mind there is nothing to download, so he is simply online, for everyone.
+  void JarvisMind.service().then(service => {
+    state.hosted = service.name; state.hostedVoice = service.voice; state.serviceKnown = true;
+    if (!service.name) return;
+    state.tier = 'full'; persist();
+    void voice.load(); void mind.load(MODELS[0]);
+  });
   // Returning visitors who chose the full JARVIS get it back without asking again.
   if (initial.tier === 'full' && initial.neural) {
     // Start at once: load() reports its own failure, and a question asked in the meantime knows to wait.
@@ -395,6 +425,6 @@ export function useJarvis(options: {
     void JarvisMind.supported().then(ok => { state.gpu = ok; });
   }
 
-  return { state, voice, mind, card, beam, ask, say, interrupt, whisper, remark, log, wakeNeural, setInstant, setVoice, setVoiceOn, setRemarks, setAddress, forget, dispose, address, context, setWake, pauseWake, wakeAvailable };
+  return { state, voice, mind, card, beam, ask, say, interrupt, whisper, remark, log, wakeNeural, setInstant, setVoice, setDepth, setVoiceOn, setRemarks, setAddress, forget, dispose, address, context, setWake, pauseWake, wakeAvailable };
 }
 export type Jarvis = ReturnType<typeof useJarvis>;

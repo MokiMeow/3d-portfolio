@@ -1,0 +1,6 @@
+# Automatic HTTPS for the JARVIS server. Only the voice service is exposed; it checks the key and
+# forwards chat to the mind, which is never reachable from outside.
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy voice:8787
+}

@@ -1,5 +1,6 @@
 /**
- * The neural core: a small language model running on the GPU, in a worker, entirely on this device.
+ * The neural core. When the site has a hosted model (see server/api/jarvis.ts) it is used straight away:
+ * nothing to download, no GPU needed. Otherwise a small language model runs on this device's GPU, in a worker.
  * It only ever talks. Commands are parsed by the local brain first, so the model can suggest a place
  * or an app but never drives the headset on its own; any suggestion it makes is checked against the
  * real list of ids before anything happens.
@@ -79,6 +80,20 @@ export class JarvisMind {
   onChange: () => void = () => {};
   private engine: MLCEngineInterface | null = null;
   private worker: Worker | null = null;
+  /** 'hosted' when replies come from the site's server, 'local' when the model runs in this browser. */
+  mode: 'hosted' | 'local' = 'local';
+  private abort: AbortController | null = null;
+  private static hostedCheck: Promise<{ name: string | null; voice: boolean }> | null = null;
+
+  /** What the site hosts: the mind's display name (null if none) and whether there is a hosted voice. Asked once. */
+  static service() {
+    JarvisMind.hostedCheck ??= fetch('/api/jarvis', { cache: 'no-store' })
+      .then(response => (response.ok ? response.json() as Promise<{ ok?: boolean; name?: string; voice?: boolean }> : null))
+      .then(info => ({ name: info?.ok ? info.name || 'Hosted mind' : null, voice: Boolean(info?.voice) }))
+      .catch(() => ({ name: null, voice: false }));
+    return JarvisMind.hostedCheck;
+  }
+  static async hosted() { return (await JarvisMind.service()).name; }
 
   static async supported() {
     const gpu = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<{ features: Set<string> } | null> } }).gpu;
@@ -90,6 +105,13 @@ export class JarvisMind {
   async load(model = this.model) {
     if (this.status === 'loading') return;
     if (this.status === 'ready' && this.model.id === model.id) return;
+    const hosted = await JarvisMind.hosted();
+    if (hosted) {
+      this.mode = 'hosted'; this.model = { id: 'hosted', name: hosted, size: 'Hosted', line: 'Served from the cloud' };
+      this.status = 'ready'; this.progress = 1; this.detail = 'Online'; this.onChange();
+      return;
+    }
+    this.mode = 'local';
     this.model = model; this.status = 'loading'; this.progress = 0; this.detail = 'Preparing'; this.onChange();
     const webllm = await import('@mlc-ai/web-llm');
     await this.engine?.unload().catch(() => {});
@@ -119,6 +141,7 @@ export class JarvisMind {
 
   /** Stream a reply. `onText` receives the tidied text so far. */
   async reply(ctx: JarvisContext, history: { you: string; jarvis: string }[], text: string, onText: (text: string) => void) {
+    if (this.mode === 'hosted') return this.replyHosted(ctx, history, text, onText);
     if (!this.engine) throw new Error('Neural core offline');
     const started = performance.now();
     let raw = '', tokens = 0, first = 0;
@@ -139,7 +162,42 @@ export class JarvisMind {
     return { ...done, ms: Math.round(performance.now() - started) };
   }
 
-  stop() { void this.engine?.interruptGenerate(); }
+  /** The same reply, from the site's server: OpenAI-style server-sent events, read as they arrive. */
+  private async replyHosted(ctx: JarvisContext, history: { you: string; jarvis: string }[], text: string, onText: (text: string) => void) {
+    const started = performance.now();
+    this.abort?.abort(); this.abort = new AbortController();
+    const response = await fetch('/api/jarvis', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: this.abort.signal,
+      body: JSON.stringify({ messages: messages(ctx, history, text) }),
+    });
+    if (!response.ok || !response.body) throw new Error(response.status === 429 ? 'Hosted mind is busy' : `Hosted mind ${response.status}`);
+    const reader = response.body.getReader(), decoder = new TextDecoder();
+    let raw = '', buffer = '', tokens = 0, first = 0;
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n'); buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          const data = line.trim();
+          if (!data.startsWith('data:')) continue;
+          const payload = data.slice(5).trim();
+          if (payload === '[DONE]') continue;
+          let delta = '';
+          try { delta = (JSON.parse(payload) as { choices?: { delta?: { content?: string } }[] }).choices?.[0]?.delta?.content ?? ''; } catch { continue; }
+          if (!delta) continue;
+          if (!first) first = performance.now();
+          tokens++; raw += delta;
+          onText(tidy(raw, ctx.address).text);
+        }
+      }
+    } catch (error) { if (!(error instanceof DOMException && error.name === 'AbortError')) throw error; }
+    if (first) this.tokensPerSecond = Math.round(tokens / Math.max(.05, (performance.now() - first) / 1000));
+    return { ...tidy(raw, ctx.address), ms: Math.round(performance.now() - started) };
+  }
+
+  stop() { this.abort?.abort(); void this.engine?.interruptGenerate(); }
   async unload() { await this.engine?.unload().catch(() => {}); this.worker?.terminate(); this.worker = null; this.engine = null; this.status = 'off'; this.onChange(); }
 }
 

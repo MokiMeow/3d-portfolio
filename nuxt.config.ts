@@ -71,6 +71,16 @@ export default defineNuxtConfig({
 	runtimeConfig: {
 		// Server only: the YouTube Data API key, from NUXT_YOUTUBE_KEY. Never sent to the browser.
 		youtubeKey: "",
+		// Server only: JARVIS's hosted mind, any OpenAI-compatible endpoint (NUXT_JARVIS_URL, _KEY, _MODEL, _NAME).
+		// NUXT_JARVIS_NO_THINK=1 asks Qwen-family models to skip their thinking phase.
+		jarvisUrl: "",
+		jarvisKey: "",
+		jarvisModel: "",
+		jarvisName: "",
+		jarvisNoThink: "",
+		// The JARVIS server's voice (…/v1/audio/speech); its key defaults to NUXT_JARVIS_KEY.
+		jarvisVoiceUrl: "",
+		jarvisVoiceKey: "",
 		public: {
 			MODE: process.env.MODE,
 			GITHUB_LINK: process.env.GITHUB_LINK || "https://github.com/MokiMeow",
