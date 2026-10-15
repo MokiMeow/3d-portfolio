@@ -30,7 +30,7 @@ button {font:inherit;color:inherit;border:0;cursor:pointer; }
 .repeat-button {position:relative;}.repeat-button span{position:absolute;font-size:8px;right:5px;top:3px;font-weight:750;}
 .play {background:rgb(255 255 255 / .92);color:#25252b; }
 .timeline {display:flex;gap:10px;align-items:center;width:100%; }
-.timeline span {font-size:10px;color:var(--vk-secondary);font-variant-numeric:tabular-nums;min-width:29px; }
+.timeline span {font-size:11.5px;color:var(--vk-secondary);font-variant-numeric:tabular-nums;min-width:29px; }
 .timeline span:last-child {text-align:right; }
 .timeline input {min-width:0; }
 .timeline input::-webkit-slider-runnable-track {height:4px; }
@@ -43,7 +43,7 @@ button {font:inherit;color:inherit;border:0;cursor:pointer; }
  .player-main {flex-wrap:wrap;gap:2px 5px; }
  .metadata {flex:1; }.transport {gap:0;}.thumb{width:38px;}.metadata{gap:8px;}
  .utilities {width:100%;justify-content:center;order:3;border-top:1px solid #ffffff10;margin-top:3px; }
- .copy strong {font-size:12px;}.copy small{font-size:11px;}
+ .copy strong {font-size:12px;}.copy small{font-size:12px;}
  .timeline {gap:7px; }.timeline input {height:34px; }
  .utilities .vk-icon {width:48px;height:40px;min-height:44px; }
 }

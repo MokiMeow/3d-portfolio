@@ -70,6 +70,19 @@ const memories = [
   { title: 'Small moments, large display', line: 'Find the extraordinary in the everyday.', ids: ['coffee-3', 'workspace-1', 'houseplant-3', 'books-1'] },
   { title: 'In very good company', line: 'The art of doing absolutely nothing.', ids: ['cat-0', 'cat-1', 'dog-7', 'cat-2'] },
 ];
+/* The Memories home, filled the way Photos on visionOS fills it: days, spatial scenes, featured shots, companions and trips. */
+const srcOf = (id: string) => photos.value.find(photo => photo.id === id)?.src;
+const photoOf = (id: string) => photos.value.find(photo => photo.id === id);
+const panoramas = computed(() => photos.value.filter(photo => photo.panorama));
+const recentDays = [
+  { label: 'Today', place: 'At home', ids: ['coffee-3', 'houseplant-3', 'workspace-1', 'books-1'], extra: 8 },
+  { label: 'Yesterday', place: 'By the coast', ids: ['beach-1', 'sunset-0', 'beach-3', 'sunset-4'], extra: 14 },
+  { label: 'June 16', place: 'In the hills', ids: ['mountains-3', 'mountains-5', 'dog-7', 'masala-0'], extra: 21 },
+  { label: 'June 14', place: 'Around town', ids: ['city-1', 'cat-0', 'cat-1', 'cat-2'], extra: 6 },
+];
+const featured = ['sunset-0', 'cat-2', 'mountains-5', 'coffee-3', 'beach-3', 'city-1'];
+const pets = [{ id: 'cat-0', name: 'Biscuit' }, { id: 'cat-1', name: 'Mochi' }, { id: 'cat-2', name: 'Pepper' }, { id: 'dog-7', name: 'Bruno' }];
+function openId(id: string) { const photo = photoOf(id); if (photo) open(photo); }
 const tab = ref<Tab>('Memories');
 const query = ref('');
 const zoomLevel = ref(2);
@@ -310,6 +323,40 @@ onBeforeUnmount(() => { document.removeEventListener('visibilitychange', documen
             <div class="collection-shortcuts" data-collection>
               <button v-hover class="collection-shortcut vk-platter" @click="navigate('Spatial')"><img src="/phone/photos/mountains-3.webp" alt="" /><span><b>Spatial Scenes</b><small>Explore a new perspective</small></span><YtIcon name="spatial" /></button>
               <button v-hover class="collection-shortcut vk-platter" @click="navigate('Collections'); activeAlbum = 'people'"><img src="/phone/photos/cat-0.webp" alt="" /><span><b>People &amp; Pets</b><small>A few familiar faces</small></span><YtIcon name="heart" /></button>
+            </div>
+            <div class="collection-heading"><h2 class="vk-title">Recent Days</h2><button v-hover class="vk-button" @click="navigate('Library')">See all <YtIcon name="forward" /></button></div>
+            <div class="days-row" data-collection>
+              <button v-for="day in recentDays" :key="day.label" v-hover class="day-card" @click="navigate('Library')">
+                <span class="mosaic"><img v-for="(id, index) in day.ids" :key="id" :src="srcOf(id)" alt="" loading="lazy" :class="`m${index}`" /></span>
+                <b>{{ day.label }}</b><small>{{ day.place }} · {{ photoCount(day.ids.length + day.extra) }}</small>
+              </button>
+            </div>
+            <div class="collection-heading"><h2 class="vk-title">Spatial Moments</h2><button v-hover class="vk-button" @click="navigate('Panoramas')">Panoramas <YtIcon name="forward" /></button></div>
+            <div class="spatial-row" data-collection>
+              <button v-for="photo in panoramas.slice(0, 6)" :key="photo.id" v-hover class="spatial-card" @click="open(photo)">
+                <img :src="photo.src" alt="" loading="lazy" />
+                <span class="spatial-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 6v6l-9 6-9-6V9zM3 9l9 6 9-6m-9 6v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /></svg>Spatial</span>
+                <span class="spatial-copy"><b>{{ photo.title }}</b><small>{{ photo.place }}</small></span>
+              </button>
+            </div>
+            <div class="collection-heading"><h2 class="vk-title">Featured Photos</h2><span class="vk-secondary heading-note">Chosen for how they look at this size</span></div>
+            <div class="bento" data-collection>
+              <button v-for="(id, index) in featured" :key="id" v-hover class="bento-cell" :class="`b${index}`" @click="openId(id)"><img :src="srcOf(id)" alt="" loading="lazy" /><span>{{ photoOf(id)?.title }}</span></button>
+            </div>
+            <div class="home-pair">
+              <section>
+                <div class="collection-heading"><h2 class="vk-title">People &amp; Pets</h2></div>
+                <div class="pets-row">
+                  <button v-for="pet in pets" :key="pet.id" v-hover class="pet" @click="navigate('Collections'); activeAlbum = 'people'"><img :src="srcOf(pet.id)" alt="" loading="lazy" /><b>{{ pet.name }}</b></button>
+                </div>
+              </section>
+              <section>
+                <div class="collection-heading"><h2 class="vk-title">Trips</h2></div>
+                <button v-hover class="trip-card" @click="navigate('Collections'); activeAlbum = 'places'">
+                  <span class="trip-stack"><img :src="srcOf('mondello')" alt="" /><img :src="srcOf('cape')" alt="" /><img :src="srcOf('lakeside')" alt="" /></span>
+                  <span><b>Places without Wi-Fi</b><small>5 places · June 2026</small></span>
+                </button>
+              </section>
             </div>
             <p class="vk-footnote vk-secondary sample-caption">Curated CC0 photographs · Sample dates and memories</p>
           </template>

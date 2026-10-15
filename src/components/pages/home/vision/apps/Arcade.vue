@@ -169,7 +169,7 @@ onBeforeUnmount(() => { arcadeMounted = false; document.removeEventListener('vis
 /* A complete featured composition, followed by scrollable shelves. */
 .browse-content { container-type:size; }
 .page-heading h1 { font-size:32px; line-height:1.1; }
-.page-heading>div>.vk-footnote { font-size:10px; letter-spacing:.09em; }
+.page-heading>div>.vk-footnote { font-size:11.5px; letter-spacing:.09em; }
 .intro { margin:9px 0 18px; font-size:15px; }
 .opening-selection { height:calc(100cqh - 110px); min-height:355px; display:grid; grid-template-rows:minmax(0,1fr) 44px 100px; padding-bottom:18px; }
 .opening-selection .hero { aspect-ratio:auto; min-height:0; }
@@ -177,19 +177,19 @@ onBeforeUnmount(() => { arcadeMounted = false; document.removeEventListener('vis
 .opening-selection .hero-copy h2 { font-size:clamp(28px,3.8cqw,43px); }
 .opening-selection .hero-copy p { font-size:16px; max-width:540px; }
 .opening-selection .dots { margin:0; }
-.hero-actions .vk-chip { min-height:28px; font-size:11px; }
+.hero-actions .vk-chip { min-height:28px; font-size:12px; }
 .quick-picks { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; min-height:0; }
 .quick-pick { display:flex; text-align:left; align-items:center; gap:12px; padding:12px; min-width:0; }
 .quick-pick>img { width:62px; height:62px; flex:none; border-radius:16px; object-fit:cover; }
 .quick-pick>span { display:flex; min-width:0; flex-direction:column; gap:5px; }
-.quick-pick small { font-size:10px; color:var(--vk-secondary); }
+.quick-pick small { font-size:11.5px; color:var(--vk-secondary); }
 .quick-pick b { font-size:14px; line-height:1.2; }
-.quick-pick em { font-size:10px; font-style:normal; color:var(--vk-tertiary); }
+.quick-pick em { font-size:11.5px; font-style:normal; color:var(--vk-tertiary); }
 .quick-pick>svg { width:20px; height:20px; margin-left:auto; flex:none; color:var(--vk-secondary); }
 .shelf { margin-top:20px; }
 @container(max-height:540px) and (min-width:651px) {
  .arcade-app .tabs { width:82px; margin-left:12px; padding:6px; }
- .nav-item { min-height:54px; font-size:10px; }
+ .nav-item { min-height:54px; font-size:11.5px; }
  .nav-item .vk-icon { width:36px; height:36px; min-height:36px; }
  .browse-content { padding:20px 24px; }
  .page-heading h1 { font-size:27px; }
@@ -206,12 +206,12 @@ onBeforeUnmount(() => { arcadeMounted = false; document.removeEventListener('vis
 @container(max-width:650px) {
  .browse-layout { flex-direction:column; }
  .arcade-app .tabs { flex-direction:row; width:calc(100% - 32px); max-height:72px; margin:16px 16px 0; border-radius:25px; padding:6px; overflow-x:auto; }
- .nav-item,.compact .nav-item { width:64px; flex:0 0 64px; min-height:54px; font-size:10px; }
+ .nav-item,.compact .nav-item { width:64px; flex:0 0 64px; min-height:54px; font-size:11.5px; }
  .nav-item .vk-icon { width:32px; height:32px; min-height:32px; }
  .browse-content,.compact .browse-content { padding:18px; }
  .page-heading h1 { font-size:27px; }
- .page-heading .vk-chip { font-size:11px; padding:5px 10px; }
- .page-heading>div>.vk-footnote { font-size:9px; }
+ .page-heading .vk-chip { font-size:12px; padding:5px 10px; }
+ .page-heading>div>.vk-footnote { font-size:10.5px; }
  .intro { font-size:13px; margin:8px 0 13px; line-height:1.4; }
  .opening-selection { height:calc(100cqh - 105px); min-height:340px; grid-template-rows:minmax(0,1fr) 44px 88px; padding-bottom:8px; }
  .opening-selection .hero,.compact .opening-selection .hero { min-height:0; }
@@ -225,7 +225,7 @@ onBeforeUnmount(() => { arcadeMounted = false; document.removeEventListener('vis
  .quick-pick { padding:8px; flex-direction:column; justify-content:center; gap:6px; text-align:center; }
  .quick-pick>img { width:32px; height:32px; border-radius:9px; }
  .quick-pick>span { gap:3px; width:100%; }
- .quick-pick b { font-size:11px; }
+ .quick-pick b { font-size:12px; }
  .quick-pick small,.quick-pick em,.quick-pick>svg { display:none; }
  .game-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px 12px; }
  .game-grid :deep(.game-title) { font-size:15px; }
@@ -237,7 +237,7 @@ onBeforeUnmount(() => { arcadeMounted = false; document.removeEventListener('vis
 button, input { font: inherit; } button { cursor: pointer; color: inherit; border: 0; background: none; } :focus-visible { outline: 2px solid white; outline-offset: 3px; } h1,h2,p { margin: 0; }
 .browse-layout { display: flex; height: 100%; min-width: 0; }
 .arcade-app .tabs { flex: none; align-self: center; width: 100px; max-height: calc(100% - 40px); margin: 20px 0 20px 16px; border-radius: 32px; padding: 8px; }
-.nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 22px; min-height: 65px; width: 100%; font-size: 11px; }
+.nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 22px; min-height: 65px; width: 100%; font-size: 12px; }
 .nav-item .vk-icon { background: transparent; } .nav-item[aria-pressed=true] { background: #ffffff20; } .nav-item[aria-pressed=true] .vk-icon { background: white; color: #191c27; }
 .browse-content { flex: 1; min-width: 0; padding: 26px 28px; }
 .page-heading, .shelf-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; } .page-heading h1 { margin-top: 5px; } .intro { margin: 12px 0 24px; }

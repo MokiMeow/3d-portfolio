@@ -1580,22 +1580,22 @@ small {
 .messages-root { --muted: rgb(255 255 255 / .68); }
 .conversation-list { padding: 20px 12px 16px; gap: 12px; background: rgb(29 34 42 / .24); }
 .chat-row { min-height: 84px; padding: 12px 10px; gap: 10px; border-radius: 22px; }
-.chat-time { margin-left: auto; color: var(--vk-tertiary); font-size: 10px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.chat-time { margin-left: auto; color: var(--vk-tertiary); font-size: 11.5px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .row-title strong { font-size: 14px; }
 .thread { padding: 24px 26px 18px; gap: 8px; }
 .thread-header { padding-bottom: 12px; border-bottom: 1px solid #ffffff12; }
-.privacy { font-size: 10px; padding: 0; color: var(--vk-tertiary); }
+.privacy { font-size: 11.5px; padding: 0; color: var(--vk-tertiary); }
 .bubbles { padding: 10px 8px; }
-.date-line { margin-bottom: 16px; font-size: 11px; }
+.date-line { margin-bottom: 16px; font-size: 12px; }
 .message-row { margin-bottom: 12px; }
 .message-text { padding: 10px 15px; font-size: 15px; line-height: 1.4; }
 .photo-card { max-width: 290px; }.photo-card img { height: 118px; }.photo-card>span { padding: 7px 10px; font-size: 12px; }
-.message-meta { font-size: 10px; margin-top: 4px; }
-.sender { font-size: 10px; padding-bottom: 3px; }
+.message-meta { font-size: 11.5px; margin-top: 4px; }
+.sender { font-size: 11.5px; padding-bottom: 3px; }
 .reaction { top: -15px; right: 5px; padding: 4px 8px; display: grid; place-items: center; color: #bcdcff; background: #536376; }
 .reaction :deep(svg) { width: 17px; height: 17px; }
 .composer { box-shadow: inset 0 1px #ffffff30,0 7px 22px #0002; padding: 7px; }.composer input { height: 44px; }.composer-secondary { min-height: 44px; height: auto; }.composer-secondary .vk-button { min-height: 44px; }
 .sticker-art { font-size: inherit; }
 .emoji-grid .emoji-button { min-height: 92px; }
 @container (max-height: 540px) { .conversation-list { gap: 9px; padding-top: 14px; }.chat-row { min-height: 72px; padding: 9px 10px; }.list-heading .large { width: 44px; height: 44px; }.thread { padding-top: 16px; gap: 5px; }.thread-header { min-height: 54px; padding-bottom: 8px; }.composer-secondary { display: none; }.photo-card img { height: 92px; }.message-row { margin-bottom: 9px; } }
-@container (max-width: 540px) { .conversation-list { padding: 18px 14px; }.chat-row { min-height: 80px; }.row-title strong { font-size: 16px; }.chat-time { font-size: 11px; }.thread { padding: 16px 14px; }.thread-header { gap: 8px; }.thread-header :deep(.contact-avatar) { width: 36px; height: 36px; flex-basis: 36px; }.heading-copy h2 { font-size: 17px; }.heading-copy p { font-size: 10px; }.photo-card { max-width: 245px; }.message-stack { max-width: 88%; } }
+@container (max-width: 540px) { .conversation-list { padding: 18px 14px; }.chat-row { min-height: 80px; }.row-title strong { font-size: 16px; }.chat-time { font-size: 12px; }.thread { padding: 16px 14px; }.thread-header { gap: 8px; }.thread-header :deep(.contact-avatar) { width: 36px; height: 36px; flex-basis: 36px; }.heading-copy h2 { font-size: 17px; }.heading-copy p { font-size: 11.5px; }.photo-card { max-width: 245px; }.message-stack { max-width: 88%; } }

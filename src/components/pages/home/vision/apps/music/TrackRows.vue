@@ -37,5 +37,5 @@ small,.duration {font-size:12px;color:var(--vk-secondary); }
 .favorite svg {width:17px;height:17px; }
 .favorite[aria-pressed='true'] {color:#ff9aa5;background:transparent; }
 :focus-visible {outline:2px solid white;outline-offset:2px; }
-@container music (max-width:620px) {.favorite{display:none;}.duration{font-size:11px;}.play-row{gap:10px;padding-left:6px;}}
+@container music (max-width:620px) {.favorite{display:none;}.duration{font-size:12px;}.play-row{gap:10px;padding-left:6px;}}
 </style>

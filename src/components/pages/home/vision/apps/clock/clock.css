@@ -95,7 +95,7 @@
 
 .overline {
   display: block;
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 1.6px;
   color: var(--vk-tertiary);
@@ -151,7 +151,7 @@
   gap: 5px;
   align-items: center;
   color: #d8e4f1a8;
-  font-size: 10px;
+  font-size: 11.5px;
 }
 
 .day-badge svg {
@@ -183,7 +183,7 @@
 }
 
 .hero-info p {
-  font-size: 10px;
+  font-size: 11.5px;
   color: var(--vk-secondary);
 }
 
@@ -220,7 +220,7 @@
 }
 
 .city-name span {
-  font-size: 9px;
+  font-size: 10.5px;
   color: var(--vk-secondary);
 }
 
@@ -257,7 +257,7 @@
 
 .city-clock span {
   display: block;
-  font-size: 9px;
+  font-size: 10.5px;
   margin-top: 4px;
 }
 
@@ -286,7 +286,7 @@
 .world-note {
   margin-top: 9px !important;
   text-align: center;
-  font-size: 9px;
+  font-size: 10.5px;
   color: var(--vk-tertiary);
 }
 
@@ -299,7 +299,7 @@
 }
 
 .pagination span {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--vk-secondary);
 }
 
@@ -321,7 +321,7 @@
 }
 
 .bottom-note {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.5;
   color: var(--vk-secondary);
   margin-top: 16px !important;
@@ -473,7 +473,7 @@
 }
 
 .repeat-chips>span {
-  font-size: 10px;
+  font-size: 11.5px;
   color: var(--vk-secondary);
   margin-left: 4px;
 }
@@ -541,7 +541,7 @@
 }
 
 .dial-caption {
-  font-size: 9px;
+  font-size: 10.5px;
   color: var(--vk-tertiary);
 }
 
@@ -582,7 +582,7 @@
 }
 
 .laps-heading>span {
-  font-size: 10px;
+  font-size: 11.5px;
   color: var(--vk-secondary);
 }
 
@@ -620,7 +620,7 @@
 }
 
 .lap-row small {
-  font-size: 9px;
+  font-size: 10.5px;
   color: var(--vk-secondary);
 }
 
@@ -634,7 +634,7 @@
 
 .lap-footnote {
   margin-top: 14px !important;
-  font-size: 9px;
+  font-size: 10.5px;
   color: var(--vk-tertiary);
 }
 
@@ -736,7 +736,7 @@
 }
 
 .timer-ring small {
-  font-size: 10px;
+  font-size: 11.5px;
   color: var(--vk-secondary);
 }
 
@@ -1043,7 +1043,7 @@
   flex-direction: column;
   gap: 3px;
   min-height: 52px;
-  font-size: 10px;
+  font-size: 11.5px;
 }
 
 .compact .clock-tabs svg {
@@ -1205,7 +1205,7 @@
     margin-bottom: 10px;
   }
   .hero-info p {
-    font-size: 9px;
+    font-size: 10.5px;
   }
   .world-note {
     margin-top: 6px !important;

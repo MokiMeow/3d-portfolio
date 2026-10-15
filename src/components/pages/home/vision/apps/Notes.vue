@@ -618,43 +618,43 @@ h2 { font-size: 23px; font-weight: 700; }
 .folders h2 { font-size:22px; }
 .folders .vk-row { font-size:14px; gap:8px; padding:10px; min-height:52px; border-radius:16px; }
 .folders .vk-row[aria-pressed=true] { background:#dfc17521; }
-.folders .section-label { font-size:10px; letter-spacing:.1em; text-transform:uppercase; padding-left:10px; }
+.folders .section-label { font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; padding-left:10px; }
 .tags-heading { margin-top:14px; }
 .tags { gap:5px; padding:4px; }
-.tags button { min-height:44px; font-size:11px; padding:0 10px; }
-.folder-footer { font-size:11px; line-height:1.8; padding:20px 8px 4px; }
+.tags button { min-height:44px; font-size:12px; padding:0 10px; }
+.folder-footer { font-size:12px; line-height:1.8; padding:20px 8px 4px; }
 .folder-footer small { color:var(--vk-secondary); }
 .local-saved-dot { display:inline-block; width:5px; height:5px; background:#b9d8a4; border-radius:50%; margin-right:5px; }
 .notes-list { flex-basis:220px; border-radius:24px; background:#ffffff0a; }
 .list-heading { padding:18px 14px 12px; }
 .list-heading .compose { width:44px; height:44px; }
-.list-heading .eyebrow { font-size:11px; }
+.list-heading .eyebrow { font-size:12px; }
 .list-heading h1 { font-size:22px; }
 .search-wrap { margin:0 12px 6px; }
 .search-wrap .search { font-size:14px; }
 .note-row { padding:12px; min-height:94px; border-radius:18px; }
 .note-summary strong { font-size:14px; line-height:1.35; }
 .note-preview { font-size:12px; line-height:1.5; }
-.note-folder { font-size:10px; }
-.note-groups .section-label { font-size:11px; letter-spacing:.03em; }
-.note-attachment { display:flex; align-items:center; gap:5px; font-size:10px; color:#f5d891; margin-top:2px; }
+.note-folder { font-size:11.5px; }
+.note-groups .section-label { font-size:12px; letter-spacing:.03em; }
+.note-attachment { display:flex; align-items:center; gap:5px; font-size:11.5px; color:#f5d891; margin-top:2px; }
 .note-attachment :deep(svg) { width:13px; height:13px; }
 .sketch-preview { width:100%; height:54px; border-radius:9px; background:#faf6e8; margin-top:5px; }
 .sketch-preview svg { width:100%; height:100%; }
 .paper-panel { background:linear-gradient(130deg,#fffdf7,#f4f0e5); box-shadow:inset 0 1px 0 #fff; }
 .editor-top { padding:12px 18px 8px; }
-.editor-date { font-size:11px; }
+.editor-date { font-size:12px; }
 .writing-scroll { padding:8px 28px 24px; }
 .note-title { font-size:28px !important; letter-spacing:-.035em; }
-.writing-tags { font-size:11px; margin-bottom:8px; }
+.writing-tags { font-size:12px; margin-bottom:8px; }
 .editor-footer { padding-bottom:14px; gap:8px; }
-.word-count { font-size:10px; }
+.word-count { font-size:11.5px; }
 .saved-check { color:#6a864b; }
 .format-ornament { padding:6px; }
 .format-ornament button { width:44px; height:44px; flex-basis:44px; }
-.list-footer { font-size:11px; padding:12px; }
+.list-footer { font-size:12px; padding:12px; }
 @container(max-width:880px) and (min-width:701px) { .notes-list { flex-basis:240px; } }
-@container(max-width:700px) { .notes-workspace { gap:0; } .notes-list { flex:1; } .list-heading { padding:20px 18px 14px; } .list-heading h1 { font-size:28px; } .note-row { min-height:98px; padding:14px; } .note-summary strong { font-size:16px; } .note-preview { font-size:13px; } .note-folder { font-size:11px; } .note-groups { padding:0 10px 12px; } .folders .vk-row { min-height:52px; font-size:16px; } .writing-scroll { padding:10px 20px 24px; } .format-ornament button { width:44px; height:44px; flex-basis:44px; } }
+@container(max-width:700px) { .notes-workspace { gap:0; } .notes-list { flex:1; } .list-heading { padding:20px 18px 14px; } .list-heading h1 { font-size:28px; } .note-row { min-height:98px; padding:14px; } .note-summary strong { font-size:16px; } .note-preview { font-size:13px; } .note-folder { font-size:12px; } .note-groups { padding:0 10px 12px; } .folders .vk-row { min-height:52px; font-size:16px; } .writing-scroll { padding:10px 20px 24px; } .format-ornament button { width:44px; height:44px; flex-basis:44px; } }
 
 .saved-check { display:inline-flex; vertical-align:middle; margin-right:3px; }.saved-check :deep(svg) { width:11px; height:11px; }
 </style>

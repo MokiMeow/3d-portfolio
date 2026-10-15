@@ -699,25 +699,25 @@ h1, h2, p { margin: 0; }
 .app-header h1 { font-size:22px; }.app-header p { font-size:12px; }
 .connect-screen { display:grid; grid-template-columns:1.1fr 1fr; align-items:center; gap:42px; padding:20px 28px; text-align:left; }
 .connection-info { display:flex; flex-direction:column; align-items:flex-start; gap:18px; }
-.connection-eyebrow { font-size:10px; letter-spacing:.17em; color:#c5d9ee; font-weight:650; }
+.connection-eyebrow { font-size:11.5px; letter-spacing:.17em; color:#c5d9ee; font-weight:650; }
 .connection-info h2 { font-size:clamp(30px,3.6cqw,43px); letter-spacing:-.045em; line-height:1.08; max-width:400px; text-wrap:balance; }
 .connection-info>.vk-body { font-size:15px; line-height:1.6; max-width:350px; }
-.connection-features { display:flex; flex-wrap:wrap; gap:16px; color:#d5e2ee; font-size:11px; }
+.connection-features { display:flex; flex-wrap:wrap; gap:16px; color:#d5e2ee; font-size:12px; }
 .connection-features>span { display:inline-flex; gap:6px; align-items:center; }
 .connection-features :deep(svg) { width:16px; height:16px; }
 .mac-card { padding:16px; gap:12px; width:100%; border-radius:24px; }
-.mac-card>div { flex:1; }.mac-card strong { font-size:14px; }.mac-card p { font-size:11px; }
+.mac-card>div { flex:1; }.mac-card strong { font-size:14px; }.mac-card p { font-size:12px; }
 .device-symbol { display:grid; place-items:center; width:40px; height:40px; border-radius:12px; background:#ffffff12; }.device-symbol :deep(svg){width:24px;height:24px;}
 .connect-button { min-height:44px; font-size:14px; padding:0 18px; }
-.connection-footnote { font-size:11px; line-height:1.6; color:var(--vk-secondary); }
+.connection-footnote { font-size:12px; line-height:1.6; color:var(--vk-secondary); }
 .desktop-frame { border-radius:18px; }
 .connected-desktop { gap:12px; }
 .desktop-lettering { opacity:.5; right:6%; top:23%; }.desktop-lettering h2 { font-size:40px; }
 .display-modes { padding:3px; }.display-modes>button { font-size:12px; padding:0 12px; min-height:44px; }
 .display-toolbar { padding:4px 8px; }.display-toolbar .disconnect { font-size:12px; }
 .dock { padding:8px 12px 10px; }.dock-item { width:44px; height:44px; border-radius:12px; box-shadow:inset 0 1px 0 #ffffff40,0 4px 8px #0003; }
-@container(max-width:800px) { .connect-screen { grid-template-columns:1fr; gap:20px; padding:12px 20px 24px; justify-items:center; } .connect-screen :deep(.display-preview-art) { max-width:430px; } .connection-info { align-items:center; text-align:center; gap:14px; max-width:460px; } .connection-info h2 { font-size:31px; } .connection-features { justify-content:center; } .mac-card { flex-direction:row; text-align:left; } .device-symbol { display:none; } .connect-button { width:auto; } .connection-footnote { font-size:10px; } }
-@container(max-width:540px) { .mac-layout { padding:18px; gap:10px; } .app-header h1 { font-size:22px; } .app-header p { font-size:11px; } .connect-screen { padding:4px 0 20px; gap:16px; } .connect-screen :deep(.display-preview-art) { max-width:285px; padding-top:6px; } .connection-info h2 { font-size:28px; } .connection-info>.vk-body { font-size:13px; } .connection-eyebrow { display:none; } .connection-features { font-size:10px; gap:12px; } .mac-card { padding:14px; } .connection-footnote { display:none; } .display-toolbar { flex-wrap:wrap; width:100%; gap:4px; } .display-modes>button { font-size:11px; padding:0 10px; } .desktop-controls { gap:6px; } .dock { padding:6px 8px 9px; } .display-toolbar .disconnect { padding:0 8px; } }
+@container(max-width:800px) { .connect-screen { grid-template-columns:1fr; gap:20px; padding:12px 20px 24px; justify-items:center; } .connect-screen :deep(.display-preview-art) { max-width:430px; } .connection-info { align-items:center; text-align:center; gap:14px; max-width:460px; } .connection-info h2 { font-size:31px; } .connection-features { justify-content:center; } .mac-card { flex-direction:row; text-align:left; } .device-symbol { display:none; } .connect-button { width:auto; } .connection-footnote { font-size:11.5px; } }
+@container(max-width:540px) { .mac-layout { padding:18px; gap:10px; } .app-header h1 { font-size:22px; } .app-header p { font-size:12px; } .connect-screen { padding:4px 0 20px; gap:16px; } .connect-screen :deep(.display-preview-art) { max-width:285px; padding-top:6px; } .connection-info h2 { font-size:28px; } .connection-info>.vk-body { font-size:13px; } .connection-eyebrow { display:none; } .connection-features { font-size:11.5px; gap:12px; } .mac-card { padding:14px; } .connection-footnote { display:none; } .display-toolbar { flex-wrap:wrap; width:100%; gap:4px; } .display-modes>button { font-size:12px; padding:0 10px; } .desktop-controls { gap:6px; } .dock { padding:6px 8px 9px; } .display-toolbar .disconnect { padding:0 8px; } }
 @container(max-height:560px) and (min-width:801px) { .connect-screen { padding:8px 24px; gap:28px; } .connection-info { gap:14px; } .connection-info h2 { font-size:35px; } .connection-footnote { display:none; } .mac-layout { padding:18px; gap:12px; } }
 
 </style>

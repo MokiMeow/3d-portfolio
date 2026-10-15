@@ -1508,7 +1508,7 @@ onBeforeUnmount(() => {
 .encounter-app .welcome-panel .vk-body { max-width:310px; font-size:16px; line-height:1.5; }
 .encounter-app .intro-butterfly { display:none; }
 .encounter-app .welcome-panel .begin-button { min-height:44px; margin-top:4px; }
-.encounter-app .experience-facts { display:flex; gap:24px; margin-top:7px; font-size:11px; color:#e0e4cd; }
+.encounter-app .experience-facts { display:flex; gap:24px; margin-top:7px; font-size:12px; color:#e0e4cd; }
 .encounter-app .experience-facts span { display:flex; flex-direction:column; gap:3px; }
 .encounter-app .experience-facts b { color:#f5f5dc; font-size:14px; }
 .encounter-app .field-tabs { min-height:44px; flex:none; }
@@ -1538,7 +1538,7 @@ onBeforeUnmount(() => {
  .encounter-app .welcome-panel .short-welcome { display:none; }
  .encounter-app .welcome-panel h2 br { display:none; }
  .encounter-app .welcome-panel .vk-body { display:block; font-size:14px; max-width:280px; }
- .encounter-app .experience-facts { gap:18px; font-size:10px; margin:0; }
+ .encounter-app .experience-facts { gap:18px; font-size:11.5px; margin:0; }
  .encounter-app .experience-facts b { font-size:12px; }
  .encounter-app .scene-tabs { max-height:56px; }
 }

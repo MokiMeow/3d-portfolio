@@ -555,11 +555,11 @@ form label {
 .freeform-app .toolbar button { flex-shrink: 0; height: 56px; }
 .minimap { position: absolute; right: 14px; bottom: 14px; width: 122px; height: 86px; padding: 6px; overflow: hidden; background: rgb(31 42 48 / .88); box-shadow: inset 0 0 0 1px #ffffff24, 0 5px 15px #0003; }
 .minimap svg { width: 100%; height: 57px; border-radius: 10px; overflow: hidden; }
-.minimap span { display: block; font-size: 10px; color: #ffffffb0; letter-spacing: .04em; }
+.minimap span { display: block; font-size: 11.5px; color: #ffffffb0; letter-spacing: .04em; }
 .photo-picker { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
 .photo-picker button { padding: 7px 7px 12px; text-align: left; }
 .photo-picker img { width: 100%; aspect-ratio: 3/2; object-fit: cover; border-radius: 20px; display: block; }
 .photo-picker span { display: block; padding: 8px 7px 0; font-size: 14px; }
 @container (max-width: 650px) { .board-local { display: none; } .freeform-app .layout { padding: 16px; } }
 @container (max-width: 450px) { .freeform-app .layout { padding: 12px; } .freeform-app .board-title { white-space: normal; font-size: 19px; line-height: 1.15; } .minimap { width: 86px; height: 66px; right: 8px; bottom: 8px; } .minimap svg { height: 40px; } .freeform-app .toolbar { width: 100%; } }
-@container (max-height: 530px) { .freeform-app .workspace { gap: 7px; } .freeform-app .heading { min-height: 54px; } .freeform-app .board-title { font-size: 23px; } .freeform-app .toolbar button { height: 48px; } .tool-label { font-size: 10px; } }
+@container (max-height: 530px) { .freeform-app .workspace { gap: 7px; } .freeform-app .heading { min-height: 54px; } .freeform-app .board-title { font-size: 23px; } .freeform-app .toolbar button { height: 48px; } .tool-label { font-size: 11.5px; } }
