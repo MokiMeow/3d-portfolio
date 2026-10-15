@@ -387,8 +387,7 @@ function collectionKeys(event: KeyboardEvent): void {
             <button v-hover class="environment vk-platter" @click="watchIn('room')"><span class="cinema-art"><YtIcon name="screen" /></span><b>Cinema</b></button>
             <button v-for="place in environments" :key="place.id" v-hover class="environment vk-platter"
               :aria-pressed="vision?.environment.value === place.id" @click="watchIn(place.id)">
-              <img v-if="place.kind === 'photo'" :src="'/vision/env/' + place.id + '-thumb.webp'" alt="" loading="lazy" />
-              <span v-else class="cinema-art"><YtIcon :name="place.id === 'moon' ? 'moon' : 'globe'" /></span><b>{{ place.name }}</b>
+              <img :src="'/vision/env/' + place.id + '-thumb.webp'" alt="" loading="lazy" /><b>{{ place.name }}</b>
             </button>
           </div>
         </template>

@@ -210,31 +210,16 @@ async function enter(id: VisionEnvironmentId, turn: number) {
       });
     }
   } else {
-    // Space: a black sky of stars, one hard sun, and a world to stand on.
-    const sky = stars(now.kind === 'moon' ? 5200 : 4200, 400);
+    // Jupiter: a black sky of stars, one hard sun, and a small cold moon to stand on.
+    const sky = stars(4200, 400);
     // The sun sits low and to the side of the wearer: craters throw long shadows and the worlds overhead show most of their lit face.
-    const sun = new DirectionalLight(0xfff4e6, now.kind === 'moon' ? 3.2 : 2.7);
+    const sun = new DirectionalLight(0xfff4e6, 2.7);
     sun.position.set(-230, 64, 70);
-    scene.add(sun, new AmbientLight(0x3a4260, now.kind === 'moon' ? 0.3 : 0.55));
+    scene.add(sun, new AmbientLight(0x3a4260, 0.55));
     owned.push({ dispose: () => { sun.dispose(); } });
     const world = new Group();
     scene.add(world);
-    if (now.kind === 'moon') {
-      regolith('#a3a3a1', 1, 190);
-      const map = await picture('earth-map.webp');
-      if (turn !== request) return;
-      // Earth is drawn larger than life, the way it feels in the Apollo photographs.
-      const earth = new Mesh(keep(new SphereGeometry(21, 72, 48)), keep(new MeshStandardMaterial({ map, roughness: 0.8, metalness: 0, emissive: new Color(0x0a1830), emissiveIntensity: 0.6 })));
-      earth.position.set(34, 74, -230); earth.rotation.z = 0.41;
-      const air = new Mesh(keep(new SphereGeometry(21.9, 56, 36)), keep(new MeshBasicMaterial({ color: 0x5aa8ff, transparent: true, opacity: 0.2, side: BackSide, blending: AdditiveBlending, depthWrite: false })));
-      air.position.copy(earth.position);
-      world.add(earth, air);
-      const earthLight = new DirectionalLight(0x9cc4ff, 0.18);
-      earthLight.position.copy(earth.position);
-      scene.add(earthLight);
-      owned.push({ dispose: () => earthLight.dispose() });
-      ticks.push((seconds) => { earth.rotation.y = 2.2 + seconds * 0.012; sky.rotation.y = seconds * 0.0012; });
-    } else {
+    {
       regolith('#c6b79b', 0.75, 120);
       const map = await picture('jupiter-map.webp');
       if (turn !== request) return;
