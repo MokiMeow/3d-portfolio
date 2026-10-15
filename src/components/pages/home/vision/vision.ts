@@ -36,7 +36,8 @@ export type VisionAppId = (typeof VISION_APPS)[number]['id'];
  * Places to be. `room` is passthrough: the real 3D room behind the glass.
  * `photo` places are 360-degree photographs from Poly Haven (CC0), named for where they were taken;
  * The Moon is a full 360-degree path-traced render: Poly Haven's CC0 lunar terrain, an Earth from NASA's Blue
- * Marble and Black Marble maps, and NASA's Deep Star Maps sky. `jupiter` is built in three.js from NASA's maps.
+ * Marble and Black Marble maps, and NASA's Deep Star Maps sky. Jupiter is rendered the same way, from orbit over
+ * Europa: the USGS Voyager/Galileo mosaic below, Cassini's map of Jupiter above (shown larger than life).
  * `life` adds something that moves; `sound` picks the ambience; `night` marks places that are already dark.
  */
 export const VISION_ENVIRONMENTS = [
@@ -55,7 +56,7 @@ export const VISION_ENVIRONMENTS = [
   { id: 'fireside', name: 'Fireside', line: 'A warm room and a crackling stove', kind: 'photo', life: 'none', sound: 'fire', night: true },
   { id: 'night', name: 'Milky Way', line: 'A clear night, far from any city', kind: 'photo', life: 'meteors', sound: 'night', night: true },
   { id: 'moon', name: 'The Moon', line: 'Earthrise over the regolith', kind: 'photo', life: 'none', sound: 'space', night: true },
-  { id: 'jupiter', name: 'Jupiter', line: 'The view from a small, cold moon', kind: 'jupiter', life: 'none', sound: 'space', night: true },
+  { id: 'jupiter', name: 'Jupiter', line: 'Over Europa’s ice, with Jupiter overhead', kind: 'photo', life: 'none', sound: 'space', night: true },
 ] as const;
 export type VisionEnvironment = (typeof VISION_ENVIRONMENTS)[number];
 export type VisionEnvironmentId = VisionEnvironment['id'];

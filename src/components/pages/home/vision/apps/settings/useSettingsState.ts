@@ -313,7 +313,7 @@ export function useSettingsState() {
       return;
     }
     img.dataset.fallback = 'true';
-    img.src = '/vision/env/' + (id === 'jupiter' ? 'jupiter-map.webp' : id + '-4k.webp');
+    img.src = '/vision/env/' + id + '-4k.webp';
   }
   function checkUpdate() {
     if (updateState.value === 'checking') return;

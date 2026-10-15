@@ -1,16 +1,13 @@
 <script setup lang="ts">
 import {
-  AdditiveBlending, AmbientLight, BackSide, BufferGeometry, CanvasTexture, Color, DirectionalLight, Float32BufferAttribute,
-  Group, IcosahedronGeometry, InstancedMesh, LinearFilter, LinearMipmapLinearFilter, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PerspectiveCamera,
-  Quaternion, RepeatWrapping, Vector3,
-  PlaneGeometry, Points, PointsMaterial, SRGBColorSpace, Scene, SphereGeometry, TextureLoader, WebGLRenderer,
-  type Material, type Texture,
+  AdditiveBlending, BufferGeometry, CanvasTexture, Color, Float32BufferAttribute, LinearFilter, LinearMipmapLinearFilter,
+  Mesh, MeshBasicMaterial, PerspectiveCamera, PlaneGeometry, Points, PointsMaterial, SRGBColorSpace, Scene,
+  SphereGeometry, TextureLoader, WebGLRenderer, type Texture,
 } from 'three';
 import { VISION_ENVIRONMENTS, type VisionEnvironmentId } from './vision';
 
 /**
- * The place around the wearer. Photographic places are a 360-degree picture on the inside of a sphere;
- * the Moon and Jupiter are small three.js scenes. The wearer can look around by dragging, the view
+ * The place around the wearer: a 360-degree picture on the inside of a sphere. The wearer can look around by dragging, the view
  * leans gently toward the pointer, and each place has something that moves. `room` draws nothing:
  * the real room shows through. Immersion opens the place from the centre of view outward.
  */
@@ -89,81 +86,6 @@ function drift(count: number, box: [number, number, number], size: number, colou
     attribute.needsUpdate = true;
   };
 }
-function stars(count: number, radius: number) {
-  const positions: number[] = [], colours: number[] = [], shade = new Color();
-  for (let i = 0; i < count; i++) {
-    // A third of them gather into a band across the sky, the way the Milky Way does.
-    const band = i % 3 === 0, u = Math.random() * Math.PI * 2, v = band ? (Math.random() - 0.5) * 0.5 : Math.acos(2 * Math.random() - 1) - Math.PI / 2;
-    const x = Math.cos(v) * Math.cos(u), y = Math.sin(v), z = Math.cos(v) * Math.sin(u);
-    // tilt the band
-    positions.push(radius * x, radius * (y * 0.8 + z * 0.6), radius * (z * 0.8 - y * 0.6));
-    shade.setHSL(0.55 + Math.random() * 0.12, 0.35, 0.55 + Math.random() * 0.45);
-    colours.push(shade.r, shade.g, shade.b);
-  }
-  const geometry = keep(new BufferGeometry());
-  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('color', new Float32BufferAttribute(colours, 3));
-  const points = new Points(geometry, keep(new PointsMaterial({ size: 1.7, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false })));
-  points.frustumCulled = false;
-  scene!.add(points);
-  return points;
-}
-/** A cratered plain that falls away to a near horizon. */
-function regolith(colour: string, rough: number, craters: number) {
-  const size = 520, cells = 240;
-  const geometry = keep(new PlaneGeometry(size, size, cells, cells));
-  geometry.rotateX(-Math.PI / 2);
-  const position = geometry.getAttribute('position');
-  const hash = (x: number, z: number) => { const s = Math.sin(x * 127.1 + z * 311.7) * 43758.5453; return s - Math.floor(s); };
-  const smooth = (x: number, z: number) => {
-    const ix = Math.floor(x), iz = Math.floor(z), fx = x - ix, fz = z - iz, sx = fx * fx * (3 - 2 * fx), sz = fz * fz * (3 - 2 * fz);
-    return (hash(ix, iz) * (1 - sx) + hash(ix + 1, iz) * sx) * (1 - sz) + (hash(ix, iz + 1) * (1 - sx) + hash(ix + 1, iz + 1) * sx) * sz;
-  };
-  const pits = Array.from({ length: craters }, (_, i) => ({ x: (hash(i, 7) - 0.5) * size * 0.9, z: (hash(i, 19) - 0.5) * size * 0.9, r: 2.5 + hash(i, 31) ** 3 * 34 }));
-  for (let i = 0; i < position.count; i++) {
-    const x = position.getX(i), z = position.getZ(i), far = Math.hypot(x, z);
-    let y = (smooth(x * 0.03, z * 0.03) - 0.5) * 9 * rough + (smooth(x * 0.11, z * 0.11) - 0.5) * 2.2 * rough + (smooth(x * 0.6, z * 0.6) - 0.5) * 0.35;
-    for (const pit of pits) {
-      const d = Math.hypot(x - pit.x, z - pit.z) / pit.r;
-      if (d < 1.6) y += d < 1 ? -pit.r * 0.22 * (1 - d * d) + pit.r * 0.05 * d * d : pit.r * 0.05 * Math.max(0, 1.6 - d) / 0.6;
-    }
-    // Flat where the wearer stands, then curving down to a horizon that is close, as on a small world.
-    y *= Math.min(1, Math.max(0.12, (far - 6) / 30));
-    position.setY(i, y - far * far * 0.00042 - 1.7);
-  }
-  geometry.computeVertexNormals();
-  // Fine grit, so the surface near the feet is not smooth.
-  const grain = document.createElement('canvas');
-  grain.width = grain.height = 256;
-  const pen = grain.getContext('2d')!, pixels = pen.createImageData(256, 256);
-  for (let i = 0; i < 256 * 256; i++) { const v = 96 + hash(i % 256, Math.floor(i / 256)) * 110 + hash(i * 0.37, 3.1) * 40; pixels.data.set([v, v, v, 255], i * 4); }
-  pen.putImageData(pixels, 0, 0);
-  const grit = keep(new CanvasTexture(grain));
-  grit.wrapS = grit.wrapT = RepeatWrapping; grit.repeat.set(90, 90);
-  const material = keep(new MeshStandardMaterial({ color: new Color(colour), roughness: 1, metalness: 0, bumpMap: grit, bumpScale: 0.6 }));
-  const ground = new Mesh(geometry, material);
-  scene!.add(ground);
-  // Scattered boulders, from pebbles at the feet to blocks on the horizon.
-  const rock = keep(new IcosahedronGeometry(1, 2)), count = 220;
-  const shape = rock.getAttribute('position');
-  for (let i = 0; i < shape.count; i++) { const k = 0.8 + hash(shape.getX(i) * 9.1 + shape.getY(i) * 3.3, shape.getZ(i) * 5.3) * 0.4; shape.setXYZ(i, shape.getX(i) * k, shape.getY(i) * k * 0.7, shape.getZ(i) * k); }
-  rock.computeVertexNormals();
-  const rocks = new InstancedMesh(rock, material, count), place = new Matrix4(), turn = new Quaternion(), at = new Vector3(), grown = new Vector3();
-  for (let i = 0; i < count; i++) {
-    const angle = hash(i, 3) * Math.PI * 2, far = 7 + hash(i, 11) ** 1.7 * 190, x = Math.cos(angle) * far, z = Math.sin(angle) * far;
-    const scale = (0.05 + hash(i, 23) ** 4 * 1.5) * (0.4 + far / 140);
-    turn.setFromAxisAngle(at.set(hash(i, 5) - 0.5, hash(i, 7) - 0.5, hash(i, 9) - 0.5).normalize(), hash(i, 13) * 6.28);
-    // Sit each one on the surface: sample the same height the plain uses.
-    let y = (smooth(x * 0.03, z * 0.03) - 0.5) * 9 * rough + (smooth(x * 0.11, z * 0.11) - 0.5) * 2.2 * rough;
-    y = y * Math.min(1, Math.max(0.12, (far - 6) / 30)) - far * far * 0.00042 - 1.7;
-    rocks.setMatrixAt(i, place.compose(at.set(x, y + scale * 0.25, z), turn, grown.set(scale, scale, scale)));
-  }
-  rocks.instanceMatrix.needsUpdate = true;
-  rocks.frustumCulled = false;
-  scene!.add(rocks);
-  return ground;
-}
-
 async function enter(id: VisionEnvironmentId, turn: number) {
   if (!scene || !renderer) return;
   const now = VISION_ENVIRONMENTS.find((item) => item.id === id)!;
@@ -171,76 +93,42 @@ async function enter(id: VisionEnvironmentId, turn: number) {
   loaded.value = false;
   look.yaw = look.pitch = look.spinX = look.spinY = 0;
   const ticks: ((seconds: number, delta: number) => void)[] = [];
-  if (now.kind === 'photo') {
-    const big = renderer.capabilities.maxTextureSize >= 8192 && (host.value?.clientWidth ?? 0) > 900;
-    const texture = await picture(`${id}-${big ? '6k' : '4k'}.webp`);
-    if (turn !== request) return;
-    const geometry = keep(new SphereGeometry(100, 72, 48));
-    // Seen from inside, so the picture is mirrored back the right way round.
-    geometry.scale(-1, 1, 1);
-    tint = keep(new MeshBasicMaterial({ map: texture }));
-    const dome = new Mesh(geometry, tint);
-    // The middle of each photograph is its best view; turn it to face the wearer.
-    dome.rotation.y = -Math.PI / 2;
-    scene.add(dome);
-    if (now.life === 'snow') {
-      const flake = soft(32, [[0, 'rgba(255,255,255,1)'], [0.4, 'rgba(255,255,255,.7)'], [1, 'rgba(255,255,255,0)']]);
-      ticks.push(drift(1400, [46, 30, 46], 0.2, '#ffffff', 0.9, flake, () => [0.5 + Math.random() * 0.5, -(1.1 + Math.random() * 1.1), 0.2], false));
-    } else if (now.life === 'motes') {
-      const mote = soft(32, [[0, 'rgba(255,240,210,1)'], [1, 'rgba(255,240,210,0)']]);
-      ticks.push(drift(180, [34, 9, 34], 0.045, '#fff1d6', 0.5, mote, () => [(Math.random() - 0.5) * 0.2, 0.03 + Math.random() * 0.06, (Math.random() - 0.5) * 0.2]));
-    } else if (now.life === 'mist') {
-      const cloud = soft(128, [[0, 'rgba(235,240,238,.5)'], [1, 'rgba(235,240,238,0)']]);
-      ticks.push(drift(46, [70, 5, 70], 26, '#eef2f0', 0.2, cloud, () => [0.35 + Math.random() * 0.3, 0, 0.08], false));
-    } else if (now.life === 'meteors') {
-      // Now and then a meteor: a short bright streak that fades as it falls.
-      const streak = soft(64, [[0, 'rgba(255,255,255,1)'], [0.2, 'rgba(200,220,255,.5)'], [1, 'rgba(200,220,255,0)']]);
-      const material = keep(new MeshBasicMaterial({ map: streak, transparent: true, opacity: 0, depthWrite: false, blending: AdditiveBlending }));
-      const meteor = new Mesh(keep(new PlaneGeometry(9, 0.22)), material);
-      scene.add(meteor);
-      let next = 4, life = 0;
-      ticks.push((seconds, delta) => {
-        if (life <= 0 && seconds > next) {
-          const angle = Math.random() * Math.PI * 2;
-          meteor.position.set(Math.cos(angle) * 60, 34 + Math.random() * 22, Math.sin(angle) * 60);
-          meteor.lookAt(0, 0, 0); meteor.rotateZ(-0.5 - Math.random() * 0.5);
-          life = 1; next = seconds + 5 + Math.random() * 9;
-        }
-        if (life > 0) { life -= delta * 1.5; meteor.translateX(-delta * 34); material.opacity = Math.max(0, Math.sin(life * Math.PI)) * 0.95; }
-      });
-    }
-  } else {
-    // Jupiter: a black sky of stars, one hard sun, and a small cold moon to stand on.
-    const sky = stars(4200, 400);
-    // The sun sits low and to the side of the wearer: craters throw long shadows and the worlds overhead show most of their lit face.
-    const sun = new DirectionalLight(0xfff4e6, 2.7);
-    sun.position.set(-230, 64, 70);
-    scene.add(sun, new AmbientLight(0x3a4260, 0.55));
-    owned.push({ dispose: () => { sun.dispose(); } });
-    const world = new Group();
-    scene.add(world);
-    {
-      regolith('#c6b79b', 0.75, 120);
-      const map = await picture('jupiter-map.webp');
-      if (turn !== request) return;
-      const giant = new Mesh(keep(new SphereGeometry(150, 96, 64)), keep(new MeshStandardMaterial({ map, roughness: 1, metalness: 0, emissiveMap: map, emissive: new Color(0x2a2218), emissiveIntensity: 1 })));
-      giant.position.set(30, 96, -330); giant.rotation.z = 0.05;
-      const glow = new Mesh(keep(new PlaneGeometry(560, 560)), keep(new MeshBasicMaterial({ map: soft(128, [[0, 'rgba(255,205,150,0)'], [0.5, 'rgba(255,205,150,0)'], [0.56, 'rgba(255,205,150,.2)'], [1, 'rgba(255,205,150,0)']]), transparent: true, depthWrite: false, blending: AdditiveBlending })));
-      glow.position.copy(giant.position);
-      // Two of the other moons, small and bright against the dark.
-      const moons = [[-150, 150, -300, 2.2, '#e6dcc2'], [210, 74, -260, 1.5, '#cfd6de']].map(([x, y, z, r, colour]) => {
-        const moon = new Mesh(keep(new SphereGeometry(r as number, 24, 16)), keep(new MeshStandardMaterial({ color: new Color(colour as string), roughness: 1 })));
-        moon.position.set(x as number, y as number, z as number);
-        return moon;
-      });
-      world.add(giant, glow, ...moons);
-      // Jupiter's light: a warm fill from the planet itself.
-      const shine = new DirectionalLight(0xffc58f, 0.7);
-      shine.position.copy(giant.position);
-      scene.add(shine);
-      owned.push({ dispose: () => shine.dispose() });
-      ticks.push((seconds) => { giant.rotation.y = seconds * 0.02; glow.lookAt(0, 0, 0); sky.rotation.y = seconds * 0.001; });
-    }
+  const big = renderer.capabilities.maxTextureSize >= 8192 && (host.value?.clientWidth ?? 0) > 900;
+  const texture = await picture(`${id}-${big ? '6k' : '4k'}.webp`);
+  if (turn !== request) return;
+  const geometry = keep(new SphereGeometry(100, 72, 48));
+  // Seen from inside, so the picture is mirrored back the right way round.
+  geometry.scale(-1, 1, 1);
+  tint = keep(new MeshBasicMaterial({ map: texture }));
+  const dome = new Mesh(geometry, tint);
+  // The middle of each photograph is its best view; turn it to face the wearer.
+  dome.rotation.y = -Math.PI / 2;
+  scene.add(dome);
+  if (now.life === 'snow') {
+    const flake = soft(32, [[0, 'rgba(255,255,255,1)'], [0.4, 'rgba(255,255,255,.7)'], [1, 'rgba(255,255,255,0)']]);
+    ticks.push(drift(1400, [46, 30, 46], 0.2, '#ffffff', 0.9, flake, () => [0.5 + Math.random() * 0.5, -(1.1 + Math.random() * 1.1), 0.2], false));
+  } else if (now.life === 'motes') {
+    const mote = soft(32, [[0, 'rgba(255,240,210,1)'], [1, 'rgba(255,240,210,0)']]);
+    ticks.push(drift(180, [34, 9, 34], 0.045, '#fff1d6', 0.5, mote, () => [(Math.random() - 0.5) * 0.2, 0.03 + Math.random() * 0.06, (Math.random() - 0.5) * 0.2]));
+  } else if (now.life === 'mist') {
+    const cloud = soft(128, [[0, 'rgba(235,240,238,.5)'], [1, 'rgba(235,240,238,0)']]);
+    ticks.push(drift(46, [70, 5, 70], 26, '#eef2f0', 0.2, cloud, () => [0.35 + Math.random() * 0.3, 0, 0.08], false));
+  } else if (now.life === 'meteors') {
+    // Now and then a meteor: a short bright streak that fades as it falls.
+    const streak = soft(64, [[0, 'rgba(255,255,255,1)'], [0.2, 'rgba(200,220,255,.5)'], [1, 'rgba(200,220,255,0)']]);
+    const material = keep(new MeshBasicMaterial({ map: streak, transparent: true, opacity: 0, depthWrite: false, blending: AdditiveBlending }));
+    const meteor = new Mesh(keep(new PlaneGeometry(9, 0.22)), material);
+    scene.add(meteor);
+    let next = 4, life = 0;
+    ticks.push((seconds, delta) => {
+      if (life <= 0 && seconds > next) {
+        const angle = Math.random() * Math.PI * 2;
+        meteor.position.set(Math.cos(angle) * 60, 34 + Math.random() * 22, Math.sin(angle) * 60);
+        meteor.lookAt(0, 0, 0); meteor.rotateZ(-0.5 - Math.random() * 0.5);
+        life = 1; next = seconds + 5 + Math.random() * 9;
+      }
+      if (life > 0) { life -= delta * 1.5; meteor.translateX(-delta * 34); material.opacity = Math.max(0, Math.sin(life * Math.PI)) * 0.95; }
+    });
   }
   tick = (seconds, delta) => ticks.forEach((step) => step(seconds, delta));
   applyTone();
