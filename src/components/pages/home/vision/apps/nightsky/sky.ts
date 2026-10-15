@@ -31,6 +31,7 @@ export class Planetarium {
     private atmosphere = atmosphere();
     private moon = lunarSphere();
     private milkyMaterial: THREE.ShaderMaterial;
+    private skyMap!: THREE.Texture;
     private pulse: ReturnType<typeof setInterval> | undefined;
     private meteorAge = 2;
     private nextMeteor = 0;
@@ -66,8 +67,6 @@ export class Planetarium {
             const positions: number[] = [], colours: number[] = [], magnitudes: number[] = [], phases: number[] = [];
             let seed = 417;
             const random = (): number => { seed = (1664525 * seed + 1013904223) >>> 0; return seed / 4294967296; };
-            const pole = equatorial(12.8595, 27.1283, 1);
-            const u = new THREE.Vector3(0, 1, 0).cross(pole).normalize(), v = pole.clone().cross(u).normalize();
             const add = (p: THREE.Vector3, magnitude: number, bv: number): void => {
                 positions.push(p.x, p.y, p.z);
                 magnitudes.push(magnitude);
@@ -78,16 +77,6 @@ export class Planetarium {
             };
             for (const star of stars)
                 add(equatorial(star.ra, star.dec), star.magnitude, star.bv);
-            for (let i = stars.length; i < 7200; i++) {
-                let p: THREE.Vector3;
-                if (random() < .65) {
-                    const a = random() * 6.283, latitude = (random() + random() + random() - 1.5) * .21;
-                    p = u.clone().multiplyScalar(Math.cos(a)).addScaledVector(v, Math.sin(a)).multiplyScalar(Math.cos(latitude)).addScaledVector(pole, Math.sin(latitude)).multiplyScalar(100);
-                }
-                else
-                    p = equatorial(random() * 24, Math.asin(random() * 2 - 1) / RAD);
-                add(p, 4.5 + random() * 2.4, random() * 1.7 - .2);
-            }
             const geometry = new THREE.BufferGeometry();
             geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
             geometry.setAttribute('color', new THREE.Float32BufferAttribute(colours, 3));
@@ -137,9 +126,13 @@ export class Planetarium {
             }
             this.figureLines=new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(drawing,3)),new THREE.LineBasicMaterial({color:'#c3b7e9',transparent:true,opacity:.16,depthWrite:false,blending:THREE.AdditiveBlending}));
             this.sphere.add(this.figureLines);
-            this.milkyMaterial = new THREE.ShaderMaterial({side:THREE.BackSide,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{pole:{value:pole},u:{value:u},v:{value:v},night:{value:1}},
+            // The faint sky is real: NASA's Deep Star Maps 2020 (Hipparcos, Tycho-2 and Gaia), an equirectangular
+            // map in equatorial coordinates with 0h at the centre and right ascension increasing to the left.
+            this.skyMap = new THREE.TextureLoader().load(`/vision/sky/stars-${compact ? '4k' : '6k'}.webp`, () => this.view?.wake());
+            this.skyMap.colorSpace = THREE.SRGBColorSpace; this.skyMap.generateMipmaps = false; this.skyMap.minFilter = THREE.LinearFilter; this.skyMap.wrapS = THREE.RepeatWrapping;
+            this.milkyMaterial = new THREE.ShaderMaterial({side:THREE.BackSide,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{map:{value:this.skyMap},night:{value:1},gain:{value:2.3}},
                 vertexShader:'varying vec3 direction;void main(){direction=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-                fragmentShader:`varying vec3 direction;uniform vec3 pole;uniform vec3 u;uniform vec3 v;uniform float night;float noise(vec3 p){return .5+.5*sin(p.x+sin(p.y*1.3))*sin(p.z+sin(p.x*.8));}void main(){vec3 p=normalize(direction);float b=dot(p,pole);float a=atan(dot(p,v),dot(p,u));float cloud=.5*noise(p*19.)+.3*noise(p*43.)+.2*noise(p*91.);float band=exp(-b*b*42.);float core=exp(-pow(b+.017*sin(a*7.),2.)*310.);float dust=exp(-pow(b-.032*sin(a*4.)-.016*sin(a*13.),2.)*1250.)*(.5+.5*noise(p*32.));float knots=.55+.45*noise(p*8.);float light=max(0.,band*(.035+cloud*.18)+core*knots*.11-dust*.16)*night;vec3 color=mix(vec3(.34,.40,.60),vec3(.65,.57,.43),core*cloud);gl_FragColor=vec4(color,light);}`});
+                fragmentShader:`varying vec3 direction;uniform sampler2D map;uniform float night;uniform float gain;void main(){vec3 p=normalize(direction);vec2 uv=vec2(fract(.5-atan(p.z,p.x)/6.2831853),.5+asin(clamp(p.y,-1.,1.))/3.1415927);gl_FragColor=vec4(texture2D(map,uv).rgb*gain,night);}`});
             this.sphere.add(new THREE.Mesh(new THREE.SphereGeometry(110,48,32),this.milkyMaterial));
             this.ground=horizon(); this.scene.add(this.ground);
             this.planetary.add(this.moon);
@@ -387,6 +380,7 @@ export class Planetarium {
     }
     dispose(): void {
         clearInterval(this.pulse);
+        this.skyMap?.dispose();
         const c = this.view?.renderer.domElement;
         c?.removeEventListener('pointerdown', this.down);
         c?.removeEventListener('pointermove', this.move);
