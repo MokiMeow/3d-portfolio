@@ -2,7 +2,7 @@
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
 import MacFinder from './mac/Finder.vue';
-import DesktopPreview from './mac/DesktopPreview.vue';
+import UltrawideHero from './mac/UltrawideHero.vue';
 import AppIcon from './music/AppIcon.vue';
 import MacTerminal from './mac/Terminal.vue';
 import MacEditor from './mac/Editor.vue';
@@ -303,17 +303,15 @@ onBeforeUnmount(() => {
       </header>
 
       <section v-if="status !== 'connected'" class="connect-screen vk-scroll" :aria-busy="status === 'connecting'">
-        <DesktopPreview />
+        <UltrawideHero :connecting="status === 'connecting'" />
         <div class="connection-info">
-          <p class="connection-eyebrow">MAC VIRTUAL DISPLAY</p>
           <h2 class="vk-large-title">{{ status === 'connecting' ? 'Making room for you.' : 'Your Mac. A whole new perspective.' }}</h2>
-          <p class="vk-body vk-secondary">Your favourite tools, together on one beautiful, expansive display.</p>
-          <div class="connection-features"><span><AppIcon name="lock" />Private by design</span><span><AppIcon name="browse" />Up to 32:9 Ultrawide</span></div>
-          <div class="mac-card vk-platter"><span class="device-symbol"><AppIcon name="editor" /></span><div><strong class="vk-headline">Demo MacBook</strong><p class="vk-footnote vk-secondary">Interactive local desktop</p></div>
-            <button v-hover class="vk-button primary connect-button" :disabled="status === 'connecting'" @click="connect">{{ status === 'connecting' ? 'Connecting…' : 'Connect' }}</button>
+          <p class="vk-body vk-secondary">One huge, curved display wrapped around you: your tools side by side, with room left over.</p>
+          <div class="connect-row">
+            <button v-hover class="vk-button primary connect-button" :disabled="status === 'connecting'" @click="connect"><AppIcon name="editor" />{{ status === 'connecting' ? 'Connecting…' : 'Connect Demo MacBook' }}</button>
+            <button v-if="status === 'connecting'" v-hover class="vk-button" @click="disconnect">Cancel</button>
           </div>
-          <button v-if="status === 'connecting'" v-hover class="vk-button" @click="disconnect">Cancel connection</button>
-          <p class="connection-footnote">A simulated Mac with Finder, Code and Terminal.<br />Files and commands stay inside this window.</p>
+          <div class="connection-features"><span><AppIcon name="browse" />32:9 Ultrawide</span><span><AppIcon name="lock" />Private by design: a simulated Mac whose files stay in this window</span></div>
         </div>
       </section>
 
@@ -498,8 +496,6 @@ h1, h2, p { margin: 0; }
 .laptop { width: 140px; height: 140px; display: grid; place-items: center; border-radius: 50%; background: #ffffff0d; }
 .laptop svg { width: 115px; height: 95px; }
 .connecting { animation: connect-pulse 1.2s ease-out infinite; }
-.mac-card { padding: 20px; width: min(100%, 570px); display: flex; align-items: center; justify-content: space-between; gap: 20px; text-align: left; }
-.mac-card p { margin-top: 5px; }
 .connect-button { min-height: 60px; }
 .desktop-frame { flex: 1; min-height: 0; position: relative; border: 1px solid #ffffff28; border-radius: 22px; }
 .desktop { position: relative; overflow: hidden; background: #283259; color: #fff; }
@@ -616,7 +612,6 @@ h1, h2, p { margin: 0; }
   .connection { display: none; }
   .desktop-controls { gap: 8px; }
   .display-toolbar { padding: 4px 8px; }
-  .mac-card { flex-direction: column; text-align: center; }
   .connect-screen { padding: 16px 0; }
 }
 @container (max-height: 400px) {
@@ -659,7 +654,6 @@ h1, h2, p { margin: 0; }
   .connect-screen > p { font-size: 15px; line-height: 1.5; }
   .laptop { width: 100px; height: 100px; }
   .laptop svg { width: 88px; height: 76px; }
-  .mac-card { padding: 18px; gap: 16px; }
   .connect-button { width: 100%; min-height: 48px; }
   .connected-desktop { gap: 10px; }
   .menu-bar { padding: 0 2px; gap: 0; width: var(--desktop-viewport); max-width: 100%; }
@@ -697,27 +691,24 @@ h1, h2, p { margin: 0; }
 .mac-root { background:radial-gradient(ellipse at 20% 50%,#7094d12b,transparent 65%); }
 .mac-layout { padding:24px; gap:16px; }
 .app-header h1 { font-size:22px; }.app-header p { font-size:12px; }
-.connect-screen { display:grid; grid-template-columns:1.1fr 1fr; align-items:center; gap:42px; padding:20px 28px; text-align:left; }
-.connection-info { display:flex; flex-direction:column; align-items:flex-start; gap:18px; }
-.connection-eyebrow { font-size:11.5px; letter-spacing:.17em; color:#c5d9ee; font-weight:650; }
-.connection-info h2 { font-size:clamp(30px,3.6cqw,43px); letter-spacing:-.045em; line-height:1.08; max-width:400px; text-wrap:balance; }
-.connection-info>.vk-body { font-size:15px; line-height:1.6; max-width:350px; }
-.connection-features { display:flex; flex-wrap:wrap; gap:16px; color:#d5e2ee; font-size:12px; }
+.connect-screen { display:flex; flex-direction:column; align-items:center; gap:clamp(10px,1.6cqw,18px); padding:2px 6px 14px; text-align:center; }
+.connection-info { display:flex; flex-direction:column; align-items:center; gap:10px; max-width:640px; }
+.connection-info h2 { font-size:clamp(26px,3cqw,38px); letter-spacing:-.045em; line-height:1.08; text-wrap:balance; }
+.connection-info>.vk-body { font-size:15px; line-height:1.55; max-width:600px; text-wrap:balance; }
+.connect-row { display:flex; gap:10px; margin-top:4px; }
+.connect-button { min-height:46px; font-size:14.5px; padding:0 22px; gap:8px; }
+.connect-button :deep(svg) { width:18px; height:18px; }
+.connection-features { display:flex; flex-wrap:wrap; justify-content:center; gap:18px; color:#d5e2ee; font-size:12px; margin-top:2px; }
 .connection-features>span { display:inline-flex; gap:6px; align-items:center; }
 .connection-features :deep(svg) { width:16px; height:16px; }
-.mac-card { padding:16px; gap:12px; width:100%; border-radius:24px; }
-.mac-card>div { flex:1; }.mac-card strong { font-size:14px; }.mac-card p { font-size:12px; }
-.device-symbol { display:grid; place-items:center; width:40px; height:40px; border-radius:12px; background:#ffffff12; }.device-symbol :deep(svg){width:24px;height:24px;}
-.connect-button { min-height:44px; font-size:14px; padding:0 18px; }
-.connection-footnote { font-size:12px; line-height:1.6; color:var(--vk-secondary); }
 .desktop-frame { border-radius:18px; }
 .connected-desktop { gap:12px; }
 .desktop-lettering { opacity:.5; right:6%; top:23%; }.desktop-lettering h2 { font-size:40px; }
 .display-modes { padding:3px; }.display-modes>button { font-size:12px; padding:0 12px; min-height:44px; }
 .display-toolbar { padding:4px 8px; }.display-toolbar .disconnect { font-size:12px; }
 .dock { padding:8px 12px 10px; }.dock-item { width:44px; height:44px; border-radius:12px; box-shadow:inset 0 1px 0 #ffffff40,0 4px 8px #0003; }
-@container(max-width:800px) { .connect-screen { grid-template-columns:1fr; gap:20px; padding:12px 20px 24px; justify-items:center; } .connect-screen :deep(.display-preview-art) { max-width:430px; } .connection-info { align-items:center; text-align:center; gap:14px; max-width:460px; } .connection-info h2 { font-size:31px; } .connection-features { justify-content:center; } .mac-card { flex-direction:row; text-align:left; } .device-symbol { display:none; } .connect-button { width:auto; } .connection-footnote { font-size:11.5px; } }
-@container(max-width:540px) { .mac-layout { padding:18px; gap:10px; } .app-header h1 { font-size:22px; } .app-header p { font-size:12px; } .connect-screen { padding:4px 0 20px; gap:16px; } .connect-screen :deep(.display-preview-art) { max-width:285px; padding-top:6px; } .connection-info h2 { font-size:28px; } .connection-info>.vk-body { font-size:13px; } .connection-eyebrow { display:none; } .connection-features { font-size:11.5px; gap:12px; } .mac-card { padding:14px; } .connection-footnote { display:none; } .display-toolbar { flex-wrap:wrap; width:100%; gap:4px; } .display-modes>button { font-size:12px; padding:0 10px; } .desktop-controls { gap:6px; } .dock { padding:6px 8px 9px; } .display-toolbar .disconnect { padding:0 8px; } }
-@container(max-height:560px) and (min-width:801px) { .connect-screen { padding:8px 24px; gap:28px; } .connection-info { gap:14px; } .connection-info h2 { font-size:35px; } .connection-footnote { display:none; } .mac-layout { padding:18px; gap:12px; } }
+@container(max-width:800px) { .connection-info h2 { font-size:28px; } }
+@container(max-width:540px) { .mac-layout { padding:18px; gap:10px; } .app-header h1 { font-size:22px; } .app-header p { font-size:12px; } .connect-screen { padding:4px 0 20px; gap:16px; } .connection-info h2 { font-size:28px; } .connection-info>.vk-body { font-size:13px; } .connection-features { font-size:11.5px; gap:12px; } .display-toolbar { flex-wrap:wrap; width:100%; gap:4px; } .display-modes>button { font-size:12px; padding:0 10px; } .desktop-controls { gap:6px; } .dock { padding:6px 8px 9px; } .display-toolbar .disconnect { padding:0 8px; } }
+@container(max-height:560px) and (min-width:801px) { .connect-screen { padding:0 24px 8px; gap:10px; } .connection-info { gap:8px; } .connection-info h2 { font-size:28px; } .connection-info>.vk-body { display:none; } .mac-layout { padding:18px; gap:10px; } }
 
 </style>

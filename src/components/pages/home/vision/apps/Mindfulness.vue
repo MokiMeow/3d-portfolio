@@ -11,6 +11,12 @@ defineProps<{ compact?: boolean }>();
 const tab = ref<Practice | 'activity'>('breathe');
 const tabs = ['breathe', 'reflect', 'activity'] as const;
 const durationChoices = [1, 3, 5, 10];
+/** Three well-known rhythms, in seconds: in, hold, out. 4-7-8 is the classic wind-down. */
+const presets = [
+  { name: 'Calm', inhale: 4, hold: 2, exhale: 6, line: 'A longer out-breath' },
+  { name: 'Balance', inhale: 4, hold: 4, exhale: 4, line: 'Even and steady' },
+  { name: 'Unwind', inhale: 4, hold: 7, exhale: 8, line: 'For winding down' },
+] as const;
 const tabControls = ref<HTMLDivElement>();
 const durationControls = ref<HTMLDivElement>();
 const tuning = ref(false);
@@ -69,6 +75,8 @@ function navigateDuration(event: KeyboardEvent): void {
 }
 function begin(): void { start(tab.value === 'reflect' ? 'reflect' : 'breathe'); }
 function another(): void { tab.value = practice.value; reset(); }
+function rhythmIs(preset: typeof presets[number]): boolean { return settings.inhale === preset.inhale && settings.hold === preset.hold && settings.exhale === preset.exhale; }
+function useRhythm(preset: typeof presets[number]): void { settings.inhale = preset.inhale; settings.hold = preset.hold; settings.exhale = preset.exhale; }
 function nextPrompt(): void { promptIndex.value = (promptIndex.value + 1) % prompts.length; }
 async function toggleTuning(): Promise<void> {
   tuning.value = !tuning.value;
@@ -161,7 +169,7 @@ async function toggleTuning(): Promise<void> {
           <button v-hover class="vk-button primary start-button" @click="chooseTab('breathe')">Make a little space</button>
         </section>
 
-        <section v-else class="setup" aria-label="Choose your session">
+        <section v-else class="setup" :class="{ home: !reflect }" aria-label="Choose your session">
           <div class="intro">
             <BreathingFlower :bloom=".62" :progress="0" :running="false" :paused="false" :particles="particles" :reflect="reflect" />
             <div class="intro-copy">
@@ -170,6 +178,18 @@ async function toggleTuning(): Promise<void> {
               <p class="secondary">{{ reflect ? 'No right answer. Just a little room to notice.' : 'Follow a gentle rhythm. Let everything else wait.' }}</p>
             <div v-if="!reflect" class="rhythm-preview"><span>{{ settings.inhale }}s in</span><i /><span>{{ settings.hold }}s hold</span><i /><span>{{ settings.exhale }}s out</span></div>
             </div>
+          </div>
+          <div v-if="!reflect" class="today vk-platter" aria-label="Your mindful time">
+            <p class="eyebrow">TODAY AND THIS WEEK</p>
+            <div><strong>{{ streak }}</strong><span>day streak</span></div>
+            <div><strong>{{ minutesLabel(weekSeconds) }}</strong><span>min this week</span></div>
+            <div><strong>{{ sessionCount }}</strong><span>{{ sessionCount === 1 ? 'session' : 'sessions' }}</span></div>
+            <button v-hover class="vk-button" @click="chooseTab('activity')">Activity <MindfulIcon name="next" /></button>
+          </div>
+          <div v-if="!reflect" class="presets" role="radiogroup" aria-label="Breathing rhythm">
+            <button v-for="preset in presets" :key="preset.name" v-hover class="vk-platter" role="radio" :aria-checked="rhythmIs(preset)" :aria-pressed="rhythmIs(preset)" @click="useRhythm(preset)">
+              <strong>{{ preset.name }}</strong><span class="beats">{{ preset.inhale }}·{{ preset.hold }}·{{ preset.exhale }}</span><small>{{ preset.line }}</small>
+            </button>
           </div>
           <div v-if="reflect" class="prompt-card vk-platter">
             <p class="eyebrow">{{ prompt?.title }}</p><p>{{ prompt?.text }}</p>
@@ -201,8 +221,8 @@ async function toggleTuning(): Promise<void> {
             <input id="mindful-inhale" ref="inhaleControl" v-model.number="settings.inhale" v-hover class="vk-slider" type="range" min="2" max="8"
               :style="{ '--value': (settings.inhale - 2) / 6 }" />
             <label for="mindful-hold">Hold <span>{{ settings.hold ? settings.hold + ' sec' : 'Skip' }}</span></label>
-            <input id="mindful-hold" v-model.number="settings.hold" v-hover class="vk-slider" type="range" min="0" max="5"
-              :style="{ '--value': settings.hold / 5 }" />
+            <input id="mindful-hold" v-model.number="settings.hold" v-hover class="vk-slider" type="range" min="0" max="8"
+              :style="{ '--value': settings.hold / 8 }" />
             <label for="mindful-exhale">Exhale <span>{{ settings.exhale }} sec</span></label>
             <input id="mindful-exhale" v-model.number="settings.exhale" v-hover class="vk-slider" type="range" min="2" max="10"
               :style="{ '--value': (settings.exhale - 2) / 8 }" />
@@ -458,6 +478,35 @@ h3 { font-size: 17px; font-weight: 600; }
 .summary h2 { font-size:28px; }
 .live-session { gap:12px; min-height:0; }
 .live-session :deep(.garden) { width:min(43cqh,290px); }
+.today { display:none; }
+.presets { display:none; }
+@container(min-width:700px) {
+  .setup.home { display:grid; grid-template-columns:minmax(220px,.82fr) minmax(0,1.18fr); grid-template-areas:"flower copy" "flower presets" "today choices" "today duration" "note note"; column-gap:26px; row-gap:14px; align-items:start; max-width:none; text-align:left; }
+  .setup.home .intro { display:contents; }
+  .setup.home .intro :deep(.garden) { grid-area:flower; width:100%; max-width:300px; justify-self:center; align-self:center; filter:drop-shadow(0 0 40px rgb(140 225 200 / .22)); }
+  .setup.home .intro-copy { grid-area:copy; max-width:none; }
+  .setup.home .intro-copy h2 { font-size:30px; letter-spacing:-.02em; }
+  .setup.home .intro-copy p.secondary { margin:0; max-width:380px; }
+  .setup.home .practice-choices { grid-area:choices; }
+  .setup.home .duration-setting { grid-area:duration; border-top:0; padding-top:0; }
+  .setup.home .duration-setting>input { display:none; }
+  .setup.home .duration-choices { margin-top:8px; }
+  .setup.home .intro :deep(.garden) { max-width:250px; }
+  .setup.home .setup-note, .setup.home .rhythm { grid-column:1 / -1; }
+  .today { grid-area:today; display:grid; grid-template-columns:repeat(3,1fr); gap:6px 8px; padding:14px 14px 12px; border-radius:22px; text-align:center; }
+  .today .eyebrow { grid-column:1 / -1; margin:0 0 4px; font-size:10.5px; letter-spacing:.14em; text-align:left; }
+  .today div { display:flex; flex-direction:column; gap:2px; }
+  .today strong { font-size:24px; font-weight:600; font-variant-numeric:tabular-nums; color:#dff8ee; }
+  .today span { font-size:11.5px; color:rgb(255 255 255 / .62); }
+  .today .vk-button { grid-column:1 / -1; justify-self:stretch; min-height:40px; font-size:13px; margin-top:8px; gap:4px; }
+  .today .vk-button svg { width:14px; height:14px; }
+  .presets { grid-area:presets; display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .presets button { display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:11px 13px; border-radius:18px; border:0; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+  .presets button[aria-pressed=true] { box-shadow:inset 0 0 0 1px #c0ecd966; background:linear-gradient(135deg,#bee7d533,#ffffff0d); }
+  .presets strong { font-size:14px; font-weight:600; }
+  .presets .beats { font-size:12px; letter-spacing:.08em; color:#bfeedd; font-variant-numeric:tabular-nums; }
+  .presets small { font-size:11.5px; color:rgb(255 255 255 / .6); }
+}
 @container(max-height:560px) and (min-width:541px) { .content { padding-top:18px; } .header { margin-bottom:8px; } .header h1 { font-size:25px; } .intro { grid-template-columns:130px 1fr; min-height:130px; gap:16px; } .intro :deep(.garden) { width:130px; } .intro-copy h2 { font-size:23px; } .setup { gap:12px; } .practice-choices .vk-row { min-height:76px; padding:12px; } .duration-setting { padding-top:12px; } .duration-setting>input { display:none; } .duration-choices { margin-top:10px; } .setup-note { display:none; } .toolbar { padding-bottom:14px; } .live-session { flex-direction:row; justify-content:center; gap:22px; } .live-session :deep(.garden) { width:220px; } .live-guidance { text-align:left; align-items:flex-start; max-width:250px; } }
 @container(max-width:540px) { .mindful-layout { flex-direction:column; } .tab-rail { padding:10px 0 0; } .content { padding:14px 20px; } .header { margin-bottom:8px; } .header .eyebrow { display:none; } .header h1 { font-size:24px; } .intro { grid-template-columns:105px 1fr; min-height:115px; gap:12px; } .intro :deep(.garden) { width:105px; } .intro-copy h2 { font-size:21px; } .intro-copy p.secondary { font-size:12px; } .intro-copy .eyebrow { font-size:10.5px; } .rhythm-preview { font-size:10.5px; gap:4px; flex-wrap:wrap; } .rhythm-preview i { width:5px; } .setup { gap:12px; } .practice-choices { gap:8px; } .practice-choices .vk-row { padding:12px; gap:6px; flex-direction:column; min-height:101px; } .practice-choices strong { font-size:13px; } .practice-choices small { font-size:12px; } .practice-choices svg { width:18px; height:18px; } .duration-setting { padding-top:12px; } .duration-setting>input { display:none; } .duration-choices { gap:5px; margin-top:10px; } .duration-choices .vk-button { font-size:12px; } .setup-note { display:none; } .toolbar { flex-direction:row; padding:8px 16px 16px; gap:8px; flex-wrap:wrap; } .toolbar .start-button { flex:1 1 100%; } .toolbar .vk-ornament { padding:4px 10px; } .summary-stats { gap:8px; padding:16px 12px; } .summary-stats strong { font-size:20px; } .summary h2 { font-size:24px; } .summary :deep(.garden) { width:140px; } .live-session :deep(.garden) { width:min(40cqh,240px); } }
 
