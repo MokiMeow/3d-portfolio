@@ -8,9 +8,11 @@ import VisionIcon from './vision/VisionIcon.vue';
 import SpatialWidgets from './vision/SpatialWidgets.vue';
 import JarvisOrb from './vision/jarvis/JarvisOrb.vue';
 import SpatialSpace from './vision/space/SpatialSpace.vue';
+import ModelVolume, { type Volume } from './vision/space/ModelVolume.vue';
+import { objects as MODELS, type ObjectId } from './vision/apps/objects/models';
 import { whatsapp } from './vision/apps/whatsapp/useWhatsApp';
 import { slack } from './vision/apps/slack/useSlack';
-import { sendToApp, carry, onCarryLand } from './vision/bus';
+import { sendToApp, carry, onCarryLand, onOpenVolume } from './vision/bus';
 import { useJarvis } from './vision/jarvis/useJarvis';
 import type { JarvisAction } from './vision/jarvis/brain';
 import Spotlight, { type SpotlightResult } from './vision/Spotlight.vue';
@@ -158,7 +160,8 @@ function open(id: VisionAppId) {
 }
 function close(id: VisionAppId) {
   windows.value = windows.value.filter(item => item.id !== id);
-  if (!windows.value.length) { homeOpen.value = true; tab.value = 'apps'; }
+  // The last window gone and nothing else floating: Home View comes up.
+  if (!windows.value.length && !volumes.value.length) { homeOpen.value = true; tab.value = 'apps'; }
 }
 function closeAll() { windows.value = []; homeOpen.value = true; tab.value = 'apps'; toast('All apps closed.'); }
 const page = ref(0);
@@ -191,10 +194,12 @@ function pageKeys(event: KeyboardEvent) {
   if (event.key === 'ArrowRight' || event.key === 'PageDown') turnPage(1);
   else if (event.key === 'ArrowLeft' || event.key === 'PageUp') turnPage(-1);
 }
+/** Home View can step aside whenever there is something to see: a window, a volume, or things in the room. */
+function somethingOut() { return windows.value.length > 0 || volumes.value.length > 0 || (spatial.value?.count ?? 0) > 0; }
 function goHome(which: 'apps' | 'people' | 'environments' = 'apps') {
   if (viewOnly.value) { setViewOnly(false); return; }
   control.value = false; help.value = false;
-  if (homeOpen.value && tab.value === which && windows.value.length) { homeOpen.value = false; return; }
+  if (homeOpen.value && tab.value === which && somethingOut()) { homeOpen.value = false; return; }
   tab.value = which; homeOpen.value = true;
 }
 /** Escape: step back one level. Returns false when there is nothing left to step back from. */
@@ -203,7 +208,7 @@ function back() {
   if (spotlight.value?.open) { spotlight.value.hide(); return true; }
   if (help.value) { help.value = false; return true; }
   if (control.value) { control.value = false; return true; }
-  if (homeOpen.value && windows.value.length) { homeOpen.value = false; return true; }
+  if (homeOpen.value && somethingOut()) { homeOpen.value = false; return true; }
   const win = front.value;
   if (win) { close(win.id); return true; }
   if (!homeOpen.value) { homeOpen.value = true; return true; }
@@ -402,7 +407,7 @@ function drop() { drag = null; }
 let gaze: { x: number; y: number; vx: number; vy: number; at: number } | null = null;
 function lookDown(event: PointerEvent) {
   if (event.target !== space.value) return;
-  if (homeOpen.value && windows.value.length) { homeOpen.value = false; return; }
+  if (homeOpen.value && somethingOut()) { homeOpen.value = false; return; }
   if (!inside.value) return;
   gaze = { x: event.clientX, y: event.clientY, vx: 0, vy: 0, at: performance.now() };
   looking.value = true;
@@ -480,16 +485,75 @@ function beamTo(target: Element | { x: number; y: number } | null | undefined) {
 function beamToWindow(id: VisionAppId) { void nextTick(() => window.setTimeout(() => beamTo(visor.value?.querySelector(`.window[aria-label="${NAMES[id]}"]`)), 420)); }
 /* A model carried out of the Mac lands in the space, where you let go of it. */
 const stopCarry = onCarryLand(item => {
-  const mac = visor.value?.querySelector('.window[aria-label="Mac Virtual Display"]')?.getBoundingClientRect();
-  if (mac && item.x > mac.left && item.x < mac.right && item.y > mac.top && item.y < mac.bottom) { toast('Let go outside the window to place it in your space.'); return; }
   const box = visor.value?.getBoundingClientRect();
-  if (!box || !spatial.value) return;
+  if (!box) return;
   if (viewOnly.value) setViewOnly(false);
-  void spatial.value.dropModel(item.id as Parameters<NonNullable<typeof spatial.value>['dropModel']>[0], item.x - box.left, item.y - box.top)
-    .then(() => toast(`${item.name} is in your space. Grab it to move it; flick to throw.`))
-    .catch(() => toast(`${item.name} could not be placed.`));
+  openVolume(item.id as ObjectId, { x: item.x - box.left, y: item.y - box.top });
 });
 onBeforeUnmount(stopCarry);
+
+/* Volumes: a model brought out of a window floats in a space of its own, as on the device. A few at most. */
+const volumes = ref<Volume[]>([]);
+let volumeKey = 0;
+const volumeBounds = computed(() => ({ w: view.w, h: view.h, top: TOP, bottom: DOCK + 54 }));
+/** A patch of the view where something of this size is not hidden behind a window, if there is one. */
+function clearSpot(w: number, h: number) {
+  const panes = [...windows.value, ...volumes.value];
+  const spots = [[.5, .5], [.2, .5], [.8, .5], [.5, .42], [.2, .42], [.8, .42]].map(([x, y]) => ({ x: Math.round(view.w * x! - w / 2), y: Math.round(view.h * y! - h / 2) }));
+  const fits = (spot: { x: number; y: number }) => spot.x >= 6 && spot.x + w <= view.w - 6 && !panes.some(r => spot.x < r.x + r.w && spot.x + w > r.x && spot.y < r.y + r.h && spot.y + h > r.y);
+  return spots.find(fits);
+}
+function openVolume(id: ObjectId, near?: { x: number; y: number }) {
+  const model = MODELS.find(item => item.id === id);
+  if (!model) return null;
+  homeOpen.value = false;
+  const existing = volumes.value.find(item => item.id === id);
+  if (existing) { existing.z = ++top; return existing; }
+  const w = compact.value ? Math.min(320, view.w - 24) : 440, h = compact.value ? 360 : 460;
+  let x: number, y: number;
+  if (near) { x = near.x - w / 2; y = near.y - h / 2; }
+  else {
+    const spot = clearSpot(w, h);
+    if (spot) ({ x, y } = spot);
+    else {
+      // Nowhere free: windows slide right, away from JARVIS's corner, and the model takes the left.
+      glideWindows();
+      windows.value.forEach(win => { if (!win.locked) win.x = Math.max(6, Math.min(view.w - win.w - 6, Math.max(win.x, w + 30))); });
+      x = 18; y = (view.h - h) / 2 - 20;
+    }
+  }
+  x = Math.max(6, Math.min(view.w - w - 6, x)); y = Math.max(TOP, Math.min(view.h - DOCK - 54 - h, y));
+  const volume: Volume = { key: ++volumeKey, id, name: model.name, x, y, w, h, z: ++top };
+  volumes.value = [...volumes.value, volume].slice(-3);
+  return volume;
+}
+function raiseVolume(volume: Volume) { volume.z = ++top; }
+function closeVolume(key: number) { volumes.value = volumes.value.filter(item => item.key !== key); }
+/** Out of its volume and into the room, where it can be picked up and thrown. */
+async function setLoose(volume: Volume) {
+  if (!spatial.value) return;
+  closeVolume(volume.key);
+  // The room is behind every window, so it lands where it can be seen: here if that is clear, or beside the windows.
+  const centre = { x: volume.x + volume.w / 2, y: volume.y + volume.h * .55 };
+  const covered = windows.value.some(r => centre.x > r.x - 40 && centre.x < r.x + r.w + 40 && centre.y > r.y - 40 && centre.y < r.y + r.h + 40);
+  let at = centre;
+  if (covered) {
+    const spot = clearSpot(220, 260);
+    if (spot) at = { x: spot.x + 110, y: spot.y + 150 };
+    else {
+      glideWindows();
+      windows.value.forEach(win => { if (!win.locked) win.x = Math.max(6, Math.min(view.w - win.w - 6, Math.max(win.x, 300))); });
+      at = { x: 150, y: view.h * .55 };
+    }
+  }
+  beamTo(at);
+  try {
+    await spatial.value.dropModel(volume.id, at.x, at.y);
+    toast(`${volume.name} is in the room. Grab it to throw it; tap it to resize or remove it.`);
+  } catch { toast(`${volume.name} could not be placed.`); }
+}
+const stopVolumes = onOpenVolume(id => { const volume = openVolume(id as ObjectId); if (volume) toast(`${volume.name} is in a volume. Drag to turn it; use its bar to move it.`); });
+onBeforeUnmount(stopVolumes);
 /* Replies to messages JARVIS sent are announced, wherever you are. */
 const awaiting = new Map<string, number>();
 whatsapp().onIncoming((chat, message) => {
@@ -600,27 +664,12 @@ async function jarvisAct(action: JarvisAction): Promise<string | void> {
     }
     // A model carried out of its window, the way you would drag it from the Mac, set down in front of you.
     case 'bringOut': {
-      if (!spatial.value) break;
-      homeOpen.value = false; setViewOnly(false); aside();
+      setViewOnly(false); aside();
       await new Promise(resolve => window.setTimeout(resolve, 450));
-      // Somewhere you can see it: the first open patch of space not behind a window.
-      const box = visor.value?.getBoundingClientRect();
-      const panes = box ? [...visor.value!.querySelectorAll('section.window')].map(el => el.getBoundingClientRect()) : [];
-      const spots = [[.5, .62], [.16, .62], [.84, .62], [.5, .8], [.16, .8], [.84, .8]].map(([x, y]) => ({ x: view.w * x!, y: view.h * y! }));
-      const hidden = (spot: { x: number; y: number }) => panes.some(r => spot.x + box!.left > r.left - 60 && spot.x + box!.left < r.right + 60 && spot.y + box!.top > r.top - 60 && spot.y + box!.top < r.bottom + 60);
-      let at = spots.find(spot => !hidden(spot));
-      // Nowhere free: the windows slide right to make room on the left, away from JARVIS's corner.
-      if (!at) {
-        glideWindows();
-        windows.value.forEach(win => { if (!win.locked) win.x = Math.max(6, Math.min(view.w - win.w - 6, Math.max(win.x, view.w * .34))); });
-        at = spots[1]!;
-        await new Promise(resolve => window.setTimeout(resolve, 500));
-      }
-      beamTo(at);
-      try {
-        await spatial.value.dropModel(action.model as Parameters<NonNullable<typeof spatial.value>['dropModel']>[0], at.x, at.y);
-        return `${action.name} is out here with you. Grab it to move it; flick to throw.`;
-      } catch { return `${action.name} would not come out of the window, {a}. Try once more?`; }
+      const volume = openVolume(action.model as ObjectId);
+      if (!volume) break;
+      beamTo({ x: volume.x + volume.w / 2, y: volume.y + volume.h / 2 });
+      return `${action.name} is out here with you, in a volume of its own. Drag to turn it, or set it in the room.`;
     }
     case 'recentre': recenter(); break;
     case 'sound': if (sound.value !== action.on) toggleSound(); break;
@@ -816,7 +865,7 @@ onBeforeUnmount(() => {
 
     <div ref="space" class="space" :class="{ dimmed: !viewOnly && ((homeOpen && windows.length) || help) }" @pointerdown="lookDown" @pointermove="lookMove" @pointerup="lookUp" @pointercancel="lookUp">
       <!-- Widgets live in the room, behind any open windows. -->
-      <SpatialSpace v-if="!booting" ref="spatial" :view="envView" :environment="envUrl" :compact="compact" :hidden="viewOnly || jarvisCore === 'open'" @creating="creating = $event" @toast="toast" />
+      <SpatialSpace v-if="!booting" ref="spatial" :view="envView" :environment="envUrl" :compact="compact" :hidden="viewOnly || jarvisCore === 'open'" @creating="creating = $event" @toast="toast" @volume="openVolume($event as ObjectId)" />
       <SpatialWidgets v-if="!booting" ref="widgets" :now="now" :compact="compact" :dark="dark" :immersed="inside && immersion > 0.95" @open="openFromWidget" />
       <!-- Windows -->
       <TransitionGroup name="window">
@@ -845,6 +894,9 @@ onBeforeUnmount(() => {
           <button class="corner" :aria-label="`Resize ${NAMES[win.id]}`" title="Drag to resize" @pointerdown="grab($event, win, 'size')"><i /></button>
         </section>
       </TransitionGroup>
+      <!-- Volumes: models out of their windows -->
+      <ModelVolume v-for="volume in volumes" v-show="!viewOnly" :key="volume.key" :volume="volume" :compact="compact" :bounds="volumeBounds" :behind="homeOpen"
+        @raise="raiseVolume(volume)" @close="closeVolume(volume.key)" @loose="setLoose(volume)" />
 
       <!-- Home View -->
       <Transition name="home">
@@ -928,7 +980,7 @@ onBeforeUnmount(() => {
       </button>
     </Transition>
 
-    <div v-if="carry.active" class="carry" :class="{ flip: carry.x > view.w - 300 }" :style="{ left: `${carry.x}px`, top: `${carry.y}px` }" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 2.8 8 4.6v9.2l-8 4.6-8-4.6V7.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /><path d="m4 7.4 8 4.6 8-4.6M12 12v9.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></svg><span><b>{{ carry.name }}</b><small>Let go in the room to place it</small></span></div>
+    <div v-if="carry.active" class="carry" :class="{ flip: carry.x > view.w - 300 }" :style="{ left: `${carry.x}px`, top: `${carry.y}px` }" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 2.8 8 4.6v9.2l-8 4.6-8-4.6V7.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /><path d="m4 7.4 8 4.6 8-4.6M12 12v9.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></svg><span><b>{{ carry.name }}</b><small>Let go anywhere to bring it out</small></span></div>
     <Spotlight ref="spotlight" :apps="VISION_APPS" :environments="VISION_ENVIRONMENTS" :people="PEOPLE" :compact="compact" @pick="spotlightPick" />
     <JarvisOrb v-if="!booting" ref="jarvisOrb" :jarvis="jarvis" :compact="compact" :status="jarvisStatus" @core="jarvisCore = $event" />
 

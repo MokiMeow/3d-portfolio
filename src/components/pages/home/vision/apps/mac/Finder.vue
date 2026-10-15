@@ -2,7 +2,7 @@
 import { vHover } from '../../kit/hover';
 import AppIcon from '../music/AppIcon.vue';
 import { FILES, HOME, MODEL_FILES, listDirectory, resolvePath } from './model';
-import { startCarry } from '../../bus';
+import { openVolume, startCarry } from '../../bus';
 
 const path = ref(HOME);
 const columnView = ref<HTMLElement>();
@@ -58,7 +58,7 @@ function keys(event: KeyboardEvent): void {
           <button
             v-for="item in column.items" :key="item.path" v-hover class="vk-row"
             :aria-pressed="selection === item.path || (item.folder && path.startsWith(item.path))" :class="{ model: MODEL_FILES[item.path] }"
-            :title="MODEL_FILES[item.path] ? 'Drag out of the window to place it in your space' : undefined" @click="choose(item)" @pointerdown="carryOut(item.path, $event)"
+            :title="MODEL_FILES[item.path] ? 'Drag it out, or double-click, to bring it into your space' : undefined" @click="choose(item)" @dblclick="MODEL_FILES[item.path] && openVolume(MODEL_FILES[item.path]!.id)" @pointerdown="carryOut(item.path, $event)"
           >
             <span class="file-icon"><svg v-if="MODEL_FILES[item.path]" class="cube" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.8 8 4.6v9.2l-8 4.6-8-4.6V7.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /><path d="m4 7.4 8 4.6 8-4.6M12 12v9.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></svg><AppIcon v-else :name="item.folder ? 'folder' : 'note'" /></span>
             <span>{{ item.name }}</span><span v-if="item.folder" class="chevron"><AppIcon name="right" /></span>
@@ -68,6 +68,7 @@ function keys(event: KeyboardEvent): void {
           <span class="paper"><svg v-if="selection && MODEL_FILES[selection]" class="cube big" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.8 8 4.6v9.2l-8 4.6-8-4.6V7.4Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" /><path d="m4 7.4 8 4.6 8-4.6M12 12v9.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" /></svg><AppIcon v-else name="note" /></span>
           <h3>{{ selection?.split('/').at(-1) }}</h3>
           <pre>{{ preview }}</pre>
+          <button v-if="selection && MODEL_FILES[selection]" class="bring" @click="openVolume(MODEL_FILES[selection]!.id)">Bring into your space</button>
         </article>
       </div>
       <footer>{{ listDirectory(path).length }} items · Invented home folder</footer>
@@ -112,4 +113,5 @@ button { border: 0; cursor: pointer; }
   .preview { width: 100%; padding: 16px; }
   .finder-path { padding: 4px 8px; }
 }
+.bring{margin-top:14px;height:34px;padding:0 16px;border-radius:17px;border:0;font-family:inherit;font-size:13px;font-weight:600;color:#fff;background:#0a84ff;cursor:pointer;box-shadow:0 6px 18px rgb(10 132 255 / .35)}.bring:hover{background:#2a95ff}
 </style>

@@ -13,7 +13,7 @@ export type GravityMode = 'earth' | 'moon' | 'mars' | 'zero';
 export const GRAVITY: Record<GravityMode, { g: number; name: string }> = { earth: { g: -9.82, name: 'Earth' }, moon: { g: -1.62, name: 'Moon' }, mars: { g: -3.72, name: 'Mars' }, zero: { g: 0, name: 'Zero-G' } };
 type View = { yaw: number; pitch: number; fov: number };
 /** A thing in the space. A model (dragged out of the Mac) rides on `mesh`, an invisible box that carries its physics. */
-export type Thing = { id: number; shape: ShapeId; material: MaterialId; size: number; mesh: THREE.Mesh; body: CANNON.Body; born: number; dying?: number; wire?: THREE.LineSegments; model?: { name: string; dispose: () => void } };
+export type Thing = { id: number; shape: ShapeId; material: MaterialId; size: number; mesh: THREE.Mesh; body: CANNON.Body; born: number; dying?: number; wire?: THREE.LineSegments; model?: { name: string; dispose: () => void; ref?: string } };
 export type Structure = 'tower' | 'pyramid' | 'dominoes' | 'wall' | 'stairs' | 'circle';
 
 // Eye height above the floor, and how far out things are made: far enough to sit in the lower third of the view.
@@ -42,6 +42,8 @@ export class SpaceEngine {
   private hand = new CANNON.Body({ mass: 0, type: CANNON.Body.KINEMATIC });
   private grip: { thing: Thing; constraint: CANNON.PointToPointConstraint; depth: number; trail: { p: THREE.Vector3; t: number }[] } | null = null;
   private frame = 0;
+  /** True while the loop is only watching the view between frames, not stepping the world. */
+  private idling = false;
   private last = 0;
   private lastView = { yaw: 9, pitch: 9, fov: 0, w: 0, h: 0 };
   private nextId = 1;
@@ -207,7 +209,7 @@ export class SpaceEngine {
   }
 
   /** A whole model, placed in the space with a body the shape of its bounding box. */
-  spawnModel(root: THREE.Object3D, name: string, dispose: () => void, at: THREE.Vector3, height = .42) {
+  spawnModel(root: THREE.Object3D, name: string, dispose: () => void, at: THREE.Vector3, height = .42, ref?: string) {
     const box = new THREE.Box3().setFromObject(root), size = box.getSize(new THREE.Vector3()), centre = box.getCenter(new THREE.Vector3());
     const scale = height / Math.max(size.y, .001);
     root.scale.multiplyScalar(scale); root.position.sub(centre.multiplyScalar(scale));
@@ -226,7 +228,7 @@ export class SpaceEngine {
     const wire = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), this.wireMaterial.clone());
     this.scene.add(wire);
     proxy.visible = false;
-    const thing: Thing = { id: this.nextId++, shape: 'cube', material: 'glass', size: Math.max(size.x, size.y, size.z), mesh: proxy, body, born: performance.now(), wire, model: { name, dispose } };
+    const thing: Thing = { id: this.nextId++, shape: 'cube', material: 'glass', size: Math.max(size.x, size.y, size.z), mesh: proxy, body, born: performance.now(), wire, model: { name, dispose, ref } };
     this.things.push(thing);
     this.ring(new THREE.Vector3(at.x, body.position.y, at.z), thing.size);
     while (this.things.filter(item => !item.dying).length > MAX) this.remove(this.things.find(item => !item.dying)!);
@@ -317,7 +319,17 @@ export class SpaceEngine {
   }
   restyle(thing: Thing, material: MaterialId) { if (thing.model) return; thing.material = material; thing.mesh.material = this.materials.materials[material]; thing.mesh.castShadow = material !== 'glass'; this.wake(); }
   resize_thing(thing: Thing, factor: number) {
-    if (thing.model) return;
+    // A model grows as a whole: its picture, its hit box and its body together.
+    if (thing.model) {
+      const f = Math.max(.15, Math.min(1.6, thing.size * factor)) / thing.size;
+      thing.mesh.geometry.scale(f, f, f);
+      thing.mesh.children.forEach(child => { child.scale.multiplyScalar(f); child.position.multiplyScalar(f); });
+      const box = thing.body.shapes[0] as CANNON.Box;
+      box.halfExtents.scale(f, box.halfExtents); box.updateConvexPolyhedronRepresentation(); box.updateBoundingSphereRadius();
+      thing.body.updateBoundingRadius(); thing.body.aabbNeedsUpdate = true;
+      thing.size *= f; thing.body.wakeUp(); this.wake();
+      return;
+    }
     const next = Math.max(.08, Math.min(1.2, thing.size * factor));
     const made = make(thing.shape, next, thing.shape === 'drawn' ? (thing.mesh.userData.drawn as THREE.Shape) : undefined);
     thing.mesh.geometry.dispose(); thing.mesh.geometry = made.geometry;
@@ -343,7 +355,10 @@ export class SpaceEngine {
 
   /** Runs only while something is moving, being made, or the view is turning. */
   wake() {
-    if (this.frame) return;
+    // Running already. An idle watch does not count: it would never step what just changed.
+    if (this.frame && !this.idling) return;
+    if (this.frame) cancelAnimationFrame(this.frame);
+    this.idling = false;
     this.last = performance.now();
     this.frame = requestAnimationFrame(this.tick);
   }
@@ -399,12 +414,14 @@ export class SpaceEngine {
     this.sync();
     this.renderer.render(this.scene, this.camera);
     // While there is anything at all in the space, keep watching for the view to turn; otherwise rest.
+    this.idling = !busy;
     if (busy || this.things.length || this.showGrid) this.frame = requestAnimationFrame(busy ? this.tick : this.idle);
+    else this.idling = false;
   };
   /** Cheap check between frames when everything is still: only redraw if the view has turned. */
   private idle = (now: number) => {
     const { yaw, pitch, fov } = this.view();
-    if (Math.abs(yaw - this.lastView.yaw) > 1e-4 || Math.abs(pitch - this.lastView.pitch) > 1e-4 || fov !== this.lastView.fov) { this.last = now - 16; this.tick(now); return; }
+    if (Math.abs(yaw - this.lastView.yaw) > 1e-4 || Math.abs(pitch - this.lastView.pitch) > 1e-4 || fov !== this.lastView.fov) { this.idling = false; this.last = now - 16; this.tick(now); return; }
     this.frame = requestAnimationFrame(this.idle);
   };
 

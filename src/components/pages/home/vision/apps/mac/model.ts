@@ -37,7 +37,7 @@ export const MODEL_FILES: Record<string, { id: 'walle' | 'headset' | 'turntable'
 for (const [path, model] of Object.entries(MODEL_FILES)) FILES[path] = `${model.name}
 3D model (USDZ)
 
-Drag this file out of the window to place it in your space.`;
+Drag it out of the window, or double-click it, to bring it into your space.`;
 const DIRECTORIES = [HOME, ...['Desktop', 'Documents', 'Downloads', 'Projects', 'Projects/fix-it-later', 'Models'].map(name => HOME + '/' + name)];
 
 export function resolvePath(input: string, cwd = HOME): string {

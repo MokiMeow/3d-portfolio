@@ -420,7 +420,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .jarvis-hud{--gold:#ffc15a;--amber:#ff9a2e;--deep:#d97b28;--white:#fff1ca;--cyan:#63d8ff;--line:rgb(255 193 90 / .2);position:absolute;inset:0;z-index:7700;color:var(--white);font:400 14px/1.4 'Inter',system-ui,sans-serif;pointer-events:auto;overflow:hidden}
 .jarvis-hud *{box-sizing:border-box}
-.jarvis-hud button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+:where(.jarvis-hud) button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 .jarvis-hud button:focus-visible{outline:1.5px solid var(--gold);outline-offset:3px}
 .jarvis-hud input:focus-visible{outline:none}
 .veil{position:absolute;inset:0;background:radial-gradient(ellipse 60% 55% at 50% 44%,rgb(12 8 2 / .55),rgb(4 3 1 / .86) 70%,rgb(2 1 0 / .94));backdrop-filter:blur(7px) saturate(.8);-webkit-backdrop-filter:blur(7px) saturate(.8);transition:opacity .6s ease;animation:veil-in .6s ease both}
@@ -433,7 +433,7 @@ onBeforeUnmount(() => {
 .title{position:absolute;top:22px;left:50%;translate:-50% 0;text-align:center;display:grid;justify-items:center;gap:3px;font-family:'Rajdhani','Inter',sans-serif;transition:opacity .4s,translate .6s cubic-bezier(.2,.8,.2,1);animation:rise .8s .25s cubic-bezier(.2,.8,.2,1) both}
 .title b{font-size:17px;font-weight:600;letter-spacing:.62em;margin-right:-.62em;color:var(--gold);text-shadow:0 0 18px rgb(255 160 50 / .55)}
 .title small{font-size:9.5px;letter-spacing:.36em;margin-right:-.36em;text-transform:uppercase;color:rgb(255 225 170 / .5)}
-.title .state{margin-top:6px;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;letter-spacing:.28em;color:rgb(255 210 140 / .78);padding:4px 12px 4px 10px;border:1px solid var(--line);border-radius:999px;background:rgb(255 170 60 / .05)}
+.title .state{margin-top:6px;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;letter-spacing:.28em;color:rgb(255 210 140 / .78);padding:4px 12px 4px 10px;border:1px solid var(--line);border-radius:999px;background:linear-gradient(rgb(255 170 60 / .07),rgb(255 170 60 / .07)),rgb(14 10 4 / .88);position:relative;z-index:1;backdrop-filter:blur(8px)}
 .title .state i{width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 10px var(--gold);animation:blink 2.4s ease-in-out infinite}
 .thinking .title .state i{animation-duration:.5s}.speaking .title .state i{background:var(--white)}.listening .title .state i{background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
 @keyframes blink{50%{opacity:.25}}

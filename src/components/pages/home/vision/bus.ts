@@ -52,3 +52,9 @@ export function startCarry(id: string, name: string, event: PointerEvent) {
 }
 /** Call from the shell; returns the function that stops listening. */
 export function onCarryLand(land: (item: Carried) => void) { landings.add(land); return () => { landings.delete(land); }; }
+
+/** Asks the shell to show a 3D model in a volume of its own; any window can. */
+const volumeRequests = new Set<(id: string) => void>();
+export function openVolume(id: string) { volumeRequests.forEach(open => open(id)); }
+/** Call from the shell; returns the function that stops listening. */
+export function onOpenVolume(open: (id: string) => void) { volumeRequests.add(open); return () => { volumeRequests.delete(open); }; }

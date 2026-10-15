@@ -146,7 +146,7 @@ onBeforeUnmount(() => { orb?.stop(); observer?.disconnect(); window.removeEventL
     <Transition name="quick">
       <section v-if="panel && !coreOpen" class="quick" :style="panelStyle" role="dialog" aria-label="JARVIS" @pointerdown.stop @wheel.stop>
         <header>
-          <div><b>JARVIS</b><small>{{ state.mode === 'thinking' ? 'Processing' : state.mode === 'speaking' ? 'Speaking' : state.mindStatus === 'ready' ? 'Neural core online' : 'Standing by' }}</small></div>
+          <div><b>JARVIS</b><small><i class="state" :class="state.mode === 'idle' ? (state.mindStatus === 'ready' ? 'ready' : 'resting') : state.mode" />{{ state.mode === 'thinking' ? 'Processing' : state.mode === 'speaking' ? 'Speaking' : state.mode === 'listening' ? 'Listening' : state.mindStatus === 'ready' ? 'Neural core online' : 'Standing by' }}</small></div>
           <button class="x" aria-label="Close" @click="panel = false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg></button>
         </header>
         <p class="reply" aria-live="polite">
@@ -160,7 +160,7 @@ onBeforeUnmount(() => { orb?.stop(); observer?.disconnect(); window.removeEventL
         </form>
         <div class="chips"><button v-for="item in QUICK" :key="item" @click="quick(item)">{{ item }}</button></div>
         <button v-if="jarvis.wakeAvailable" class="handsfree" :aria-pressed="state.wake" @click="jarvis.setWake(!state.wake)">
-          <i class="mic" /><span><b>“Hey JARVIS”</b><small>{{ state.wake ? (state.ear === 'listening' ? 'Listening…' : 'On: just say his name') : 'Off: tap to talk hands-free' }}</small></span><em>{{ state.wake ? 'On' : 'Off' }}</em>
+          <i class="mic" /><span><b>“Hey JARVIS”</b><small>{{ state.wake ? (state.ear === 'listening' ? 'Listening…' : 'Just say his name') : 'Talk hands-free' }}</small></span><em class="switch" aria-hidden="true"><i /></em>
         </button>
         <button class="talk" @click="talk">
           <span class="glyph" aria-hidden="true"><i /><i /><i /></span>
@@ -186,7 +186,7 @@ onBeforeUnmount(() => { orb?.stop(); observer?.disconnect(); window.removeEventL
 <style scoped>
 .jarvis-layer{--gold:#ffc15a;--white:#fff1ca;position:absolute;inset:0;pointer-events:none;z-index:7600;color:var(--white);font:400 15px/1.4 'Inter',system-ui,sans-serif;letter-spacing:-.01em}
 .jarvis-layer *{box-sizing:border-box}
-.jarvis-layer button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+:where(.jarvis-layer) button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 .jarvis-layer button:focus-visible{outline:1.5px solid var(--gold);outline-offset:3px}
 .jarvis-layer input:focus-visible{outline:none}
 
@@ -203,11 +203,16 @@ onBeforeUnmount(() => { orb?.stop(); observer?.disconnect(); window.removeEventL
 .quick{position:absolute;pointer-events:auto;padding:18px;border-radius:26px;background:linear-gradient(160deg,rgb(255 200 120 / .12),rgb(255 255 255 / .03) 40%),rgb(26 20 12 / .86);border:1px solid rgb(255 193 90 / .22);backdrop-filter:blur(40px) saturate(140%);-webkit-backdrop-filter:blur(40px) saturate(140%);box-shadow:inset 0 1px 0 rgb(255 230 180 / .18),0 30px 80px rgb(0 0 0 / .5)}
 .quick header{display:flex;justify-content:space-between;align-items:flex-start}
 .quick header b{display:block;font:600 14px/1 'Rajdhani','Inter',sans-serif;letter-spacing:.42em;color:var(--gold)}
-.quick header small{display:block;margin-top:5px;font-size:12px;color:rgb(255 225 170 / .55)}
+.quick header small{display:flex;align-items:center;gap:7px;margin-top:7px;font-size:12px;color:rgb(255 225 170 / .6)}
+.quick header .state{width:7px;height:7px;border-radius:50%;background:rgb(255 225 170 / .35)}
+.quick header .state.ready{background:#7ee2a8;box-shadow:0 0 8px rgb(126 226 168 / .7)}
+.quick header .state.thinking,.quick header .state.speaking{background:var(--gold);box-shadow:0 0 8px var(--gold);animation:blink 1s ease-in-out infinite}
+.quick header .state.listening{background:#63d8ff;box-shadow:0 0 8px #63d8ff;animation:blink 1s ease-in-out infinite}
 .quick .x{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:rgb(255 255 255 / .06)}
 .quick .x:hover{background:rgb(255 255 255 / .14)}
 .quick .x svg{width:15px;height:15px}
-.reply{margin:14px 2px 14px;font-size:17px;line-height:1.4;font-weight:400;min-height:24px;color:var(--white)}
+.reply{margin:14px 2px 14px;font-size:17px;line-height:1.42;font-weight:400;min-height:24px;max-height:8.6em;overflow-y:auto;overscroll-behavior:contain;color:var(--white);text-wrap:pretty}
+.compact .reply{font-size:16px}
 .dots{display:inline-flex;gap:6px;vertical-align:middle}
 .dots i{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:dots 1s ease-in-out infinite}
 .dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
@@ -215,7 +220,9 @@ onBeforeUnmount(() => { orb?.stop(); observer?.disconnect(); window.removeEventL
 .quick .handsfree{margin-top:12px;width:100%;display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:16px;background:rgb(255 255 255 / .05);border:1px solid rgb(255 193 90 / .16);text-align:left}
 .quick .handsfree .mic{width:10px;height:10px;border-radius:50%;background:rgb(255 255 255 / .3)}.quick .handsfree[aria-pressed=true] .mic{background:#63d8ff;box-shadow:0 0 10px #63d8ff}
 .quick .handsfree span{flex:1;display:grid;gap:2px}.quick .handsfree b{font-size:14px}.quick .handsfree small{font-size:12px;color:rgb(255 225 170 / .6)}
-.quick .handsfree em{font-style:normal;font-size:12px;font-weight:600;padding:4px 10px;border-radius:10px;background:rgb(255 255 255 / .08)}.quick .handsfree[aria-pressed=true] em{background:var(--gold);color:#1a1206}
+.quick .handsfree .switch{flex:none;position:relative;width:42px;height:26px;border-radius:13px;background:rgb(255 255 255 / .14);transition:background .25s}
+.quick .handsfree .switch i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgb(0 0 0 / .35);transition:translate .25s cubic-bezier(.3,1.3,.5,1)}
+.quick .handsfree[aria-pressed=true] .switch{background:var(--gold)}.quick .handsfree[aria-pressed=true] .switch i{translate:16px 0}
 .quick form{display:flex;align-items:center;gap:6px;height:44px;padding:0 5px 0 15px;border-radius:22px;background:rgb(0 0 0 / .28);box-shadow:inset 0 0 0 1px rgb(255 193 90 / .18)}
 .quick form:focus-within{box-shadow:inset 0 0 0 1px rgb(255 193 90 / .55)}
 .quick input{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--white);font-size:15px;caret-color:var(--gold)}
@@ -226,7 +233,7 @@ onBeforeUnmount(() => { orb?.stop(); observer?.disconnect(); window.removeEventL
 .quick .chips{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 14px}
 .quick .chips button{height:30px;padding:0 12px;border-radius:15px;font-size:12.5px;color:#ffe2a8;background:rgb(255 170 60 / .07);box-shadow:inset 0 0 0 1px rgb(255 193 90 / .2);transition:background .2s}
 .quick .chips button:hover{background:rgb(255 170 60 / .2)}
-.talk{width:100%;display:flex;align-items:center;gap:13px;padding:12px 14px 12px 12px;border-radius:18px;text-align:left;color:#1a1206!important;background:linear-gradient(110deg,#f3a63c,#ffd38a 45%,#f3a63c 90%) 0 0/220% 100%!important;box-shadow:0 12px 34px rgb(255 150 40 / .32),inset 0 1px 0 rgb(255 255 255 / .5);animation:sheen 5s ease-in-out infinite;transition:transform .2s}
+.talk{width:100%;margin-top:10px;display:flex;align-items:center;gap:13px;padding:12px 14px 12px 12px;border-radius:18px;text-align:left;color:#1a1206!important;background:linear-gradient(110deg,#f3a63c,#ffd38a 45%,#f3a63c 90%) 0 0/220% 100%!important;box-shadow:0 12px 34px rgb(255 150 40 / .32),inset 0 1px 0 rgb(255 255 255 / .5);animation:sheen 5s ease-in-out infinite;transition:transform .2s}
 .talk:hover{transform:translateY(-1px)}
 @keyframes sheen{50%{background-position:100% 0}}
 .talk b{display:block;font-size:15.5px;font-weight:700}
@@ -244,7 +251,7 @@ onBeforeUnmount(() => { orb?.stop(); observer?.disconnect(); window.removeEventL
 .jarvis-layer .whisper.live{position:absolute;translate:0 -50%;pointer-events:auto;max-width:min(360px,calc(100vw - 110px));font-size:14px;padding:10px 15px;border-radius:16px;background:linear-gradient(160deg,rgb(255 200 120 / .14),rgb(255 255 255 / .02)),rgb(24 17 8 / .86)!important;border:1px solid rgb(255 193 90 / .3)!important;box-shadow:0 16px 40px rgb(0 0 0 / .35)}
 @keyframes blink{50%{opacity:.25}}
 .jarvis-layer .whisper.live .dots{display:inline-flex;gap:5px}.jarvis-layer .whisper.live .dots i{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:blink 1s ease-in-out infinite}.jarvis-layer .whisper.live .dots i:nth-child(2){animation-delay:.15s}.jarvis-layer .whisper.live .dots i:nth-child(3){animation-delay:.3s}
-.whisper.live.left{text-align:right}
+.whisper.live.left{text-align:right}.jarvis-layer .whisper.live.offer{text-align:left}
 .jarvis-layer .whisper.live .mic{display:inline-block;width:8px;height:8px;margin-right:8px;border-radius:50%;background:#63d8ff;box-shadow:0 0 10px #63d8ff;animation:blink 1.1s ease-in-out infinite;vertical-align:1px}
 .jarvis-layer .whisper.live.offer{cursor:pointer}.jarvis-layer .whisper.live.offer b{color:var(--gold);font-weight:600}
 .whisper{padding:10px 15px;border-radius:16px;font-size:13.5px;line-height:1.4;text-align:left;color:var(--white)!important;background:linear-gradient(160deg,rgb(255 200 120 / .12),rgb(255 255 255 / .02)),rgb(24 17 8 / .82)!important;border:1px solid rgb(255 193 90 / .26)!important;backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);box-shadow:0 16px 40px rgb(0 0 0 / .35);animation:type-in .9s steps(40) both}

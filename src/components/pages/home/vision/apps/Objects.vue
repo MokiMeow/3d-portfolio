@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { listenAsApp } from '../bus';
+import { listenAsApp, openVolume } from '../bus';
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
@@ -112,7 +112,7 @@ onBeforeUnmount(() => { stopJarvis(); observer?.disconnect(); stage?.dispose(); 
         <button v-hover class="vk-button" :aria-pressed="explode" @click="explode = !explode"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 8-5-5m0 4V3h4m9 5 5-5m-4 0h4v4M8 16l-5 5m0-4v4h4m9-5 5 5m-4 0h4v-4M9 9h6v6H9Z"/></svg><span>Explode</span></button>
         <button v-hover class="vk-button" :aria-pressed="wireframe" @click="wireframe = !wireframe"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5v8l-9 5-9-5V8l9-5Zm-9 5 9 5 9-5m-9 5v8M3 8l18 8M21 8 3 16"/></svg><span>Wireframe</span></button>
         <button v-hover class="vk-button" :aria-pressed="night" @click="night = !night"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15A9 9 0 0 1 9 4a9 9 0 1 0 11 11Z"/></svg><span>{{ night ? 'Night' : 'Day' }}</span></button>
-        <button v-hover class="vk-button primary place-button" @click="vision.toast('Room placement is a preview. This object remains in the inspection stage.')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8V3h5m8 0h5v5M3 16v5h5m8 0h5v-5m-9-9 5 3v5l-5 3-5-3v-5l5-3Zm-5 3 5 3 5-3m-5 3v5"/></svg><span>Place in room</span></button>
+        <button v-hover class="vk-button primary place-button" @click="openVolume(selected)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8V3h5m8 0h5v5M3 16v5h5m8 0h5v-5m-9-9 5 3v5l-5 3-5-3v-5l5-3Zm-5 3 5 3 5-3m-5 3v5"/></svg><span>Place in room</span></button>
       </div>
     </main>
   </div>

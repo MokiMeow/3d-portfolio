@@ -13,7 +13,7 @@ import type { MaterialId, ShapeId } from './shapes';
  * Grab anything and throw it. Everything stays while you use your apps, until you clear it.
  */
 const props = defineProps<{ view: () => { yaw: number; pitch: number; fov: number }; environment: string | null; compact: boolean; hidden: boolean }>();
-const emit = defineEmits<{ creating: [on: boolean]; toast: [text: string] }>();
+const emit = defineEmits<{ creating: [on: boolean]; toast: [text: string]; volume: [id: string] }>();
 
 const canvas = ref<HTMLCanvasElement>();
 const ink = ref<HTMLCanvasElement>();
@@ -30,6 +30,9 @@ const palette = ref(false);
 const gravityMenu = ref(false);
 const selected = shallowRef<Thing | null>(null);
 const ornament = ref({ x: 0, y: 0, visible: false });
+const ornamentEl = ref<HTMLElement>();
+/** While the pointer is on the ornament it holds still, so a button cannot slide out from under a click. */
+const ornamentHeld = ref(false);
 const SIZES = { S: .2, M: .32, L: .5 } as const;
 const currentMaterial = computed(() => MATERIALS.find(item => item.id === material.value)!);
 
@@ -134,7 +137,11 @@ function follow() {
   const step = () => {
     const thing = selected.value;
     if (!thing || !engine.value || thing.dying) { selected.value = null; return; }
-    ornament.value = engine.value.project(thing);
+    if (!ornamentHeld.value) {
+      const at = engine.value.project(thing), half = (ornamentEl.value?.offsetWidth ?? 260) / 2, width = root.value?.clientWidth ?? 0, height = ornamentEl.value?.offsetHeight ?? 46;
+      // Kept whole on screen, however near the edge the thing has rolled.
+      ornament.value = { visible: at.visible, x: Math.max(half + 8, Math.min(width - half - 8, at.x)), y: Math.max(height + 18, at.y) };
+    }
     followFrame = requestAnimationFrame(step);
   };
   step();
@@ -147,7 +154,14 @@ function duplicateSelected() {
   const p = thing.body.position;
   e.spawn(thing.shape, thing.material, thing.size, new Vector3(p.x + thing.size * .4, p.y + thing.size * 1.4, p.z), { drawn: thing.mesh.userData.drawn });
 }
-function deleteSelected() { if (selected.value) { engine.value?.remove(selected.value); selected.value = null; } }
+function deleteSelected() { if (selected.value) { engine.value?.remove(selected.value); selected.value = null; ornamentHeld.value = false; } }
+/** A model goes back into a volume of its own, where it can be turned and looked at closely. */
+function toVolume() {
+  const thing = selected.value;
+  if (!thing?.model?.ref) return;
+  emit('volume', thing.model.ref);
+  engine.value?.remove(thing); selected.value = null; ornamentHeld.value = false;
+}
 
 /* For JARVIS and the rest of the headset. */
 function spawnMany(kind: string, amount: number, finish?: string) {
@@ -203,7 +217,7 @@ async function dropModel(id: ObjectId, x: number, y: number) {
   if (!e) return;
   const env = e.envMap;
   const model = await loadModel(id, env as Parameters<typeof loadModel>[1]);
-  e.spawnModel(model.root, objects.find(item => item.id === id)!.name, model.dispose, e.placeAt(x, y, .42));
+  e.spawnModel(model.root, objects.find(item => item.id === id)!.name, model.dispose, e.placeAt(x, y, .42), .42, id);
 }
 defineExpose({
   dropModel,
@@ -264,14 +278,19 @@ const ICONS: Record<string, string> = {
 
     <!-- Over a selected object -->
     <Transition name="pop">
-      <div v-if="selected && ornament.visible && !hidden" class="thing-ornament" :style="{ left: `${ornament.x}px`, top: `${ornament.y}px` }" @pointerdown.stop>
-        <button aria-label="Smaller" @click="scaleSelected(.8)"><svg viewBox="0 0 24 24"><path d="M6 12h12" /></svg></button>
-        <button aria-label="Bigger" @click="scaleSelected(1.25)"><svg viewBox="0 0 24 24"><path d="M6 12h12M12 6v12" /></svg></button>
+      <div v-if="selected && ornament.visible && !hidden" ref="ornamentEl" class="thing-ornament" :style="{ left: `${ornament.x}px`, top: `${ornament.y}px` }"
+        @pointerdown.stop @pointerenter="ornamentHeld = true" @pointerleave="ornamentHeld = false">
+        <span v-if="selected.model" class="label">{{ selected.model.name }}</span>
+        <button aria-label="Smaller" title="Smaller" @click="scaleSelected(.8)"><svg viewBox="0 0 24 24"><path d="M6 12h12" /></svg></button>
+        <button aria-label="Bigger" title="Bigger" @click="scaleSelected(1.25)"><svg viewBox="0 0 24 24"><path d="M6 12h12M12 6v12" /></svg></button>
         <i />
-        <button v-for="item in MATERIALS.slice(0, 7)" :key="item.id" class="swatch" :aria-label="item.name" :aria-pressed="selected.material === item.id" :style="{ background: item.swatch }" @click="restyleSelected(item.id)" />
-        <i />
-        <button aria-label="Duplicate" @click="duplicateSelected"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2.5" /><path d="M5 15V7a2 2 0 0 1 2-2h8" /></svg></button>
-        <button aria-label="Delete" class="danger" @click="deleteSelected"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" /></svg></button>
+        <template v-if="!selected.model">
+          <button v-for="item in MATERIALS.slice(0, 7)" :key="item.id" class="swatch" :aria-label="item.name" :aria-pressed="selected.material === item.id" :style="{ background: item.swatch }" @click="restyleSelected(item.id)" />
+          <i />
+          <button aria-label="Duplicate" title="Duplicate" @click="duplicateSelected"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2.5" /><path d="M5 15V7a2 2 0 0 1 2-2h8" /></svg></button>
+        </template>
+        <button v-else class="wide" title="Look at it closely, in a volume" @click="toVolume"><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3m8 0h3a1 1 0 0 1 1 1v3M4 16v3a1 1 0 0 0 1 1h3m8 0h3a1 1 0 0 0 1-1v-3" /></svg><span>Volume</span></button>
+        <button aria-label="Remove" title="Remove" class="danger" @click="deleteSelected"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" /></svg></button>
       </div>
     </Transition>
 
@@ -364,6 +383,8 @@ const ICONS: Record<string, string> = {
 .thing-ornament .swatch{width:24px;height:24px;margin:0 2px;box-shadow:inset 0 0 0 1px rgb(255 255 255 / .35)}
 .thing-ornament .swatch[aria-pressed=true]{box-shadow:0 0 0 2px #fff}
 .thing-ornament .danger{color:#ff6b61}
+.thing-ornament .label{padding:0 8px 0 10px;font-size:13px;font-weight:600;white-space:nowrap}
+.thing-ornament .wide{width:auto;display:flex;gap:6px;padding:0 12px 0 9px;font-size:13px;font-weight:600}
 .thing-ornament i{width:1px;height:20px;background:rgb(255 255 255 / .18);margin:0 2px}
 .drawing{cursor:crosshair}
 
