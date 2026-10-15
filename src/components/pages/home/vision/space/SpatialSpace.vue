@@ -177,7 +177,7 @@ function keys(event: KeyboardEvent) {
   const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
   if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); if (selected.value) selected.value = null; else if (palette.value || gravityMenu.value) palette.value = gravityMenu.value = false; else creating.value = false; }
   else if (!typing && (event.key === 'Delete' || event.key === 'Backspace') && selected.value) { event.preventDefault(); deleteSelected(); }
-  else if (!typing && event.key === 'd') { tool.value = tool.value === 'draw' ? 'place' : 'draw'; }
+  else if (!typing && event.key === 'd' && !(event.target as HTMLElement | null)?.closest?.('.window, .jarvis-hud, .quick')) { tool.value = tool.value === 'draw' ? 'place' : 'draw'; }
 }
 
 onMounted(() => {
