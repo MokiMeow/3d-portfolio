@@ -1,10 +1,11 @@
 <script setup lang="ts">
+import { listenAsApp } from '../bus';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { vHover } from '../kit/hover';
 import RichEditor from './notes/RichEditor.vue';
 import AppIcon from './music/AppIcon.vue';
 import Sketch from './notes/Sketch.vue';
-import { FOLDERS, STORAGE_KEY, plainText, readNotes, seedNotes, type Note, type InkStroke } from './notes/model';
+import { FOLDERS, STORAGE_KEY, escapeText, plainText, readNotes, seedNotes, type Note, type InkStroke } from './notes/model';
 defineProps<{ compact?: boolean }>();
 const notes = ref<Note[]>([]);
 const ready = ref(false);
@@ -257,7 +258,69 @@ onMounted(() => {
   selectedId.value = notes.value[0]?.id ?? '';
   ready.value = true;
 });
+
+function jarvisMatch(value: string): string {
+  return value.toLowerCase().replace(/\b(the|my)\b/g, '').replace(/\s+/g, ' ').trim();
+}
+function jarvisBrief(value: string): string {
+  return value.replace(/[\p{Extended_Pictographic}\p{Regional_Indicator}\uFE0F\u200D]/gu, '').trim().split(/\s+/).slice(0, 10).join(' ').replace(/[.!?]+$/, '');
+}
+// JARVIS can work in Notes: new_note, open_note, add_to_note, search.
+const stopJarvis = listenAsApp('notes', async command => {
+  let line = "I can't do that in Notes yet.";
+  try {
+    await nextTick();
+    if (command.action === 'do' && ['new_note', 'open_note', 'add_to_note', 'search'].includes(String(command.verb))) {
+      const arg = String(command.arg ?? '').trim();
+      for (let wait = 0; !ready.value && wait < 30; wait++) await new Promise(resolve => window.setTimeout(resolve, 100));
+      if (!ready.value) line = 'Notes is still opening.';
+      else if (command.verb === 'new_note') {
+        if (!arg) line = 'Tell me what to put in the new note.';
+        else if (notes.value.length >= 200) line = 'Your notebook is full; delete a note to make room.';
+        else {
+          const creation = create();
+          const note = current.value!;
+          const named = arg.match(/^([^:.!?\n]{2,48}):\s*([\s\S]+)$/);
+          const sentence = named ? named[1]! : arg.match(/^[\s\S]*?[.!?](?=\s|$)/)?.[0] ?? arg.split('\n')[0]!;
+          note.title = sentence.trim().slice(0, 200);
+          editHtml('<p>' + escapeText(named ? named[2]!.trim() : arg.slice(sentence.length).trim()).replace(/\n/g, '<br>') + '</p>');
+          await creation;
+          resizeTitle();
+          line = 'Created ' + jarvisBrief(note.title) + '.';
+        }
+      } else if (command.verb === 'search') {
+        query.value = jarvisMatch(arg);
+        setScope('all');
+        line = query.value ? 'Showing ' + filtered.value.length + ' notes matching ' + jarvisBrief(query.value) + '.' : 'Showing all your notes.';
+      } else {
+        const colon = arg.indexOf(':');
+        const title = command.verb === 'add_to_note' ? arg.slice(0, Math.max(0, colon)).trim() : arg;
+        const name = jarvisMatch(title);
+        const note = name ? notes.value.find(item => jarvisMatch(item.title) === name)
+          ?? notes.value.find(item => jarvisMatch(item.title).includes(name)) : undefined;
+        const text = colon >= 0 ? arg.slice(colon + 1).trim() : '';
+        if (command.verb === 'add_to_note' && (!name || !text)) line = 'Give me a note title, followed by a colon and the text.';
+        else if (!note) line = "I couldn't find that note.";
+        else {
+          query.value = ''; setScope('all'); select(note);
+          if (command.verb === 'open_note') line = 'Opened ' + jarvisBrief(note.title || 'Untitled note') + '.';
+          else if (isLocked.value) line = 'Unlock ' + jarvisBrief(note.title || 'Untitled note') + ' before adding text.';
+          else {
+            editHtml(note.html + '<p>' + escapeText(text).replace(/\n/g, '<br>') + '</p>');
+            line = 'Added your text to ' + jarvisBrief(note.title || 'Untitled note') + '.';
+          }
+        }
+      }
+    }
+  } catch { line = "I couldn't complete that in Notes."; }
+  try {
+    const reply = command.reply as ((line: string) => void) | undefined;
+    reply?.(line);
+  } catch { /* A reply callback must not interrupt the app. */ }
+});
+
 onBeforeUnmount(() => {
+  stopJarvis();
   disposed = true;
   windowObserver?.disconnect();
   previousFocus = undefined;

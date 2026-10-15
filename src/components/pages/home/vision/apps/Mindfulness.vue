@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, reactive, ref } from 'vue';
+import { listenAsApp } from '../bus';
+import { computed, nextTick, onBeforeUnmount, reactive, ref } from 'vue';
 import { vHover } from '../kit/hover';
 import BreathingFlower from './mindfulness/BreathingFlower.vue';
 import MindfulIcon from './mindfulness/MindfulIcon.vue';
@@ -82,6 +83,40 @@ async function toggleTuning(): Promise<void> {
   tuning.value = !tuning.value;
   if (tuning.value) { await nextTick(); inhaleControl.value?.focus(); }
 }
+// JARVIS can work in Mindfulness: breathe, reflect, stop, rhythm.
+const stopJarvis = listenAsApp('mindfulness', async command => {
+  let line = "I can't do that in Mindfulness yet.";
+  try {
+    switch (command.action === 'do' ? command.verb : '') {
+      case 'breathe':
+      case 'reflect': {
+        if (inSession.value) finish();
+        chooseTab(command.verb === 'reflect' ? 'reflect' : 'breathe');
+        if (typeof command.number === 'number' && Number.isFinite(command.number)) {
+          settings.minutes = Math.min(10, Math.max(1, Math.round(command.number)));
+        }
+        begin();
+        line = 'Started a ' + settings.minutes + ' minute ' + (practice.value === 'reflect' ? 'reflection' : 'breathing') + ' session.';
+        break;
+      }
+      case 'stop':
+        if (inSession.value) { finish(); line = 'Ended your mindfulness session.'; }
+        else line = 'There is no mindfulness session running.';
+        break;
+      case 'rhythm': {
+        const term = String(command.arg ?? '').toLowerCase().replace(/\b(the|my)\b/g, '').trim();
+        const preset = term ? presets.find(item => item.name.toLowerCase().includes(term)) : undefined;
+        if (preset) {
+          useRhythm(preset);
+          line = 'Selected ' + preset.name + (inSession.value ? ' for your next breathing session.' : ' breathing rhythm.');
+        } else line = "I couldn't find that breathing rhythm.";
+        break;
+      }
+    }
+  } catch { line = "I couldn't complete that in Mindfulness."; }
+  try { if (typeof command.reply === 'function') command.reply?.(line); } catch { /* A reply must not interrupt the app. */ }
+});
+onBeforeUnmount(() => stopJarvis());
 </script>
 
 <template>

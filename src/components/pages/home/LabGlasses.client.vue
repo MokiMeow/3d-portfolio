@@ -507,6 +507,63 @@ slack().onIncoming((room, reply) => {
   jarvis.whisper(`${reply.author} in #${room}: “${reply.text}”`, true);
 });
 
+/** Brings an app forward for JARVIS: opened if it is not, and in front if it is. */
+function jarvisShow(id: VisionAppId) {
+  setViewOnly(false); homeOpen.value = false;
+  open(id); jarvisOrb.value?.stepAside(); beamToWindow(id);
+}
+/** Asks an open app to do something, and waits for its own account of what it did. */
+function askApp(app: string, command: Record<string, unknown>, wait = 8000) {
+  return new Promise<string | void>(resolve => {
+    const quiet = window.setTimeout(() => resolve(), wait);
+    sendToApp(app, { action: 'do', ...command, reply: (line: string) => { clearTimeout(quiet); resolve(line); } });
+  });
+}
+const asSentence = (text = '') => { const clean = text.trim().replace(/\bi\b/g, 'I'); return clean.charAt(0).toUpperCase() + clean.slice(1); };
+/** WhatsApp and Slack keep one shared store, so JARVIS works in them directly and the window follows. */
+async function jarvisChat(action: Extract<JarvisAction, { type: 'inApp' }>): Promise<string> {
+  if (action.app === 'whatsapp') {
+    const wa = whatsapp();
+    await wa.load();
+    if (action.verb === 'open_chat') {
+      const chat = action.arg ? wa.findChat(action.arg.replace(/^(?:my|the)\s+/i, '')) : undefined;
+      if (!chat) return `I could not find a chat called ${action.arg ?? 'that'}, {a}.`;
+      wa.open(chat); jarvisShow('whatsapp');
+      return `Your chat with ${chat.name} is open.`;
+    }
+    // "Amma: on my way" names the chat; otherwise it is the one already open.
+    let chat = wa.current.value, text = action.arg ?? '';
+    const named = text.match(/^([^:]{2,30}):\s*(.+)$/);
+    if (named && wa.findChat(named[1]!)) { chat = wa.findChat(named[1]!)!; text = named[2]!; }
+    if (!chat) return 'Which chat, {a}? None is open yet.';
+    const sentence = asSentence(text);
+    if (!sentence) return `What shall I say to ${chat.name}, {a}?`;
+    if (wa.current.value?.id !== chat.id) wa.open(chat);
+    jarvisShow('whatsapp');
+    if (action.verb === 'draft') { wa.draft.value = sentence; return `It is written in your chat with ${chat.name}, ready when you are.`; }
+    awaiting.set('wa:' + chat.id, Date.now());
+    wa.sendIn(chat, sentence);
+    return `Sent to ${chat.name}. I shall tell you when they reply.`;
+  }
+  const sl = slack();
+  await sl.load();
+  if (action.verb === 'open_channel') {
+    const room = action.arg ? sl.findRoom(action.arg.replace(/^#/, '')) : undefined;
+    if (!room) return `There is no channel or person called ${action.arg ?? 'that'} in Slack, {a}.`;
+    sl.open(room.name); jarvisShow('slack');
+    return `${room.kind === 'channel' ? '#' : ''}${room.name} is open.`;
+  }
+  let room = sl.findRoom(sl.current.value), body = action.arg ?? '';
+  const named = body.match(/^#?([^:]{2,30}):\s*(.+)$/);
+  if (named && sl.findRoom(named[1]!)) { room = sl.findRoom(named[1]!); body = named[2]!; sl.open(room!.name); }
+  const text = asSentence(body);
+  if (!room || !text) return 'What shall I post, {a}?';
+  jarvisShow('slack');
+  awaiting.set('slack:' + room.name, Date.now());
+  sl.postIn(room.name, text);
+  return `Posted in ${room.kind === 'channel' ? '#' : ''}${room.name}.`;
+}
+
 /** Everything JARVIS can do to the headset. Returns an extra line for him to say, when there is one. */
 async function jarvisAct(action: JarvisAction): Promise<string | void> {
   jarvisActing = true;
@@ -530,7 +587,41 @@ async function jarvisAct(action: JarvisAction): Promise<string | void> {
       if (action.on) { await jarvisOrb.value?.close(); setViewOnly(true); } else setViewOnly(false);
       break;
     case 'arrange': setViewOnly(false); homeOpen.value = false; arrange(); aside(); break;
-    case 'search': open('safari'); aside(); break;
+    case 'search': jarvisShow('safari'); return await askApp('safari', { verb: 'search', arg: action.query });
+    // Inside an app: it opens if it needs to, does the thing, and says what it did.
+    case 'inApp': {
+      if (!APP_IDS.has(action.app)) break;
+      if (guest.value && PRIVATE.has(action.app as VisionAppId)) return `${NAMES[action.app as VisionAppId]} stays private while a guest is using the headset, {a}.`;
+      if (action.app === 'whatsapp' || action.app === 'slack') return await jarvisChat(action);
+      const fresh = !windows.value.some(win => win.id === action.app);
+      jarvisShow(action.app as VisionAppId);
+      // A window that has only just opened needs a moment to load before it can act.
+      return await askApp(action.app, { verb: action.verb, arg: action.arg, number: action.number }, fresh ? 12000 : 8000);
+    }
+    // A model carried out of its window, the way you would drag it from the Mac, set down in front of you.
+    case 'bringOut': {
+      if (!spatial.value) break;
+      homeOpen.value = false; setViewOnly(false); aside();
+      await new Promise(resolve => window.setTimeout(resolve, 450));
+      // Somewhere you can see it: the first open patch of space not behind a window.
+      const box = visor.value?.getBoundingClientRect();
+      const panes = box ? [...visor.value!.querySelectorAll('section.window')].map(el => el.getBoundingClientRect()) : [];
+      const spots = [[.5, .62], [.16, .62], [.84, .62], [.5, .8], [.16, .8], [.84, .8]].map(([x, y]) => ({ x: view.w * x!, y: view.h * y! }));
+      const hidden = (spot: { x: number; y: number }) => panes.some(r => spot.x + box!.left > r.left - 60 && spot.x + box!.left < r.right + 60 && spot.y + box!.top > r.top - 60 && spot.y + box!.top < r.bottom + 60);
+      let at = spots.find(spot => !hidden(spot));
+      // Nowhere free: the windows slide right to make room on the left, away from JARVIS's corner.
+      if (!at) {
+        glideWindows();
+        windows.value.forEach(win => { if (!win.locked) win.x = Math.max(6, Math.min(view.w - win.w - 6, Math.max(win.x, view.w * .34))); });
+        at = spots[1]!;
+        await new Promise(resolve => window.setTimeout(resolve, 500));
+      }
+      beamTo(at);
+      try {
+        await spatial.value.dropModel(action.model as Parameters<NonNullable<typeof spatial.value>['dropModel']>[0], at.x, at.y);
+        return `${action.name} is out here with you. Grab it to move it; flick to throw.`;
+      } catch { return `${action.name} would not come out of the window, {a}. Try once more?`; }
+    }
     case 'recentre': recenter(); break;
     case 'sound': if (sound.value !== action.on) toggleSound(); break;
     case 'focusMode': focusMode.value = action.on; break;

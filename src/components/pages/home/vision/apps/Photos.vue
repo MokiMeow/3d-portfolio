@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { listenAsApp } from '../bus';
 import { VISION, VISION_ENVIRONMENTS } from '../vision';
 import { vHover } from '../kit/hover';
 import YtIcon from '../youtube/YtIcon.vue';
@@ -288,7 +289,57 @@ onMounted(() => {
     if (slideshow.value && !slidePaused.value && !document.hidden && !sheet.value) nextPhoto(1);
   }, 5500);
 });
-onBeforeUnmount(() => { document.removeEventListener('visibilitychange', documentVisibility); clearInterval(timer); media?.removeEventListener('change', updateMotion); drag = null; restoreDim(); });
+onBeforeUnmount(() => { stopJarvis(); document.removeEventListener('visibilitychange', documentVisibility); clearInterval(timer); media?.removeEventListener('change', updateMotion); drag = null; restoreDim(); });
+
+function jarvisName(value: string): string {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\b(the|my)\b/g, ' ')
+    .replace(/\bfavorites?\b/g, 'favourites').replace(/\bsunsets\b/g, 'sunset').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+// JARVIS can work in Photos: show, open_latest, slideshow.
+const stopJarvis = listenAsApp('photos', async command => {
+  let line = "I can't do that in Photos yet.";
+  try {
+    switch (command.action === 'do' ? command.verb : '') {
+      case 'show': {
+        const term = jarvisName(String(command.arg ?? '')).replace(/^spatial scenes$/, 'spatial');
+        const choices = [
+          ...tabs.map(item => ({ name: item.name, show: () => navigate(item.name) })),
+          { name: 'Favourites', show: () => { navigate('Collections'); activeAlbum.value = 'favourites'; } },
+          ...albums.value.map(album => ({ name: album.title, show: () => { navigate('Collections'); activeAlbum.value = album.id; } })),
+          ...memories.filter(memory => memory.ids.some(id => photoOf(id))).map(memory => ({ name: memory.title, show: () => playMemory(memory) })),
+          ...pets.flatMap(pet => {
+            const photo = photoOf(pet.id);
+            return photo ? [{ name: pet.name, show: () => { navigate('Search'); query.value = photo.title; } }] : [];
+          }),
+          ...[...new Set(photos.value.flatMap(photo => [photo.place, photo.title, ...photo.tags.split(' ')]))]
+            .map(name => ({ name, show: () => { navigate('Search'); query.value = name; } })),
+        ];
+        const match = term ? choices.find(item => jarvisName(item.name) === term)
+          ?? choices.filter(item => jarvisName(item.name).includes(term)).sort((a, b) => a.name.length - b.name.length)[0]
+          ?? (/^(travel|trips?|places?)$/.test(term) ? choices.find(item => item.name === albums.value.find(album => album.id === 'places')?.title) : undefined) : undefined;
+        if (match) { closeViewer(); match.show(); line = 'Opened ' + match.name + '.'; }
+        else line = "I couldn't find that album, collection, person, or kind of photo.";
+        break;
+      }
+      case 'open_latest': {
+        const photo = [...photos.value].sort((a, b) => Date.parse(b.date) - Date.parse(a.date))[0];
+        if (photo) { closeViewer(); navigate('Library'); open(photo); line = 'Opened ' + photo.title + '.'; }
+        else line = 'There are no photos to open.';
+        break;
+      }
+      case 'slideshow': {
+        const ids = slideshow.value?.filter(id => photoOf(id)) ?? shown.value.map(photo => photo.id);
+        const title = slideshow.value ? slideTitle.value : albumTitle.value ?? (tab.value === 'Search' ? 'your search results' : tab.value);
+        if (ids.length) {
+          closeViewer(); playMemory({ title, line: '', ids });
+          line = slidePaused.value ? 'Opened a slideshow, paused for reduced motion.' : 'Started a slideshow of ' + title + '.';
+        } else line = 'There are no photos in this view.';
+        break;
+      }
+    }
+  } catch { line = "I couldn't complete that in Photos."; }
+  try { (command.reply as ((line: string) => void) | undefined)?.(line); } catch { /* The caller owns its reply callback. */ }
+});
 </script>
 
 <template>

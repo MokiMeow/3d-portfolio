@@ -22,7 +22,7 @@ function keep(name, command, args, options = {}, onLine) {
   run();
 }
 
-keep('mind', join(HOME, 'llama/llama-server.exe'), ['-m', join(HOME, 'models/qwen35-2b-q4km.gguf'), '-c', '8192', '-np', '2', '--cache-reuse', '256', '-t', '4', '--port', '8090', '--jinja']);
+keep('mind', join(HOME, 'llama/llama-server.exe'), ['-m', join(HOME, 'models/qwen35-2b-q4km.gguf'), '-c', '16384', '-np', '2', '--cache-reuse', '256', '-t', '4', '--port', '8090', '--jinja']);
 keep('ear', join(HOME, 'whisper/Release/whisper-server.exe'), ['-m', join(HOME, 'whisper/turbo.bin'), '--port', '8091', '-l', 'en', '--convert'], { cwd: join(HOME, 'whisper/Release') });
 keep('voice', process.execPath, ['server.mjs'], { cwd: SERVER_DIR, env: { ...process.env, JARVIS_SERVER_KEY: KEY, LLM_URL: 'http://127.0.0.1:8090', PORT: '8787' } });
 keep('tunnel', join(HOME, 'cloudflared.exe'), ['tunnel', '--url', 'http://localhost:8787', '--no-autoupdate'], {}, async line => {

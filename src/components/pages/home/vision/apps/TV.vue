@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { getCurrentInstance } from 'vue';
+import { listenAsApp } from '../bus';
 import { loadYouTube, type YouTubePlayer } from "~/utils/music-providers";
 import { HomeExperience } from "~/experiences/home";
 import { VISION, VISION_ENVIRONMENTS, type VisionEnvironmentId } from '../vision';
@@ -161,6 +163,7 @@ onMounted(() => {
   }, 500);
 });
 onBeforeUnmount(() => {
+  stopJarvis();
   disposed = true;
   release();
   if (watching.value) dim(previousDim);
@@ -257,6 +260,61 @@ function collectionKeys(event: KeyboardEvent): void {
   buttons[(index + direction + buttons.length) % buttons.length]?.focus();
   event.preventDefault();
 }
+
+const jarvisInstance = getCurrentInstance();
+function jarvisName(value: string): string {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\b(the|my)\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+// JARVIS can work in TV: play, browse, pause, resume.
+const stopJarvis = listenAsApp('tv', async command => {
+  let line = "I can't do that in TV yet.";
+  try {
+    switch (command.action === 'do' ? command.verb : '') {
+      case 'play': {
+        const term = jarvisName(String(command.arg ?? ''));
+        const show = term ? shows.find(item => jarvisName(item.title) === term)
+          ?? shows.find(item => jarvisName(item.title).includes(term)) : undefined;
+        if (show) {
+          screenFilm(show.title); await nextTick();
+          line = failed.value ? 'Playback is unavailable for ' + show.title + '.' : 'Now showing ' + show.title + '.';
+        } else line = "I couldn't find that title in TV.";
+        break;
+      }
+      case 'browse': {
+        const term = jarvisName(String(command.arg ?? ''));
+        const genres = [...new Set(shows.map(show => show.genre))];
+        const sections = [...tabs.map(item => item.name), ...rails.map(rail => rail.title), ...genres];
+        const section = term ? sections.find(name => jarvisName(name) === term)
+          ?? sections.find(name => jarvisName(name).includes(term)) : undefined;
+        if (!section) { line = "I couldn't find that genre or section in TV."; break; }
+        if (watching.value) leave();
+        const destination = tabs.find(item => item.name === section);
+        if (destination) navigate(destination.name);
+        else if (genres.includes(section)) { navigate('Search'); query.value = section; }
+        else {
+          navigate('Home'); await nextTick();
+          const root = jarvisInstance?.proxy?.$el as HTMLElement | undefined;
+          root?.querySelectorAll('.rail-section')[rails.findIndex(rail => rail.title === section)]?.scrollIntoView({ block: 'nearest' });
+        }
+        line = 'Showing ' + section + '.';
+        break;
+      }
+      case 'pause':
+        if (!watching.value) line = 'There is no current TV screening to pause.';
+        else if (!ready.value) line = 'The TV player is still loading.';
+        else { pause(); line = 'Paused ' + watching.value + '.'; }
+        break;
+      case 'resume':
+        if (!watching.value) line = 'Choose a TV title before resuming playback.';
+        else {
+          await start();
+          line = failed.value ? 'TV playback is unavailable right now.' : 'Resumed ' + watching.value + '.';
+        }
+        break;
+    }
+  } catch { line = "I couldn't complete that in TV."; }
+  try { (command.reply as ((line: string) => void) | undefined)?.(line); } catch { /* The caller owns its reply callback. */ }
+});
 </script>
 
 <template>

@@ -1,4 +1,4 @@
-import { reactive } from 'vue';
+import { getCurrentInstance, onMounted, reactive } from 'vue';
 /**
  * How JARVIS reaches into apps. A command for an app that is not open yet waits here until the app
  * mounts and listens; an open app gets it straight away.
@@ -22,7 +22,9 @@ export function listenAsApp(app: string, listener: Listener) {
   listeners.set(app, set);
   const queued = pending.get(app) ?? [];
   pending.delete(app);
-  queued.forEach(command => listener(command));
+  // Commands that waited for the app arrive once its window has mounted and had a moment to settle.
+  const deliver = () => window.setTimeout(() => queued.forEach(command => listener(command)), 300);
+  if (queued.length) { if (getCurrentInstance()) onMounted(deliver); else deliver(); }
   return () => { set.delete(listener); };
 }
 

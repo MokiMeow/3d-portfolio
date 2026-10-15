@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { listenAsApp } from '../bus';
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { PS_GAMES, PS_SHELVES, type PsGame } from '~/common/playstation/games';
 import { VISION } from '../vision';
@@ -124,7 +125,39 @@ onMounted(() => {
   preference = window.matchMedia('(prefers-reduced-motion: reduce)'); motion(); preference.addEventListener('change', motion);
   refreshRotation();
 });
-onBeforeUnmount(() => { arcadeMounted = false; document.removeEventListener('visibilitychange', refreshRotation); arcadeObserver?.disconnect(); clearLoading(); clearInterval(rotation); preference?.removeEventListener('change', motion); });
+onBeforeUnmount(() => {
+  stopJarvis(); arcadeMounted = false; document.removeEventListener('visibilitychange', refreshRotation); arcadeObserver?.disconnect(); clearLoading(); clearInterval(rotation); preference?.removeEventListener('change', motion); });
+function jarvisMatch(value: string): string {
+  return value.toLowerCase().replace(/\b(the|my)\b/g, ' ').replace(/\s+/g, ' ').trim();
+}
+// JARVIS can work in Arcade: play, list.
+const stopJarvis = listenAsApp('arcade', async command => {
+  let line = "I can't do that in Arcade yet.";
+  try {
+    await nextTick();
+    switch (command.verb) {
+      case 'play': {
+        const term = jarvisMatch(typeof command.arg === 'string' ? command.arg : '');
+        const game = term ? PS_GAMES.find(item => jarvisMatch(item.title) === term)
+          ?? PS_GAMES.find(item => jarvisMatch(item.title).includes(term)) : undefined;
+        if (!game) { line = "I couldn't find that game in Arcade."; break; }
+        play(game);
+        line = pending.value ? 'Opened the keyboard warning for ' + game.title + '.' : 'Launched ' + game.title + '.';
+        break;
+      }
+      case 'list':
+        back();
+        pending.value = null;
+        touchOnly.value = false;
+        query.value = '';
+        navigate('search');
+        line = 'Available games include ' + PS_GAMES.slice(0, 3).map(game => game.title).join(', ')
+          + ', with ' + Math.max(0, PS_GAMES.length - 3) + ' more in the open list.';
+        break;
+    }
+  } catch { line = "I couldn't finish that in Arcade."; }
+  try { (command.reply as ((line: string) => void) | undefined)?.(line); } catch { /* A reply must not interrupt the app. */ }
+});
 </script>
 
 <template>

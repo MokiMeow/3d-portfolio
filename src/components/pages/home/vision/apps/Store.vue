@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { listenAsApp } from '../bus';
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
 import { storeApps, stories } from './store/catalog';
@@ -379,6 +380,7 @@ onMounted(() => {
   syncStoreTicker();
 });
 onBeforeUnmount(() => {
+  stopJarvis();
   mounted = false;
   document.removeEventListener('visibilitychange', syncStoreTicker);
   storeObserver?.disconnect();
@@ -386,6 +388,37 @@ onBeforeUnmount(() => {
   if (tick !== undefined) clearInterval(tick);
   cardAnimation?.cancel();
   motionQuery?.removeEventListener?.('change', updateMotion);
+});
+function jarvisMatch(value: string): string {
+  return value.toLowerCase().replace(/\b(the|my)\b/g, ' ').replace(/\s+/g, ' ').trim();
+}
+// JARVIS can work in Store: search, open.
+const stopJarvis = listenAsApp('store', async command => {
+  let line = "I can't do that in Store yet.";
+  try {
+    await nextTick();
+    const arg = typeof command.arg === 'string' ? command.arg.trim() : '';
+    switch (command.verb) {
+      case 'search':
+        if (!arg) { line = 'Tell me what to search for in the Store.'; break; }
+        if (launch.value) closeLaunch();
+        switchTab('Search');
+        query.value = arg;
+        line = 'Searched the Store for ' + arg.split(/\s+/).slice(0, 8).join(' ') + '.';
+        break;
+      case 'open': {
+        const term = jarvisMatch(arg);
+        const app = term ? storeApps.find(item => jarvisMatch(item.name) === term)
+          ?? storeApps.find(item => jarvisMatch(item.name).includes(term)) : undefined;
+        if (!app) { line = "I couldn't find that app in the Store."; break; }
+        if (launch.value) closeLaunch();
+        showDetails(app);
+        line = 'Opened the store page for ' + app.name.split(/\s+/).slice(0, 8).join(' ') + '.';
+        break;
+      }
+    }
+  } catch { line = "I couldn't finish that in Store."; }
+  try { (command.reply as ((line: string) => void) | undefined)?.(line); } catch { /* A reply must not interrupt the app. */ }
 });
 </script>
 

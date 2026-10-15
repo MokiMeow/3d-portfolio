@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { listenAsApp } from '../bus';
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
 import ItemArt from './freeform/ItemArt.vue';
@@ -598,6 +599,7 @@ onMounted(() => {
   fit();
 });
 onBeforeUnmount(() => {
+  stopJarvis();
   disposed = true;
   photoAbort.abort();
   if (saveTimer) clearTimeout(saveTimer);
@@ -615,6 +617,40 @@ onBeforeUnmount(() => {
   pointers.clear();
   drag = null;
   pinch = null;
+});
+// JARVIS can work in Freeform: sticky, new_board, clear.
+const stopJarvis = listenAsApp('freeform', async command => {
+  let line = "I can't do that in Freeform yet.";
+  try {
+    await nextTick();
+    const arg = typeof command.arg === 'string' ? command.arg.trim() : '';
+    switch (command.verb) {
+      case 'sticky':
+        if (!arg) { line = 'Tell me what to put on the sticky note.'; break; }
+        if (!current.value || drag || pinch) { line = "I couldn't add a sticky note right now."; break; }
+        pickTool('sticky');
+        createAt(worldPoint({ x: canvasSize.value.w / 2, y: canvasSize.value.h / 2 }));
+        editText.value = arg;
+        commitText();
+        line = 'Added a sticky note to ' + current.value.name.split(/\s+/).slice(0, 8).join(' ') + '.';
+        break;
+      case 'new_board':
+        if (drag || pinch) { line = "I couldn't create a board during an edit."; break; }
+        if (boards.value.length >= 50) { line = "I can't create more than fifty boards in Freeform."; break; }
+        newBoard();
+        if (arg) { boardName.value = arg; commitRename(); }
+        line = 'Created ' + current.value!.name.split(/\s+/).slice(0, 8).join(' ') + '.';
+        break;
+      case 'clear':
+        if (!current.value || drag || pinch) { line = "I couldn't clear the board during an edit."; break; }
+        selected.value = items.value.map(item => item.id);
+        removeSelection();
+        linkStart.value = null;
+        line = 'Cleared ' + current.value.name.split(/\s+/).slice(0, 8).join(' ') + '.';
+        break;
+    }
+  } catch { line = "I couldn't finish that in Freeform."; }
+  try { (command.reply as ((line: string) => void) | undefined)?.(line); } catch { /* A reply must not interrupt the app. */ }
 });
 </script>
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { listenAsApp } from '../bus';
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
 import YtIcon from '../youtube/YtIcon.vue';
@@ -216,7 +217,61 @@ watch([activeId, location], () => {
   notice.value = ''; reader.value = false; find.value = ''; share.value = false;
   beginLoading();
 }, { immediate: true });
-onBeforeUnmount(clearLoading);
+
+function jarvisMatch(value: string): string {
+  return value.toLowerCase().replace(/\b(the|my)\b/g, '').replace(/\s+/g, ' ').trim();
+}
+function jarvisBrief(value: string): string {
+  return value.replace(/[\p{Extended_Pictographic}\p{Regional_Indicator}\uFE0F\u200D]/gu, '').trim().split(/\s+/).slice(0, 10).join(' ');
+}
+// JARVIS can work in Safari: open_site, search, back.
+const stopJarvis = listenAsApp('safari', async command => {
+  let line = "I can't do that in Safari yet.";
+  try {
+    await nextTick();
+    if (command.action === 'do') {
+      const arg = String(command.arg ?? '').trim();
+      if (command.verb === 'back') {
+        if (!active.value || active.value.cursor <= 0) line = 'There is no earlier page in this tab.';
+        else {
+          travel(-1); overview.value = false; sidebar.value = null;
+          line = 'Went back to ' + jarvisBrief(page.value.title) + '.';
+        }
+      } else if (command.verb === 'search') {
+        if (!arg) line = 'Tell me what to search for.';
+        else if (!active.value) line = 'There is no active Safari tab.';
+        else {
+          visit('lab://search?q=' + encodeURIComponent(arg));
+          sidebar.value = null;
+          line = 'Searching Safari for ' + jarvisBrief(page.value.query) + '.';
+        }
+      } else if (command.verb === 'open_site') {
+        const name = jarvisMatch(arg);
+        const sites = [...SITES, ...LINKS, ...demos, ...bookmarks.value.map(item => ({ label: item.title, url: item.url })),
+          { label: 'Wikipedia', url: 'https://www.wikipedia.org/' }, { label: 'GitHub', url: 'https://github.com/' },
+          { label: 'Google', url: 'https://www.google.com/' }, { label: 'YouTube', url: 'https://www.youtube.com/' },
+          { label: 'Apple', url: 'https://www.apple.com/' }, { label: 'LinkedIn', url: 'https://www.linkedin.com/' }];
+        const site = name ? sites.find(item => jarvisMatch(item.label) === name)
+          ?? sites.find(item => jarvisMatch(item.label).includes(name)) : undefined;
+        const address = site?.url ?? (/^[a-z][a-z0-9+.-]*:/i.test(arg) ? arg : 'https://' + arg);
+        if (!arg) line = 'Tell me which site to open.';
+        else if (!active.value) line = 'There is no active Safari tab.';
+        else if (!isWebAddress(address) && !(site && address.startsWith('lab://'))) line = "I couldn't find a valid address for that site.";
+        else {
+          draft.value = address;
+          submitAddress(); sidebar.value = null;
+          line = 'Navigated to ' + jarvisBrief(site?.label ?? page.value.title) + '.';
+        }
+      }
+    }
+  } catch { line = "I couldn't complete that in Safari."; }
+  try {
+    const reply = command.reply as ((line: string) => void) | undefined;
+    reply?.(line);
+  } catch { /* A reply callback must not interrupt the app. */ }
+});
+
+onBeforeUnmount(() => { stopJarvis(); clearLoading(); });
 </script>
 
 <template>

@@ -460,6 +460,50 @@ export class JarvisSphere {
     this.disposables.push(sparkPoints.geometry);
     this.shell([0, -.03, .01]).add(sparkPoints);
 
+    // Ribbons: long arcs of light sweeping round the sphere, the way the VisionQuest core trails fire.
+    {
+      const ribbonMaterial = lineMaterial(this.uniforms, .3);
+      this.disposables.push(ribbonMaterial);
+      const ribbons: [number, number, number, number, [number, number, number]][] = [[1.14, .9, 2.6, .2, [0, .16, .03]], [1.22, -.5, 2.2, 1.4, [.02, -.12, 0]], [1.3, .25, 1.8, 2.6, [-.05, .09, .04]], [1.08, -1.1, 2.9, 4.1, [.03, .2, -.02]]];
+      for (const [radius, tilt, sweep, start, spin] of ribbons) {
+        const b = new Builder(), s = new Vector3(), q = new Quaternion().setFromAxisAngle(new Vector3(1, 0, .3).normalize(), tilt);
+        const steps = low ? 70 : 140;
+        for (let strand = 0; strand < 3; strand++) for (let i = 0; i < steps; i++) {
+          const at = (k: number) => { const t = k / steps, a = start + t * sweep, r = radius + strand * .012 + Math.sin(t * 7 + strand) * .01; return new Vector3(Math.cos(a) * r, Math.sin(t * 3 + strand) * .02, Math.sin(a) * r).applyQuaternion(q); };
+          const fade = Math.sin(Math.PI * i / steps) * (strand === 1 ? 1 : .55);
+          b.push(at(i), scatter(), Math.random(), fade, 0, 0, i / steps); b.push(at(i + 1), scatter(), Math.random(), fade, 0, 0, (i + 1) / steps);
+        }
+        const line = new LineSegments(b.geometry(), ribbonMaterial);
+        this.disposables.push(line.geometry);
+        this.shell(spin).add(line);
+      }
+    }
+    // A cool field of data dust behind and around him: the blue world VisionQuest sets the amber core against.
+    {
+      const count = low ? 260 : 620, positions = new Float32Array(count * 3), seeds = new Float32Array(count);
+      for (let i = 0; i < count; i++) {
+        const v = new Vector3().randomDirection().multiplyScalar(1.5 + Math.random() * 2.2);
+        v.z -= 1.2;
+        positions.set([v.x, v.y, v.z], i * 3); seeds[i] = Math.random();
+      }
+      const geometry = new BufferGeometry();
+      geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+      geometry.setAttribute('aSeed', new Float32BufferAttribute(seeds, 1));
+      const dustMaterial = new ShaderMaterial({
+        uniforms: this.uniforms, transparent: true, depthWrite: false, depthTest: false, blending: AdditiveBlending,
+        vertexShader: /* glsl */`uniform float uTime, uAssemble, uPixel, uThink; attribute float aSeed; varying float vA;
+          void main(){ vec3 p = position; p.y += sin(uTime * .2 + aSeed * 40.) * .05; vec4 mv = modelViewMatrix * vec4(p, 1.);
+            vA = uAssemble * (.35 + .65 * (.5 + .5 * sin(uTime * (1. + aSeed * 2.) + aSeed * 90.))) * (1. + uThink * .8);
+            gl_PointSize = (1.8 + aSeed * 2.8) * uPixel * (3.6 / -mv.z); gl_Position = projectionMatrix * mv; }`,
+        fragmentShader: /* glsl */`varying float vA; void main(){ vec2 c = gl_PointCoord - .5; float a = exp(-dot(c, c) * 18.);
+          gl_FragColor = vec4(vec3(.3, .7, 1.) * a * vA * .95, 1.); }`,
+      });
+      this.disposables.push(dustMaterial, geometry);
+      const dust = new Points(geometry, dustMaterial);
+      dust.renderOrder = -2;
+      this.shell([0, .015, 0], this.scene as unknown as Group).add(dust);
+    }
+
     // The core: a bright ring with a dark eye, a thin halo, and a soft glow behind.
     const core = new Builder();
     const torus = (radius: number, tube: number, count: number, fade: number) => {
@@ -470,9 +514,20 @@ export class JarvisSphere {
         core.push(new Vector3(Math.cos(b) * (radius + t), Math.sin(b) * (radius + t), Math.sin(k * 1.7) * tube * .4), s, seed, fade);
       }
     };
-    torus(.09, .03, 9, 1.1);
+    torus(.09, .026, 6, .95);
     torus(.14, .004, 2, .8);
     torus(.18, .002, 1, .45);
+    {
+      const s = new Vector3();
+      for (let arm = 0; arm < 3; arm++) for (let i = 0; i < 64; i++) {
+        const at = (k: number) => { const t = k / 64, r = .03 + t * .3, a = arm * Math.PI * 2 / 3 + t * 7.2; return new Vector3(Math.cos(a) * r, Math.sin(a) * r, Math.sin(t * 9 + arm) * .004); };
+        core.push(at(i), s, .02, 1.15 - i / 64 * .75); core.push(at(i + 1), s, .02, 1.15 - (i + 1) / 64 * .75);
+      }
+      for (const side of [-1, 1]) for (let i = 0; i < 30; i++) {
+        const at = (k: number) => { const t = k / 30; return new Vector3(side * (.03 + Math.sin(t * 2.4) * .05 * t), -.09 - t * .34, Math.sin(t * 5) * .01); };
+        core.push(at(i), s, .02, .9 * (1 - i / 30)); core.push(at(i + 1), s, .02, .9 * (1 - (i + 1) / 30));
+      }
+    }
     const coreMaterial = lineMaterial({ ...this.uniforms, uColor: { value: GOLD.clone() }, uHot: { value: WHITE.clone() } });
     this.disposables.push(coreMaterial);
     const coreLines = new LineSegments(core.geometry(), coreMaterial);
@@ -506,6 +561,7 @@ export class JarvisSphere {
       fragmentShader: /* glsl */`uniform float uAssemble, uLevel, uFlare; varying vec2 vUv;
         void main(){ vec2 c = vUv - .5; float line = exp(-abs(c.y) * 90.) * exp(-abs(c.x) * 3.2);
           float core = exp(-dot(c * vec2(6., 40.), c * vec2(6., 40.)));
+          line += exp(-abs(c.y) * 220.) * exp(-abs(c.x) * 1.4) * .6;
           gl_FragColor = vec4(vec3(1., .78, .45) * (line * .5 + core * .25) * uAssemble * (.5 + uLevel * .25 + uFlare * 1.8), 1.); }`,
     });
     this.disposables.push(streakMaterial);

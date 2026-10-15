@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { listenAsApp } from '../bus';
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
@@ -300,11 +301,51 @@ onMounted(() => {
   void nextTick(sizeCanvas);
 });
 onBeforeUnmount(() => {
+  stopJarvis();
   disposed = true; if (recorder) { recorder.onstop = null; recorder.ondataavailable = null; recorder.onerror = null; } stop();
   cancelAnimationFrame(frame); resize?.disconnect(); intersection?.disconnect(); motion?.removeEventListener('change',motionChange);
   document.removeEventListener('visibilitychange',visibility); window.removeEventListener('keyup',keyUp); window.removeEventListener('blur',releaseNotes);
   for (const animation of animations.values()) animation.cancel(); animations.clear(); audio?.close();
   if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+});
+function jarvisMatch(value: string): string {
+  return value.toLowerCase().replace(/\b(the|my)\b/g, ' ').replace(/\s+/g, ' ').trim();
+}
+// JARVIS can work in Beat Studio: play, stop, tempo, pattern.
+const stopJarvis = listenAsApp('beatstudio', async command => {
+  let line = "I can't do that in Beat Studio yet.";
+  try {
+    await nextTick();
+    switch (command.verb) {
+      case 'play':
+        if (!playing.value && !busy.value) await togglePlay();
+        line = playing.value ? 'Playing ' + presets[preset.value]!.name + '.'
+          : busy.value ? 'Beat Studio is still starting playback.' : "I couldn't start audio in Beat Studio.";
+        break;
+      case 'stop':
+        stop();
+        line = 'Stopped Beat Studio playback.';
+        break;
+      case 'tempo':
+        if (typeof command.number !== 'number' || !Number.isFinite(command.number)) {
+          line = 'Tell me a tempo between 55 and 180 BPM.';
+          break;
+        }
+        bpm.value = Math.max(55, Math.min(180, Math.round(command.number)));
+        line = 'Set the tempo to ' + bpm.value + ' BPM.';
+        break;
+      case 'pattern': {
+        const term = jarvisMatch(typeof command.arg === 'string' ? command.arg : '');
+        let index = term ? presets.findIndex(item => jarvisMatch(item.name) === term) : -1;
+        if (index < 0 && term) index = presets.findIndex(item => jarvisMatch(item.name).includes(term));
+        if (index < 0) { line = "I couldn't find that Beat Studio preset."; break; }
+        loadPreset(index);
+        line = 'Loaded ' + presets[index]!.name + '.';
+        break;
+      }
+    }
+  } catch { line = "I couldn't finish that in Beat Studio."; }
+  try { (command.reply as ((line: string) => void) | undefined)?.(line); } catch { /* A reply must not interrupt the app. */ }
 });
 </script>
 

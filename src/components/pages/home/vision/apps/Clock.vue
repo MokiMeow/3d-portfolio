@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { listenAsApp } from '../bus';
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
@@ -222,12 +223,89 @@ onMounted(() => {
   appRoot.value?.addEventListener('keydown', shortcut);
 });
 onBeforeUnmount(() => {
+  stopJarvis();
   disposed = true; mounted = false; clearInterval(tick); appRoot.value?.removeEventListener('keydown', shortcut); preference?.removeEventListener('change', motion); document.removeEventListener('visibilitychange', startFrames);
   for (const oscillator of oscillators) { oscillator.onended = null; try { oscillator.stop(); } catch { /* Already ended. */ } oscillator.disconnect(); }
   for (const gain of gains) gain.disconnect(); oscillators.clear(); gains.clear(); if (audio) void audio.close().catch(() => undefined);
 });
 
 watch(cityIds, () => { if (!storageReady.value) return; try { localStorage.setItem('lab-vision-clock-cities', JSON.stringify(cityIds.value)); } catch { vision.toast('Cities will stay in this session.'); } }, { deep: true });
+
+function jarvisName(value: string): string {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\b(the|my)\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+const jarvisReady = new Promise<void>(resolve => onMounted(() => resolve()));
+// JARVIS can work in Clock: timer, alarm, stopwatch_start, stopwatch_stop, stopwatch_reset, world.
+const stopJarvis = listenAsApp('clock', async command => {
+  let line = "I can't do that in Clock yet.";
+  try {
+    await jarvisReady;
+    if (disposed) throw new Error('Clock closed');
+    switch (command.action === 'do' ? command.verb : '') {
+      case 'timer': {
+        const seconds = command.number;
+        if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds < .001 || seconds > 86400) {
+          line = 'Choose a timer duration greater than zero and at most 24 hours.';
+          break;
+        }
+        if (timers.value.length >= 20) { line = 'Clear a timer before starting another; Clock already has twenty.'; break; }
+        tab.value = 'Timers'; cityMenu.value = undefined;
+        startTimer(Math.max(1, seconds / 60), String(command.arg ?? 'Timer'));
+        const timer = timers.value[timers.value.length - 1]!;
+        if (seconds < 60) {
+          timer.duration = Math.round(seconds * 1000); timer.remaining = timer.duration; timer.deadline = performance.now() + timer.duration;
+        }
+        line = 'Started a timer for ' + timer.duration / 1000 + ' seconds.';
+        break;
+      }
+      case 'alarm': {
+        const match = String(command.arg ?? '').trim().match(/^(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(?:([ap])\.?m\.?)?$/i);
+        const hour = match ? Number(match[1]) : -1, minute = Number(match?.[2] ?? 0);
+        const suffix = match?.[3]?.toLowerCase();
+        if (!match || minute > 59 || hour < (suffix ? 1 : 0) || hour > (suffix ? 12 : 23)) {
+          line = 'Give me a valid alarm time, such as 7:30 am.';
+          break;
+        }
+        const normalizedHour = suffix ? hour % 12 + (suffix === 'p' ? 12 : 0) : hour;
+        const existing = alarms.value.find(alarm => alarm.hour === normalizedHour && alarm.minute === minute);
+        if (!existing && alarms.value.length >= 50) { line = 'Remove an alarm first; Clock already has fifty.'; break; }
+        tab.value = 'Alarms'; cityMenu.value = undefined;
+        if (existing) { existing.enabled = true; sheet.value = null; void prepareAudio(); }
+        else { editAlarm(); alarmHour.value = normalizedHour; alarmMinute.value = minute; saveAlarm(); }
+        line = (existing ? 'Enabled' : 'Added') + ' an alarm for ' + pad(normalizedHour) + ':' + pad(minute) + '.';
+        break;
+      }
+      case 'stopwatch_start':
+      case 'stopwatch_stop':
+      case 'stopwatch_reset':
+        tab.value = 'Stopwatch'; sheet.value = null; cityMenu.value = undefined;
+        if (command.verb === 'stopwatch_reset') {
+          if (stopwatchRunning.value) toggleStopwatch();
+          lapOrReset(); line = 'Reset the stopwatch.';
+        } else if (command.verb === 'stopwatch_start') {
+          line = stopwatchRunning.value ? 'The stopwatch is already running.' : 'Started the stopwatch.';
+          if (!stopwatchRunning.value) toggleStopwatch();
+        } else {
+          line = stopwatchRunning.value ? 'Stopped the stopwatch.' : 'The stopwatch is already stopped.';
+          if (stopwatchRunning.value) toggleStopwatch();
+        }
+        break;
+      case 'world': {
+        const term = jarvisName(String(command.arg ?? ''));
+        const city = term ? CITIES.find(item => jarvisName(item.name) === term)
+          ?? CITIES.find(item => jarvisName(item.name).includes(term)) : undefined;
+        if (city) {
+          tab.value = 'World Clock'; sheet.value = null; cityMenu.value = undefined;
+          if (!cityIds.value.includes(city.id) && heroCity.value.id !== city.id) toggleCity(city.id);
+          cityPage.value = Math.max(0, Math.floor(worldCities.value.findIndex(item => item.id === city.id) / cityPageSize.value));
+          line = 'Showing ' + city.name + ' in World Clock.';
+        } else line = "I couldn't find that city in World Clock.";
+        break;
+      }
+    }
+  } catch { line = "I couldn't complete that in Clock."; }
+  try { (command.reply as ((line: string) => void) | undefined)?.(line); } catch { /* The caller owns its reply callback. */ }
+});
 </script>
 <template>
 <div ref="appRoot" class="clock-app" :class="{ compact, solid: vision.reduceTransparency.value }" tabindex="-1">

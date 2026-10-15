@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { listenAsApp } from '../bus';
+import { nextTick, onBeforeUnmount } from 'vue';
 import ContactAvatar from './messages/ContactAvatar.vue';
 import MessageMark from './messages/MessageMark.vue';
 import { vHover } from "../kit/hover";
@@ -83,6 +85,58 @@ const {
   stickers,
   waveform,
 } = useMessages();
+function jarvisMatch(value: string): string {
+  return value.toLowerCase().replace(/\b(the|my)\b/g, '').replace(/\s+/g, ' ').trim();
+}
+function jarvisBrief(value: string, words = 10): string {
+  return value.replace(/[\p{Extended_Pictographic}\p{Regional_Indicator}\uFE0F\u200D]/gu, '').trim().split(/\s+/).slice(0, words).join(' ');
+}
+// JARVIS can work in Messages: open_chat, send, read.
+const stopJarvis = listenAsApp('messages', async command => {
+  let line = "I can't do that in Messages yet.";
+  try {
+    await nextTick();
+    if (command.action === 'do' && ['open_chat', 'send', 'read'].includes(String(command.verb))) {
+      const arg = String(command.arg ?? '').trim();
+      const colon = arg.indexOf(':');
+      const person = command.verb === 'send' ? arg.slice(0, Math.max(0, colon)).trim() : arg;
+      const name = jarvisMatch(person);
+      const chats = conversations.value;
+      const latest = (chat: typeof chats[number]) => [...chat.messages].reverse().find(message => !message.mine && !message.unsent);
+      const chat = name
+        ? chats.find(item => jarvisMatch(item.name) === name)
+          ?? chats.find(item => jarvisMatch(item.name).includes(name))
+          ?? chats.find(item => item.members.some(member => jarvisMatch(member).includes(name)))
+        : command.verb === 'read'
+          ? chats.filter(item => item.unread > 0 && latest(item)).sort((a, b) => (latest(b)?.id ?? 0) - (latest(a)?.id ?? 0))[0] ?? current.value
+          : undefined;
+      const text = colon >= 0 ? arg.slice(colon + 1).trim() : '';
+      if (command.verb === 'send' && (!name || !text)) line = 'Tell me who to message, followed by a colon and your message.';
+      else if (!chat) line = name ? "I couldn't find that conversation." : 'Tell me whose chat to open.';
+      else if (command.verb === 'read') {
+        const message = latest(chat);
+        if (!message) line = 'There are no received messages in that conversation.';
+        else {
+          search.value = ''; filter.value = 'all'; closeSheets(); choose(chat.id);
+          line = jarvisBrief(message.sender ?? chat.name, 4) + ' said: ' + jarvisBrief(message.text || summary(message), 12);
+        }
+      } else {
+        search.value = ''; filter.value = 'all'; closeSheets(); choose(chat.id);
+        if (command.verb === 'send') {
+          composer.value = text;
+          send();
+          line = 'Sent your message to ' + jarvisBrief(chat.name) + '.';
+        } else line = 'Opened your chat with ' + jarvisBrief(chat.name) + '.';
+      }
+    }
+  } catch { line = "I couldn't complete that in Messages."; }
+  try {
+    const reply = command.reply as ((line: string) => void) | undefined;
+    reply?.(line);
+  } catch { /* A reply callback must not interrupt the app. */ }
+});
+onBeforeUnmount(() => stopJarvis());
+
 </script>
 
 <template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { listenAsApp } from '../bus';
 import type { ComponentPublicInstance } from 'vue';
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
@@ -572,7 +573,51 @@ onMounted(() => {
   mounted = true;
 });
 onBeforeUnmount(() => {
+  stopJarvis();
   galleryObserver?.disconnect(); clearTimeout(messageTimer); endMarquee(); draggedIds = []; });
+function jarvisMatch(value: string): string {
+  return value.toLowerCase().replace(/\b(the|my)\b/g, ' ').replace(/\s+/g, ' ').trim();
+}
+// JARVIS can work in Files: open, search, recent.
+const stopJarvis = listenAsApp('files', async command => {
+  let line = "I can't do that in Files yet.";
+  try {
+    await nextTick();
+    const arg = typeof command.arg === 'string' ? command.arg.trim() : '';
+    switch (command.verb) {
+      case 'open': {
+        const term = jarvisMatch(arg);
+        const candidates = [...shown.value, ...entries.value].filter(item => !item.deleted);
+        const item = term ? candidates.find(entry => jarvisMatch(entry.name) === term)
+          ?? candidates.find(entry => jarvisMatch(entry.name).includes(term)) : undefined;
+        if (item) {
+          navigate(storageLabel[item.storage] as Location);
+          navigateFolder(item.parent);
+          open(item);
+          if (item.kind !== 'folder') selected.value = [item.id];
+          line = 'Opened ' + item.name.split(/\s+/).slice(0, 8).join(' ') + '.';
+        } else {
+          const place = term ? locations.find(entry => jarvisMatch(entry.name) === term)
+            ?? locations.find(entry => jarvisMatch(entry.name).includes(term)) : undefined;
+          if (place) { navigate(place.name); line = 'Opened ' + place.name + '.'; }
+          else line = "I couldn't find that file or folder.";
+        }
+        break;
+      }
+      case 'search':
+        if (!arg) { line = 'Tell me what to search for in Files.'; break; }
+        navigate('Recents');
+        query.value = arg;
+        line = 'Searched Files for ' + arg.split(/\s+/).slice(0, 8).join(' ') + '.';
+        break;
+      case 'recent':
+        navigate('Recents');
+        line = 'Showing recent files.';
+        break;
+    }
+  } catch { line = "I couldn't finish that in Files."; }
+  try { (command.reply as ((line: string) => void) | undefined)?.(line); } catch { /* A reply must not interrupt the app. */ }
+});
 </script>
 
 <template>

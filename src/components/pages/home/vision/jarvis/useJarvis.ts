@@ -118,6 +118,8 @@ export function useJarvis(options: {
   function log(text: string, kind: LogLine['kind'] = 'op') {
     state.log.push({ id: ++lineId, text, kind, at: Date.now() });
     if (state.log.length > 60) state.log.splice(0, state.log.length - 60);
+    // A test harness can read the trace by setting window.__jarvisLog = [].
+    (globalThis as { __jarvisLog?: string[] }).__jarvisLog?.push(text);
   }
   const address = () => state.address || 'sir';
   function context(): JarvisContext {
@@ -151,6 +153,14 @@ export function useJarvis(options: {
     if (mine === run) { state.spoken = state.words.length; state.mode = 'idle'; }
   }
 
+  /** What the apps reported, less any sentence he has already said in his own words. */
+  function unsaid(said: string, lines: string[]) {
+    const known = new Set(said.toLowerCase().match(/[a-z]{4,}/g) ?? []);
+    return lines.flatMap(line => line.match(/[^.!?]+[.!?]*/g) ?? [line]).map(sentence => sentence.trim()).filter(sentence => {
+      const words = sentence.toLowerCase().match(/[a-z]{4,}/g) ?? [];
+      return sentence && (!words.length || words.filter(word => known.has(word)).length / words.length < .6);
+    }).join(' ');
+  }
   async function run_actions(actions: JarvisAction[]) {
     const extra: string[] = [];
     for (const action of actions) {
@@ -275,8 +285,11 @@ export function useJarvis(options: {
         if (start) state.mode = 'speaking';
       }) : null;
       let pushed = 0, actions: Promise<string[]> = Promise.resolve([]);
+      // When apps do the work, they report what happened; he only acknowledges, so he never claims a result first.
+      let reported = false;
       const act = (steps: Step[]) => {
         const mapped = toActions(steps, context(), text);
+        reported = mapped.actions.some(action => action.type === 'inApp' || action.type === 'bringOut' || action.type === 'youtube' || (action.type === 'music' && action.action === 'play'));
         mapped.trace.forEach(line => log(`> ${line}`, 'op'));
         if (mapped.actions.length) actions = run_actions(mapped.actions).then(extra => { log(`done  ${Math.round(performance.now() - started)}ms  ✓`, 'ok'); return extra; });
       };
@@ -301,7 +314,7 @@ export function useJarvis(options: {
         }
       };
       const reader = planReader(steps => { if (mine === run) act(steps); }, said => {
-        if (mine !== run) return;
+        if (mine !== run || reported) return;
         state.caption = said; state.words = said.split(' ').filter(Boolean);
         if (!speech) state.spoken = state.words.length;
         feed(said, false);
@@ -310,7 +323,9 @@ export function useJarvis(options: {
       if (mine !== run) return;
       const plan = reader.end();
       if (!reader.fired) act(plan.steps);
-      const said = addressed(plan.say || '', address()).trim();
+      // His own words stay where they are feelings or company; anything that sounds like a result is left to the apps.
+      const kept = reported ? (plan.say.match(/[^.!?]+[.!?]*/g) ?? []).filter(line => !/\b(sent|found|playing|plays|is on|open|opened|ringing|calling|created|posted|started|showing|here is|here's|is out|done|ready|booked|noted|set)\b/i.test(line)).join(' ').trim() : '';
+      const said = addressed(reported ? kept || ['Right away, {a}.', 'On it, {a}.', 'Certainly, {a}.'][Math.floor(Math.random() * 3)]! : plan.say || '', address()).trim();
       state.caption = said; state.words = said.split(' ').filter(Boolean);
       feed(said, true);
       state.tokensPerSecond = mind.tokensPerSecond; state.lastMs = result.ms;
@@ -318,7 +333,7 @@ export function useJarvis(options: {
       const extra = await actions;
       if (mine !== run) return;
       // Anything the actions found out (a forecast, a world clock) is said after his own line.
-      if (extra.length) { const more = extra.join(' '); state.caption = `${said} ${more}`.trim(); state.words = state.caption.split(' ').filter(Boolean); speech?.push(more); }
+      if (extra.length) { const more = unsaid(said, extra); if (more) { state.caption = `${said} ${more}`.trim(); state.words = state.caption.split(' ').filter(Boolean); speech?.push(more); } }
       memory.turns.push({ you: text, jarvis: state.caption });
       if (memory.turns.length > 8) memory.turns.shift();
       log(`say(${JSON.stringify(state.caption.slice(0, 52))})`, 'say');

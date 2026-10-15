@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { onBeforeUnmount } from 'vue';
+import { listenAsApp } from '../bus';
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
 import MacFinder from './mac/Finder.vue';
@@ -281,7 +283,47 @@ onMounted(() => {
   if (frame.value) observer.observe(frame.value);
   clockTimer = setInterval(() => { if (!document.hidden && status.value === 'connected') now.value = new Date(); }, 1000);
 });
-onBeforeUnmount(() => {
+// JARVIS can work in Mac: connect, disconnect, open, ultrawide, wide, standard.
+const stopJarvis = listenAsApp('mac', async command => {
+  let line = "I can't do that in Mac yet.";
+  try {
+    await nextTick();
+    switch (command.action === 'do' ? command.verb : '') {
+      case 'connect':
+        if (status.value === 'disconnected') connect();
+        if (status.value === 'connecting') await new Promise<void>(resolve => setTimeout(resolve, 1250));
+        line = !disposed && status.value === 'connected' ? 'Connected to the demo MacBook.' : 'The MacBook connection was interrupted.';
+        break;
+      case 'disconnect':
+        disconnect();
+        line = 'Disconnected the demo MacBook.';
+        break;
+      case 'open': {
+        const normalize = (value: string) => value.toLowerCase().replace(/\b(the|my)\b/g, '').replace(/[^a-z0-9]/g, '');
+        const term = normalize(String(command.arg ?? ''));
+        const app = term ? MAC_APPS.find(item => normalize(item.name) === term || normalize(item.id) === term)
+          ?? MAC_APPS.find(item => normalize(item.name).includes(term) || normalize(item.id).includes(term)) : undefined;
+        if (!app) { line = "I couldn't find that Mac app."; break; }
+        if (status.value === 'disconnected') connect();
+        if (status.value === 'connecting') await new Promise<void>(resolve => setTimeout(resolve, 1250));
+        if (disposed || status.value !== 'connected') { line = 'The MacBook connection was interrupted.'; break; }
+        await nextTick();
+        reveal(app.id);
+        line = 'Opened ' + app.name + ' on the MacBook.';
+        break;
+      }
+      case 'ultrawide':
+      case 'wide':
+      case 'standard': {
+        const display = modes.find(item => item.toLowerCase() === command.verb);
+        if (display) { mode.value = display; line = 'Switched the Mac display to ' + display + '.'; }
+        break;
+      }
+    }
+  } catch { line = "I couldn't complete that in Mac."; }
+  try { if (typeof command.reply === 'function') command.reply?.(line); } catch { /* A reply must not interrupt the app. */ }
+});
+onBeforeUnmount(() => { stopJarvis();
   disposed = true;
   release();
   observer?.disconnect();

@@ -234,7 +234,7 @@ export class JarvisMind {
     } else {
       if (!this.engine) throw new Error('Neural core offline');
       const stream = await this.engine.chat.completions.create({
-        messages, stream: true, temperature: .4, top_p: .8, max_tokens: 220,
+        messages, stream: true, temperature: .4, top_p: .8, max_tokens: 360,
         response_format: { type: 'json_object', schema: JSON.stringify(PLAN_SCHEMA) },
         extra_body: { enable_thinking: false },
       } as Parameters<MLCEngineInterface['chat']['completions']['create']>[0] & { stream: true });

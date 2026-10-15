@@ -352,7 +352,7 @@ onBeforeUnmount(() => {
       <button v-if="micAvailable" type="button" class="mic" :class="{ on: listening }" :aria-label="listening ? 'Stop listening' : 'Speak to JARVIS'" :aria-pressed="listening" @click="mic">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.8" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
       </button>
-      <input ref="input" v-model="question" type="text" maxlength="300" autocomplete="off" spellcheck="false" :placeholder="listening ? 'Listening…' : named ? 'Your first name' : 'Speak, or type to JARVIS…'" aria-label="Talk to JARVIS" @keydown.stop />
+      <input ref="input" v-model="question" type="text" maxlength="300" autocomplete="off" spellcheck="false" :placeholder="listening || state.ear === 'listening' ? 'Listening…' : named ? 'Your first name' : state.wake && state.ear !== 'off' ? 'Say “JARVIS”, or type…' : 'Speak, or type to JARVIS…'" aria-label="Talk to JARVIS" @keydown.stop />
       <button type="submit" class="send" aria-label="Send" :disabled="!question.trim()">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
       </button>

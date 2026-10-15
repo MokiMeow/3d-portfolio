@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, onMounted, ref, useId } from 'vue';
+import { listenAsApp } from '../bus';
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, useId } from 'vue';
 import CityPreview from './maps/CityPreview.vue';
 import AppSheet from './arcade/AppSheet.vue';
 import { VISION } from '../vision';
@@ -149,7 +150,46 @@ onMounted(() => {
   document.addEventListener('visibilitychange',mapVisibility);
 });
 function mapVisibility():void { pageHidden.value=document.hidden; scheduleNavigation(); }
-onBeforeUnmount(() => { visibilityObserver?.disconnect(); document.removeEventListener('visibilitychange',mapVisibility); cancelAnimationFrame(frame); clearInterval(navigationTimer); mapObserver?.disconnect(); pointers.clear(); });
+
+function jarvisMatch(value: string): string {
+  return value.toLowerCase().replace(/\b(the|my)\b/g, '').replace(/\s+/g, ' ').trim();
+}
+// JARVIS can work in Maps: find, directions, zoom_in, zoom_out.
+const stopJarvis = listenAsApp('maps', async command => {
+  let line = "I can't do that in Maps yet.";
+  try {
+    await nextTick();
+    if (command.action === 'do') {
+      if (command.verb === 'zoom_in' || command.verb === 'zoom_out') {
+        const previous = camera.value.zoom;
+        zoom(command.verb === 'zoom_in' ? 1.25 : .8);
+        line = camera.value.zoom === previous ? 'The map is already at its zoom limit.'
+          : command.verb === 'zoom_in' ? 'Zoomed in on the map.' : 'Zoomed out on the map.';
+      } else if (command.verb === 'find' || command.verb === 'directions') {
+        const name = jarvisMatch(String(command.arg ?? ''));
+        const place = name ? places.find(item => jarvisMatch(item.name) === name)
+          ?? places.find(item => jarvisMatch(item.name).includes(name)) : undefined;
+        if (!name) line = 'Tell me which place to find.';
+        else if (!place) line = "I couldn't find that place in Pocket District.";
+        else {
+          query.value = place.name; category.value = null;
+          lookAround.value = false; guideOpen.value = null; styleSheet.value = false;
+          choose(place);
+          if (command.verb === 'directions') {
+            showRoute(); go();
+            line = 'Started directions to ' + place.name + '.';
+          } else line = 'Found ' + place.name + '.';
+        }
+      }
+    }
+  } catch { line = "I couldn't complete that in Maps."; }
+  try {
+    const reply = command.reply as ((line: string) => void) | undefined;
+    reply?.(line);
+  } catch { /* A reply callback must not interrupt the app. */ }
+});
+
+onBeforeUnmount(() => { stopJarvis(); visibilityObserver?.disconnect(); document.removeEventListener('visibilitychange',mapVisibility); cancelAnimationFrame(frame); clearInterval(navigationTimer); mapObserver?.disconnect(); pointers.clear(); });
 </script>
 
 <template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { listenAsApp } from '../bus';
 import { computed, inject, onBeforeUnmount, onMounted, ref } from 'vue';
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
@@ -90,7 +91,39 @@ onMounted(() => {
   if(appRootElement.value) visibilityObserver.observe(appRootElement.value);
   document.addEventListener('visibilitychange',syncVisibility);
 });
-onBeforeUnmount(() => { clearCall(); visibilityObserver?.disconnect(); document.removeEventListener('visibilitychange',syncVisibility); });
+onBeforeUnmount(() => { stopJarvis(); clearCall(); visibilityObserver?.disconnect(); document.removeEventListener('visibilitychange',syncVisibility); });
+
+function jarvisName(value: string): string {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\b(the|my)\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+// JARVIS can work in FaceTime: call, end, mute, unmute.
+const stopJarvis = listenAsApp('facetime', async command => {
+  let line = "I can't do that in FaceTime yet.";
+  try {
+    switch (command.action === 'do' ? command.verb : '') {
+      case 'call': {
+        const term = jarvisName(String(command.arg ?? ''));
+        const person = term ? contacts.find(item => jarvisName(item.name) === term)
+          ?? contacts.find(item => jarvisName(item.name).includes(term)) : undefined;
+        if (person) { call(person); line = 'Calling ' + person.name + '.'; }
+        else line = "I couldn't find that contact in FaceTime.";
+        break;
+      }
+      case 'end':
+        if (phase.value === 'call' || phase.value === 'ringing') { end(); line = 'Ended your call with ' + contact.value.name + '.'; }
+        else line = 'There is no current call to end.';
+        break;
+      case 'mute':
+      case 'unmute':
+        if (phase.value === 'call' || phase.value === 'ringing') {
+          muted.value = command.verb === 'mute';
+          line = muted.value ? 'Muted your microphone.' : 'Unmuted your microphone.';
+        } else line = 'There is no current call to ' + command.verb + '.';
+        break;
+    }
+  } catch { line = "I couldn't complete that in FaceTime."; }
+  try { (command.reply as ((line: string) => void) | undefined)?.(line); } catch { /* The caller owns its reply callback. */ }
+});
 </script>
 
 <template>

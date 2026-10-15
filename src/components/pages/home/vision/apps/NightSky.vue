@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { listenAsApp } from '../bus';
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
@@ -124,7 +125,44 @@ onMounted(() => {
   catch { error.value = 'WebGL is unavailable. Search the object atlas to explore stars and planets; the interactive sky needs WebGL.'; }
 });
 watch(() => props.compact, value => sky?.view.setCompact(!!value));
-onBeforeUnmount(() => { sky?.dispose(); appRoot.value?.removeEventListener('keydown', keys); });
+// JARVIS can work in Night Sky: find, now, tonight, lines_on, lines_off.
+const stopJarvis = listenAsApp('nightsky', async command => {
+  let line = "I can't do that in Night Sky yet.";
+  try {
+    await nextTick();
+    switch (command.action === 'do' ? command.verb : '') {
+      case 'find': {
+        const normalize = (value: string) => value.toLowerCase().replace(/\b(the|my)\b/g, '').replace(/[^a-z0-9]/g, '');
+        const term = normalize(String(command.arg ?? ''));
+        const all = [...planets(time.value), ...stars];
+        const object = term ? all.find(item => normalize(item.name) === term)
+          ?? all.find(item => normalize(item.name).includes(term) || normalize(item.constellation).includes(term)) : undefined;
+        if (object) {
+          choose(object);
+          line = !sky ? 'Selected ' + object.name + '; the interactive sky is unavailable.' : normalize(object.name).includes(term) ? 'Found ' + object.name + ' in ' + object.constellation + '.' : 'Found ' + object.constellation + '; ' + object.name + ' is selected.';
+        } else line = "I couldn't find that sky object.";
+        break;
+      }
+      case 'now':
+        now();
+        line = 'Returned to the current time.';
+        break;
+      case 'tonight':
+        now();
+        tonight();
+        if (followNow.value) { openDate(); pickTime.value = '21:00'; setDate(); }
+        line = 'Showing tonight at 9 pm in ' + place.value.name + '.';
+        break;
+      case 'lines_on':
+      case 'lines_off':
+        lines.value = command.verb === 'lines_on';
+        line = 'Constellation lines are ' + (lines.value ? 'on.' : 'off.');
+        break;
+    }
+  } catch { line = "I couldn't complete that in Night Sky."; }
+  try { if (typeof command.reply === 'function') command.reply?.(line); } catch { /* A reply must not interrupt the app. */ }
+});
+onBeforeUnmount(() => { stopJarvis(); sky?.dispose(); appRoot.value?.removeEventListener('keydown', keys); });
 </script>
 <template>
 <div ref="appRoot" class="night-app" :class="{ compact, solid:vision.reduceTransparency.value }">

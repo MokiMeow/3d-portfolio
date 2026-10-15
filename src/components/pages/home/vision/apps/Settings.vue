@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { onBeforeUnmount } from 'vue';
+import { listenAsApp } from '../bus';
 import { VISION_APPS, VISION_ENVIRONMENTS } from '../vision';
 import { vHover } from '../kit/hover';
 import ToggleRow from './settings/ToggleRow.vue';
@@ -13,6 +15,7 @@ const {
     vision,
     settingsRoot,
     confirmId,
+    categories,
     generalPages,
     page,
     query,
@@ -120,6 +123,44 @@ const batteryApps = [
   { name: 'Freeform', value: 21, color: '#f3d58c', detail: '27 min · On screen' },
   { name: 'Other apps', value: 15, color: '#c1b0e4', detail: '19 min · On screen' },
 ];
+function jarvisMatch(value: string): string {
+  return value.toLowerCase().replace(/\b(the|my)\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+// JARVIS can work in Settings: open, reduce_transparency_on/off, reduce_motion_on/off, dark_mode_on/off, sound_on/off, increase_contrast_on/off, low_power_on/off.
+const stopJarvis = listenAsApp('settings', async command => {
+    let line = "I can't do that in Settings yet.";
+    try {
+        await nextTick();
+        if (command.verb === 'open') {
+            const term = jarvisMatch(typeof command.arg === 'string' ? command.arg : '');
+            const aliases: Record<string, string> = { appearance: 'Environments', display: 'Displays', sound: 'Sounds', audio: 'Sounds' };
+            const destinations = [...categories.map(item => item.id), ...generalPages];
+            const destination = term ? aliases[term] ?? destinations.find(item => jarvisMatch(item) === term)
+                ?? destinations.find(item => jarvisMatch(item).includes(term)) : undefined;
+            if (destination) {
+                query.value = '';
+                await navigate(destination);
+                line = 'Opened ' + destination + ' settings.';
+            } else line = "I couldn't find that section in Settings.";
+        } else {
+            const toggles = [
+                { verb: 'reduce_transparency', value: transparency, label: 'Reduce Transparency' },
+                { verb: 'reduce_motion', value: reduceMotion, label: 'Reduce Motion' },
+                { verb: 'dark_mode', value: dark, label: 'Dark Appearance' },
+                { verb: 'sound', value: sound, label: 'Environment Sound' },
+                { verb: 'increase_contrast', value: contrast, label: 'Increase Contrast' },
+                { verb: 'low_power', value: lowPower, label: 'Low Power Mode' },
+            ];
+            const toggle = toggles.find(item => command.verb === item.verb + '_on' || command.verb === item.verb + '_off');
+            if (toggle) {
+                toggle.value.value = command.verb === toggle.verb + '_on';
+                line = 'Turned ' + (toggle.value.value ? 'on ' : 'off ') + toggle.label + '.';
+            }
+        }
+    } catch { line = "I couldn't finish that in Settings."; }
+    try { (command.reply as ((line: string) => void) | undefined)?.(line); } catch { /* A reply must not interrupt the app. */ }
+});
+onBeforeUnmount(() => stopJarvis());
 </script>
 
 <template>

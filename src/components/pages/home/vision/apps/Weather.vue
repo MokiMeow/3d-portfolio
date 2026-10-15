@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, inject, ref } from 'vue';
+import { listenAsApp } from '../bus';
+import { computed, getCurrentInstance, inject, nextTick, onBeforeUnmount, ref } from 'vue';
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
 import { PLACES, CONDITIONS, forecast, type ForecastDay } from './weather/model';
@@ -37,6 +38,39 @@ function position(value: number): number { return (value - minimum.value) / (max
 function select(id: string): void { selected.value = id; placesOpen.value = false; }
 function sheetKeys(event:KeyboardEvent):void { if(event.key==='Escape' && (placesOpen.value || radarOpen.value)) { event.stopPropagation(); placesOpen.value=false; radarOpen.value=false; } }
 function sunTime(hour: number): string { const h = Math.floor(hour); return String(h).padStart(2, '0') + ':' + String(Math.round((hour - h) * 60)).padStart(2, '0'); }
+
+const jarvisInstance = getCurrentInstance();
+function jarvisName(value: string): string {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\b(the|my)\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+// JARVIS can work in Weather: show, hourly, week.
+const stopJarvis = listenAsApp('weather', async command => {
+  let line = "I can't do that in Weather yet.";
+  try {
+    switch (command.action === 'do' ? command.verb : '') {
+      case 'show': {
+        const term = jarvisName(String(command.arg ?? ''));
+        const place = term ? PLACES.find(item => jarvisName(item.name) === term)
+          ?? PLACES.find(item => jarvisName(item.name).includes(term)) : undefined;
+        if (place) { radarOpen.value = false; select(place.id); line = 'Showing the weather in ' + place.name + '.'; }
+        else line = 'Available cities are ' + PLACES.map(item => item.name).join(', ') + '.';
+        break;
+      }
+      case 'hourly':
+      case 'week': {
+        placesOpen.value = false; radarOpen.value = false;
+        page.value = command.verb === 'hourly' ? 'Overview' : '10-Day';
+        await nextTick();
+        const root = jarvisInstance?.proxy?.$el as HTMLElement | undefined;
+        root?.querySelector(command.verb === 'hourly' ? '.hourly' : '.daily')?.scrollIntoView({ block: 'nearest' });
+        line = 'Showing the ' + (command.verb === 'hourly' ? 'hourly' : '10-day') + ' forecast for ' + city.value.name + '.';
+        break;
+      }
+    }
+  } catch { line = "I couldn't complete that in Weather."; }
+  try { (command.reply as ((line: string) => void) | undefined)?.(line); } catch { /* The caller owns its reply callback. */ }
+});
+onBeforeUnmount(() => stopJarvis());
 </script>
 
 <template>

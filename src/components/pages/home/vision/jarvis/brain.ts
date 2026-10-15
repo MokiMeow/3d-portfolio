@@ -41,7 +41,9 @@ export type JarvisAction =
   | { type: 'protocol'; name: 'house party' | 'clean slate' | 'focus' | 'blackout' | 'stargazer' }
   | { type: 'remember'; fact: string }
   | { type: 'recall' }
-  | { type: 'forget' };
+  | { type: 'forget' }
+  | { type: 'inApp'; app: string; verb: string; arg?: string; number?: number }
+  | { type: 'bringOut'; model: string; name: string };
 
 export interface JarvisContext {
   now: Date;
@@ -244,7 +246,7 @@ function command(n: string, ctx: JarvisContext): { say: string; actions: JarvisA
     return { say: `${query.charAt(0).toUpperCase() + query.slice(1)}, on YouTube.`, actions: [{ type: 'open', app: 'youtube' }, { type: 'youtube', query }], trace: [`youtube.play(${lit(query)})`] };
   }
   const play = n.match(/^(?:play|put on)(?: me)? (?:some |something |a little |a )?(.*?)(?: music| songs?| playlist| tunes)?$/);
-  if (play && !/video|game|youtube|arcade|minecraft/.test(n) && !ctx.apps.some(app => normalize(app.name) === play[1])) {
+  if (play && !/video|game|youtube|arcade|minecraft| on (?:the )?(?:apple )?tv| in (?:the )?(?:apple )?tv| on (?:beat|the mac)/.test(n) && !ctx.apps.some(app => normalize(app.name) === play[1])) {
     const query = (play[1] ?? '').replace(/^(?:music|songs?)$/, '');
     return { say: query ? `Something ${query}, {a}.` : 'Music, {a}.', actions: [{ type: 'open', app: 'music' }, { type: 'music', action: 'play', query }], trace: [`music.play(${lit(query || 'any')})`] };
   }
@@ -342,7 +344,7 @@ function command(n: string, ctx: JarvisContext): { say: string; actions: JarvisA
   }
 
   // Search the web.
-  const search = n.match(/^(?:search|google|look up|search the web for|search for)(?: for)? (.+)$/);
+  const search = /\b(?:then|and (?:open|show|take|play|go))\b/.test(n) ? null : n.match(/^(?:search|google|look up|search the web for|search for)(?: safari| the web| online)?(?: for)? (.+)$/);
   if (search) return { say: `Searching for ${search[1]}.`, actions: [{ type: 'search', query: search[1]! }], trace: [`safari.search(${lit(search[1]!)})`] };
 
   // Open an app or go to a place.
@@ -437,11 +439,13 @@ export function think(text: string, ctx: JarvisContext, memory: Memory): Reply {
   };
   if (!n) return reply(pick(['Yes, {a}?', 'At your service.']), [], 'chat', ['respond()']);
 
-  const whole = command(n, ctx);
+  // With a thinking mind on hand, anything with several clauses goes to it unless every clause is a plain command:
+  // "tell Riya I am late, then open the family group" is not one long message.
+  const parts = clauses(n);
+  const whole = parts.length > 1 && ctx.neural ? null : command(n, ctx);
   if (whole) return reply(whole.say, whole.actions, 'command', ['  intent: command  conf 0.97', ...whole.trace.map(line => '> ' + line)]);
 
   // Several commands at once. Only accept if every clause is a command, so prose never misfires.
-  const parts = clauses(n);
   if (parts.length > 1) {
     const parsed = parts.map(part => command(part.replace(STRIP, ''), ctx));
     if (parsed.every(Boolean)) {

@@ -106,3 +106,23 @@ test('requests it cannot place are handed to the model, never answered with a st
   assert.equal(reply.kind, 'unknown');
   assert.ok(!reply.trace.some(line => line.includes('fallback')));
 });
+
+test('plans work inside apps and carries models out', async () => {
+  // plan.ts imports './brain' without an extension, the way Vite allows.
+  const hook = "export async function resolve(s, c, n) { try { return await n(s, c); } catch (e) { if (s.startsWith('.') && !s.split('/').pop().includes('.')) return n(s + '.ts', c); throw e; } }";
+  (await import('node:module')).register('data:text/javascript,' + encodeURIComponent(hook));
+  const { toActions } = await import('../src/components/pages/home/vision/jarvis/plan.ts');
+  const plan = (steps, asked = 'tell amma') => toActions(steps, ctx({ apps: [...apps, { id: 'whatsapp', name: 'WhatsApp' }, { id: 'notes', name: 'Notes' }, { id: 'maps', name: 'Maps' }] }), asked).actions;
+  assert.deepEqual(plan([{ do: 'in_app', target: 'WhatsApp', verb: 'open_chat', text: 'Amma' }, { do: 'in_app', target: 'whatsapp', verb: 'send', text: 'on my way' }]).map(a => a.app + '.' + a.verb),
+    ['whatsapp.send']);
+  assert.equal(plan([{ do: 'in_app', target: 'whatsapp', verb: 'open_chat', text: 'Amma' }, { do: 'in_app', target: 'whatsapp', verb: 'send', text: 'on my way' }])[0].arg, 'Amma: on my way');
+  assert.deepEqual(plan([{ do: 'in_app', target: 'notes', verb: 'new note', text: 'Milk' }]).map(a => a.verb), ['new_note']);
+  assert.deepEqual(plan([{ do: 'in_app', target: 'maps', verb: 'teleport' }]), []);
+  assert.deepEqual(plan([{ do: 'in_app', target: 'night sky', verb: 'find', text: 'Orion' }]).map(a => a.app + '.' + a.verb), ['nightsky.find']);
+  assert.deepEqual(plan([{ do: 'bring_out', target: 'WALL·E' }]).map(a => a.type + ':' + a.model), ['bringOut:walle']);
+  assert.deepEqual(plan([{ do: 'bring_out', target: 'the PS5' }]).map(a => a.model), ['ps5']);
+  // A chat nobody named is never opened.
+  assert.deepEqual(plan([{ do: 'in_app', target: 'whatsapp', verb: 'open_chat', text: 'sir' }], 'clean up and take me home'), []);
+  // A message nobody asked for is never sent.
+  assert.deepEqual(plan([{ do: 'in_app', target: 'notes', verb: 'new_note', text: 'Call Amma' }, { do: 'in_app', target: 'whatsapp', verb: 'send', text: 'Amma: calling you' }], 'make a note to call amma').map(a => a.verb), ['new_note']);
+});

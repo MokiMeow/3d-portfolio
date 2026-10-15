@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { listenAsApp } from '../bus';
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
 import { objects, type ObjectId } from './objects/models';
@@ -64,7 +65,27 @@ onMounted(() => {
   } catch { error.value = 'This close-up needs WebGL. The object collection is still here to browse.'; status.value = ''; }
 });
 watch(() => props.compact, value => stage?.view.setCompact(!!value));
-onBeforeUnmount(() => { observer?.disconnect(); stage?.dispose(); });
+// JARVIS can work in Objects: show.
+const stopJarvis = listenAsApp('objects', async command => {
+  let line = "I can't do that in Objects yet.";
+  try {
+    await nextTick();
+    if (command.action === 'do' && command.verb === 'show') {
+      const normalize = (value: string) => value.toLowerCase().replace(/\b(the|my)\b/g, '').replace(/[^a-z0-9]/g, '');
+      const term = normalize(String(command.arg ?? ''));
+      const object = term ? objects.find(item => normalize(item.id) === term || normalize(item.name) === term)
+        ?? objects.find(item => normalize(item.id).includes(term) || normalize(item.name).includes(term)) : undefined;
+      if (object) {
+        selected.value = object.id; explode.value = false; bounds.value = undefined; activeHotspot.value = 0;
+        await loadSelected(object.id);
+        line = selected.value !== object.id ? 'The selected object changed before it finished loading.'
+          : !stage || failed.value ? 'Selected ' + object.name + ', but its 3D view is unavailable.' : 'Showing ' + object.name + '.';
+      } else line = "I couldn't find that model in Objects.";
+    }
+  } catch { line = "I couldn't complete that in Objects."; }
+  try { if (typeof command.reply === 'function') command.reply?.(line); } catch { /* A reply must not interrupt the app. */ }
+});
+onBeforeUnmount(() => { stopJarvis(); observer?.disconnect(); stage?.dispose(); });
 </script>
 
 <template>

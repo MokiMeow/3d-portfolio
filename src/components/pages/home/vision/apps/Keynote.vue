@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { listenAsApp } from '../bus';
 import { computed, inject, onBeforeUnmount, onMounted, ref } from 'vue';
 import { VISION } from '../vision';
 import { vHover } from '../kit/hover';
@@ -65,7 +66,40 @@ onMounted(() => {
  if(root.value) visibilityObserver.observe(root.value);
  document.addEventListener('visibilitychange',startRehearsalTimer);
 });
-onBeforeUnmount(() => { clearInterval(rehearseTimer); visibilityObserver?.disconnect(); document.removeEventListener('visibilitychange',startRehearsalTimer); });
+// JARVIS can work in Keynote: play, next, previous, stop, open.
+const stopJarvis = listenAsApp('keynote', async command => {
+  let line = "I can't do that in Keynote yet.";
+  try {
+    switch (command.action === 'do' ? command.verb : '') {
+      case 'play':
+        changeView('Play');
+        line = 'Presenting The craft of calm.';
+        break;
+      case 'next':
+      case 'previous': {
+        const before = index.value;
+        advance(command.verb === 'next' ? 1 : -1);
+        line = index.value === before ? 'You are already on the ' + (before === 0 ? 'first' : 'last') + ' slide.'
+          : 'Showing slide ' + (index.value + 1) + ': ' + current.value.title;
+        break;
+      }
+      case 'stop':
+        changeView('Edit');
+        line = 'Returned to editing The craft of calm.';
+        break;
+      case 'open': {
+        const title = 'The craft of calm';
+        const normalize = (value: string) => value.toLowerCase().replace(/\b(the|my)\b/g, '').replace(/[^a-z0-9]/g, '');
+        const term = normalize(String(command.arg ?? ''));
+        if (!term || normalize(title).includes(term)) { changeView('Edit'); line = 'Opened ' + title + '.'; }
+        else line = 'Keynote only has one deck: ' + title + '.';
+        break;
+      }
+    }
+  } catch { line = "I couldn't complete that in Keynote."; }
+  try { if (typeof command.reply === 'function') command.reply?.(line); } catch { /* A reply must not interrupt the app. */ }
+});
+onBeforeUnmount(() => { stopJarvis(); clearInterval(rehearseTimer); visibilityObserver?.disconnect(); document.removeEventListener('visibilitychange',startRehearsalTimer); });
 </script>
 
 <template>
