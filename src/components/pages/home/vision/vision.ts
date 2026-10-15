@@ -56,6 +56,7 @@ export const VISION_ENVIRONMENTS = [
   { id: 'fireside', name: 'Fireside', line: 'A warm room and a crackling stove', kind: 'photo', life: 'none', sound: 'fire', night: true },
   { id: 'night', name: 'Milky Way', line: 'A clear night, far from any city', kind: 'photo', life: 'meteors', sound: 'night', night: true },
   { id: 'moon', name: 'The Moon', line: 'Earthrise over the regolith', kind: 'photo', life: 'none', sound: 'space', night: true },
+  { id: 'cabin', name: 'In Flight', line: 'A window seat, far above the clouds', kind: 'photo', life: 'none', sound: 'cabin', night: false },
   { id: 'jupiter', name: 'Jupiter', line: 'Over Europa’s ice, with Jupiter overhead', kind: 'photo', life: 'none', sound: 'space', night: true },
 ] as const;
 export type VisionEnvironment = (typeof VISION_ENVIRONMENTS)[number];

@@ -3,7 +3,7 @@
  * Everything is shaped noise and a few sine tones, kept quiet. Nothing plays until `set` is called
  * from a user gesture, which is what browsers require.
  */
-export type AmbienceKind = 'none' | 'wind' | 'waves' | 'water' | 'forest' | 'night' | 'space' | 'city' | 'fire';
+export type AmbienceKind = 'none' | 'wind' | 'waves' | 'water' | 'forest' | 'night' | 'space' | 'city' | 'fire' | 'cabin';
 
 export function createAmbience() {
   let context: AudioContext | undefined;
@@ -129,6 +129,18 @@ export function createAmbience() {
       bed(audio, out, { brown: true, type: 'lowpass', frequency: 380, level: 0.3, swell: 0.3, period: 6 }),
       crackle(audio, out, 0.06),
     ],
+    // An airliner at cruise: the deep broadband roar of the engines and the air past the skin, a soft hiss
+    // from the air vents above, and a faint steady engine tone underneath.
+    cabin: (audio, out) => {
+      const tone = audio.createOscillator(), gain = audio.createGain();
+      tone.type = 'sine'; tone.frequency.value = 118; gain.gain.value = 0.012;
+      tone.connect(gain).connect(out); tone.start();
+      return [
+        () => { tone.stop(); gain.disconnect(); },
+        bed(audio, out, { brown: true, type: 'lowpass', frequency: 520, level: 0.42, swell: 0.08, period: 11 }),
+        bed(audio, out, { brown: false, type: 'bandpass', frequency: 3200, q: 0.6, level: 0.018, swell: 0.15, period: 7 }),
+      ];
+    },
     space: (audio, out) => {
       const hum = audio.createOscillator(), gain = audio.createGain();
       hum.type = 'sine'; hum.frequency.value = 54; gain.gain.value = 0.05;

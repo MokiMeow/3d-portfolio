@@ -299,11 +299,14 @@ function toggleMode(which: 'focus' | 'guest' | 'travel' | 'wifi' | 'bluetooth' |
     else if (ownerWindows) { windows.value = ownerWindows; ownerWindows = null; }
   }
   // Travel Mode: the view stops leaning with your head, and loose objects settle.
-  if (which === 'travel') { place.value?.lean(0, 0); if (flag.value) spatial.value?.setGravity('earth'); }
+  if (which === 'travel') {
+    place.value?.lean(0, 0);
+    if (flag.value) { spatial.value?.setGravity('earth'); if (environment.value === 'room') setEnvironment('cabin'); }
+  }
   const lines: Record<typeof which, [string, string]> = {
     focus: ['Focus on. Banners will wait quietly.', 'Focus off.'],
     guest: ['Guest User on. Photos, messages and notes are locked, and JARVIS keeps your memories to himself.', 'Guest User off. Welcome back; everything is where you left it.'],
-    travel: ['Travel Mode on. Stay seated: the view holds still on bumpy rides and loose objects settle.', 'Travel Mode off. The view moves with you again.'],
+    travel: ['Travel Mode on. A window seat, far above the clouds: the view holds still on bumpy rides and loose objects settle.', 'Travel Mode off. The view moves with you again.'],
     wifi: ['Wi-Fi on.', 'Wi-Fi off. Bold choice for a website.'],
     bluetooth: ['Bluetooth on.', 'Bluetooth off.'],
     mirroring: ['Mirroring to the room TV. Everyone can see your tabs now.', 'Mirroring stopped.'],

@@ -175,7 +175,7 @@ const PLACE_ALIASES: Record<string, string[]> = {
   night: ['stars', 'starry night', 'milky way', 'night sky outside', 'space at night'], moon: ['lunar', 'the moon', 'moon surface'], room: ['my room', 'home room', 'passthrough', 'reality', 'real world'],
   mondello: ['beach', 'sea', 'seaside'], goegap: ['desert'], snow: ['snow', 'snowy', 'winter'], pines: ['forest', 'woods', 'pine'], bund: ['shanghai', 'city', 'skyline'],
   venice: ['venice', 'italy', 'lagoon'], fire: ['sunset', 'coast'], sunflowers: ['fields', 'sunflower', 'meadow'], fireside: ['fire', 'fireplace', 'cosy', 'cozy', 'cabin'],
-  lakeside: ['lake', 'sunrise'], kiara: ['dawn', 'red rock'], cape: ['clouds', 'mountain', 'above the clouds'], jupiter: ['jupiter', 'europa', 'gas giant'],
+  lakeside: ['lake', 'sunrise'], kiara: ['dawn', 'red rock'], cape: ['clouds', 'mountain', 'above the clouds'], jupiter: ['jupiter', 'europa', 'gas giant'], cabin: ['plane', 'airplane', 'aeroplane', 'flight', 'flying', 'cabin', 'window seat'],
 };
 
 const NUMBER_WORDS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, fifteen: 15, twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, ninety: 90, half: .5, couple: 2, few: 3, dozen: 12 };
