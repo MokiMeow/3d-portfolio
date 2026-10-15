@@ -5,6 +5,7 @@
  *   GET  /health                 -> { ok, voice, voices }
  *   POST /v1/chat/completions    -> passed through to llama.cpp (OpenAI-compatible, streaming)
  *   POST /v1/audio/speech        -> { input, voice?, speed? } in, 24 kHz mono WAV out
+ *   POST /v1/transcribe          -> { audio: base64 WAV, prompt? } in, { text } out (whisper.cpp at EAR_URL)
  *
  * Every route except /health needs `Authorization: Bearer $JARVIS_SERVER_KEY`. Only the website's
  * server (the Nuxt routes on Vercel) holds that key; browsers never talk to this server directly.
@@ -18,6 +19,7 @@ const PORT = Number(process.env.PORT ?? 8787);
 const KEY = process.env.JARVIS_SERVER_KEY ?? '';
 const LLM = (process.env.LLM_URL ?? 'http://127.0.0.1:8080').replace(/\/+$/, '');
 const DTYPE = process.env.KOKORO_DTYPE ?? 'fp32';
+const EAR = (process.env.EAR_URL ?? 'http://127.0.0.1:8091').replace(/\/+$/, '');
 const VOICE_DIR = new URL('./voices/', import.meta.url);
 if (!KEY) { console.error('Set JARVIS_SERVER_KEY.'); process.exit(1); }
 
@@ -94,6 +96,21 @@ http.createServer(async (request, response) => {
       const audio = await speak(text, String(voice), typeof speed === 'number' ? Math.min(1.3, Math.max(.7, speed)) : undefined);
       response.writeHead(200, { 'Content-Type': 'audio/wav', 'X-Synthesis-Ms': String(Math.round(performance.now() - started)) });
       return response.end(wav(audio));
+    }
+
+    // Hearing: Whisper (whisper.cpp) beside this server. Audio arrives as base64 WAV, text goes back.
+    if (request.method === 'POST' && path === '/v1/transcribe') {
+      const { audio, prompt } = await body(request, 6_000_000);
+      if (typeof audio !== 'string' || !audio) return send(response, 400, { error: 'audio required' });
+      const form = new FormData();
+      form.append('file', new Blob([Buffer.from(audio, 'base64')], { type: 'audio/wav' }), 'speech.wav');
+      form.append('response_format', 'json');
+      form.append('temperature', '0');
+      if (typeof prompt === 'string' && prompt) form.append('prompt', prompt.slice(0, 600));
+      const heard = await fetch(`${EAR}/inference`, { method: 'POST', body: form, signal: AbortSignal.timeout(15_000) });
+      if (!heard.ok) return send(response, 502, { error: 'ear unavailable' });
+      const { text } = await heard.json();
+      return send(response, 200, { text: String(text ?? '').trim() });
     }
 
     if (request.method === 'POST' && path === '/v1/chat/completions') {

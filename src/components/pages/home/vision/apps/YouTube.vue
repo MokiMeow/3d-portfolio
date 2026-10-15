@@ -256,7 +256,9 @@ const stopListening = listenAsApp("youtube", async command => {
   if (!term) return;
   search(term);
   const found = await searchYouTube(term);
-  if (found[0]) playVideo(found[0]);
+  const reply = command.reply as ((line: string) => void) | undefined;
+  if (found[0]) { playVideo(found[0]); reply?.(`Playing “${found[0].title.replace(/\s+[|·-].*$/, '').slice(0, 70)}”, from ${found[0].channel}.`); }
+  else reply?.(`I could not find anything on YouTube for ${term}.`);
 });
 onBeforeUnmount(stopListening);
 function search(value = query.value) {

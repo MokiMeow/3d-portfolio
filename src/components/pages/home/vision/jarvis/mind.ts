@@ -84,14 +84,14 @@ export class JarvisMind {
   /** 'hosted' when replies come from the site's server, 'local' when the model runs in this browser. */
   mode: 'hosted' | 'local' = 'local';
   private abort: AbortController | null = null;
-  private static hostedCheck: Promise<{ name: string | null; voice: boolean }> | null = null;
+  private static hostedCheck: Promise<{ name: string | null; voice: boolean; hear: boolean }> | null = null;
 
   /** What the site hosts: the mind's display name (null if none) and whether there is a hosted voice. Asked once. */
   static service() {
     JarvisMind.hostedCheck ??= fetch('/api/jarvis', { cache: 'no-store' })
-      .then(response => (response.ok ? response.json() as Promise<{ ok?: boolean; name?: string; voice?: boolean }> : null))
-      .then(info => ({ name: info?.ok ? info.name || 'Hosted mind' : null, voice: Boolean(info?.voice) }))
-      .catch(() => ({ name: null, voice: false }));
+      .then(response => (response.ok ? response.json() as Promise<{ ok?: boolean; name?: string; voice?: boolean; hear?: boolean }> : null))
+      .then(info => ({ name: info?.ok ? info.name || 'Hosted mind' : null, voice: Boolean(info?.voice), hear: Boolean(info?.hear) }))
+      .catch(() => ({ name: null, voice: false, hear: false }));
     return JarvisMind.hostedCheck;
   }
   static async hosted() { return (await JarvisMind.service()).name; }

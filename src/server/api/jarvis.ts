@@ -40,7 +40,7 @@ export default defineEventHandler(async event => {
   const name = String(config.jarvisName || model);
   if (event.method === 'GET') {
     setHeader(event, 'Cache-Control', 'no-store');
-    return { ok: Boolean(url && model), name, voice: Boolean(config.jarvisVoiceUrl) };
+    return { ok: Boolean(url && model), name, voice: Boolean(config.jarvisVoiceUrl), hear: Boolean(config.jarvisHearUrl) };
   }
   assertMethod(event, 'POST');
   if (!url || !model) throw createError({ statusCode: 503, statusMessage: 'Hosted mind not configured' });

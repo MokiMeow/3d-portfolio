@@ -606,8 +606,12 @@ async function jarvisAct(action: JarvisAction): Promise<string | void> {
       const newest = last.at(-1);
       return newest ? `In #${room.name}, ${newest.author} says: ${newest.text}` : `#${room.name} is quiet, {a}.`;
     }
-    case 'music': sendToApp('music', { action: action.action, query: action.query }); break;
-    case 'youtube': sendToApp('youtube', { action: 'play', query: action.query }); break;
+    // The app answers with what it actually chose, and JARVIS says it.
+    case 'music':
+      if (action.action !== 'play') { sendToApp('music', { action: action.action, query: action.query }); break; }
+      return await new Promise<string | void>(resolve => { const quiet = window.setTimeout(() => resolve(), 7000); sendToApp('music', { action: 'play', query: action.query, reply: (line: string) => { clearTimeout(quiet); resolve(line); } }); });
+    case 'youtube':
+      return await new Promise<string | void>(resolve => { const quiet = window.setTimeout(() => resolve(), 7000); sendToApp('youtube', { action: 'play', query: action.query, reply: (line: string) => { clearTimeout(quiet); resolve(line); } }); });
     case 'protocol': {
       jarvis.card({ kind: 'protocol', title: 'Protocol engaged', big: action.name.toUpperCase(), lines: [{ 'house party': 'Lights, music, and something to look at.', 'clean slate': 'Windows closed, space cleared, back home.', focus: 'Notifications held. A quiet place.', blackout: 'Lights out. Just the view.', stargazer: 'The Milky Way, and a map of it.' }[action.name]] });
       if (action.name === 'house party') {

@@ -81,6 +81,8 @@ export default defineNuxtConfig({
 		// The JARVIS server's voice (…/v1/audio/speech); its key defaults to NUXT_JARVIS_KEY.
 		jarvisVoiceUrl: "",
 		jarvisVoiceKey: "",
+		// Whisper behind the relay (…/v1/transcribe); same key as the mind.
+		jarvisHearUrl: "",
 		public: {
 			MODE: process.env.MODE,
 			GITHUB_LINK: process.env.GITHUB_LINK || "https://github.com/MokiMeow",

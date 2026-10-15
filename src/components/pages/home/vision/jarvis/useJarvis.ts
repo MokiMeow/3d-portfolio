@@ -3,6 +3,7 @@ import { addressRequest, addressed, describeApp, newMemory, think, APP_LINES, PL
 import type { JarvisAction, JarvisContext } from './brain';
 import { JarvisMind, MODELS, validTag } from './mind';
 import { JarvisVoice, VOICES, voiceOf } from './voice';
+import { Ear, type EarState } from './ear';
 import { PLAN_SCHEMA, planMessages, planReader, toActions, type Step } from './plan';
 import { PLACES, CONDITIONS, forecast } from '../apps/weather/model';
 
@@ -89,6 +90,8 @@ export function useJarvis(options: {
     /** The site's hosted mind, by name, when it has one; null while unknown or absent. */
     hosted: null as string | null,
     hostedVoice: false,
+    hostedHear: false,
+    ear: 'off' as EarState,
     /** True once the site has said whether it hosts JARVIS, so the setup card never flashes. */
     serviceKnown: false,
     turns: 0,
@@ -411,45 +414,48 @@ export function useJarvis(options: {
   function setAddress(value: string) { state.address = value; persist(); }
   function forget() { memory.turns = []; state.log = []; state.turns = 0; log('memory.clear()  ✓', 'ok'); }
 
-  /* "JARVIS, …": hands-free, through the browser's speech recognition, only when switched on. */
-  type Recognition = { lang: string; continuous: boolean; interimResults: boolean; onresult: ((event: { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> }) => void) | null; onend: (() => void) | null; onerror: ((event: { error: string }) => void) | null; start(): void; stop(): void; abort(): void };
-  let wake: Recognition | null = null, wakePaused = false, wakeRetry = 0;
-  const Recognizer = typeof window === 'undefined' ? undefined : ((window as unknown as { SpeechRecognition?: new () => Recognition }).SpeechRecognition ?? (window as unknown as { webkitSpeechRecognition?: new () => Recognition }).webkitSpeechRecognition);
-  const wakeAvailable = Boolean(Recognizer);
+  /* "Hey JARVIS, …": hands-free from anywhere. The ear notices his name, Whisper hears the words, and he
+     acts from his corner; after he answers you can carry on for a few seconds without his name. */
+  const ear = new Ear();
+  const wakeAvailable = Ear.available();
+  ear.busy = () => voice.busy || state.mode === 'thinking' || state.mode === 'speaking';
+  ear.hints = () => {
+    const ctx = options.context();
+    return `JARVIS. Hey JARVIS, open YouTube. ${ctx.apps.map(item => item.name).join(', ')}. ${ctx.environments.map(item => item.name).join(', ')}. Sidemen, MrBeast, lo-fi, Amma, Riya, Bengaluru, WhatsApp, Slack.`;
+  };
+  ear.onChange = mode => {
+    state.ear = mode;
+    if (mode === 'listening') { state.mode = 'listening'; state.you = ''; voice.chime('wake'); }
+    else if (mode === 'hearing') state.mode = 'thinking';
+    else if (mode === 'waiting' && (state.mode === 'listening' || state.mode === 'thinking') && !voice.busy) state.mode = 'idle';
+  };
+  ear.onHeard = text => {
+    log(`heard(${JSON.stringify(text.slice(0, 50))})`, 'in');
+    options.onWake?.();
+    const done = text ? ask(text) : say(addressed(['Yes, {a}?', 'At your service, {a}.', 'Listening, {a}.'][Math.floor(Math.random() * 3)]!, address()));
+    void done.then(() => ear.followUp(text ? 5 : 7));
+  };
+  let wakePaused = false;
   function startWake() {
-    if (!Recognizer || wake || wakePaused || !state.wake) return;
-    const recognizer = new Recognizer();
-    recognizer.lang = 'en-GB'; recognizer.continuous = true; recognizer.interimResults = false;
-    recognizer.onresult = event => {
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i]!;
-        if (!result.isFinal || voice.busy) continue;
-        const heard = result[0]!.transcript.trim();
-        const match = heard.match(/\b(?:hey |ok |okay )?(?:jarvis|jervis|jarvis's|travis)\b[,.!?]?\s*(.*)$/i);
-        if (!match) continue;
-        state.wakeHeard = heard;
-        log(`wake("${heard.slice(0, 40)}")`, 'in');
-        voice.chime('wake');
-        options.onWake?.();
-        if (match[1]?.trim()) void ask(match[1].trim());
-        else void say(addressed(['Yes, {a}?', 'At your service.', 'Listening, {a}.'][Math.floor(Math.random() * 3)]!, address()));
-      }
-    };
-    recognizer.onerror = event => { if (event.error === 'not-allowed' || event.error === 'service-not-allowed') { state.wake = false; persist(); log('wake.denied', 'warn'); } };
-    recognizer.onend = () => { wake = null; if (state.wake && !wakePaused) { window.clearTimeout(wakeRetry); wakeRetry = window.setTimeout(startWake, 400); } };
-    try { recognizer.start(); wake = recognizer; log('wake.listen()', 'sys'); } catch { wake = null; }
+    if (!wakeAvailable || wakePaused || !state.wake) return;
+    void ear.start(state.hostedHear).then(ok => { if (!ok) { state.wake = false; persist(); log('ear.denied', 'warn'); } else log('ear.listen()', 'sys'); });
   }
-  function stopWake() { window.clearTimeout(wakeRetry); const current = wake; wake = null; if (current) { current.onend = null; current.abort(); } }
-  /** The microphone button needs the recogniser to itself for a moment. */
+  function stopWake() { ear.stop(); }
+  /** The microphone button in the full display needs the microphone to itself for a moment. */
   function pauseWake(paused: boolean) { wakePaused = paused; if (paused) stopWake(); else startWake(); }
   function setWake(on: boolean) { state.wake = on && wakeAvailable; persist(); if (state.wake) startWake(); else stopWake(); }
-  if (initial.wake) { state.wake = wakeAvailable; window.setTimeout(startWake, 1500); }
+  // On by default once the microphone is allowed; otherwise the orb offers it once.
+  void Ear.allowed().then(allowed => {
+    if (initial.wake === false) return;
+    if (initial.wake || allowed) { state.wake = wakeAvailable; window.setTimeout(startWake, 1200); }
+  });
 
   function dispose() { stopWake(); voice.dispose(); void mind.unload(); timers.forEach(handle => clearTimeout(handle)); }
 
   // When the site hosts JARVIS's mind there is nothing to download, so he is simply online, for everyone.
   void JarvisMind.service().then(service => {
-    state.hosted = service.name; state.hostedVoice = service.voice; state.serviceKnown = true;
+    state.hosted = service.name; state.hostedVoice = service.voice; state.hostedHear = service.hear; state.serviceKnown = true;
+    if (service.hear && ear.state !== 'off') { ear.stop(); startWake(); }
     if (!service.name) return;
     state.tier = 'full'; persist();
     void voice.load(); void mind.load(MODELS[0]);

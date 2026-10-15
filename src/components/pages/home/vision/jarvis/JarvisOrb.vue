@@ -80,6 +80,11 @@ function setDocked(value: boolean) { docked.value = value; emit('core', value ? 
 function stepAside() { if (coreOpen.value) void closeCore(); }
 /** What he is saying right now, shown beside the orb while the full display is closed. */
 const live = computed(() => state.words.slice(0, Math.max(0, state.spoken + 1)).join(' '));
+/** Offer hands-free once, until it is on or turned down. */
+const offerEar = ref(false);
+window.setTimeout(() => { offerEar.value = props.jarvis.wakeAvailable && !state.wake && localStorage.getItem('lab-jarvis-ear-offered') !== '1'; }, 2500);
+watch(() => state.wake, on => { if (on) offerEar.value = false; });
+function enableEar() { offerEar.value = false; localStorage.setItem('lab-jarvis-ear-offered', '1'); props.jarvis.setWake(true); }
 defineExpose({ activate, talk, stepAside, close: closeCore, get open() { return coreOpen.value; }, get visible() { return coreOpen.value || panel.value; } });
 
 /* Dragging the orb */
@@ -130,9 +135,11 @@ onBeforeUnmount(() => { orb?.stop(); observer?.disconnect(); window.removeEventL
 
     <!-- His words beside the orb while he speaks from the corner -->
     <Transition name="whisper">
-      <button v-if="!coreOpen && !panel && state.mode !== 'idle' && (live || state.mode === 'thinking')" class="whisper live" :class="{ left: side.left }" :style="whisperStyle" @click="panel = true">
-        <i v-if="!live" class="dots"><i /><i /><i /></i><template v-else>{{ live }}</template>
+      <button v-if="!coreOpen && !panel && state.mode !== 'idle' && (live || state.mode === 'thinking' || state.mode === 'listening')" class="whisper live" :class="{ left: side.left, listening: state.mode === 'listening' }" :style="whisperStyle" @click="panel = true">
+        <template v-if="state.mode === 'listening'"><i class="mic" />Listening…</template>
+        <i v-else-if="!live" class="dots"><i /><i /><i /></i><template v-else>{{ live }}</template>
       </button>
+      <button v-else-if="!coreOpen && !panel && offerEar" class="whisper live offer" :class="{ left: side.left }" :style="whisperStyle" @click="enableEar"><i class="mic" />Turn on <b>“Hey JARVIS”</b>: talk to me hands-free</button>
     </Transition>
 
     <!-- Quick panel -->
@@ -152,6 +159,9 @@ onBeforeUnmount(() => { orb?.stop(); observer?.disconnect(); window.removeEventL
           <button type="submit" :disabled="!question.trim()" aria-label="Send"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
         </form>
         <div class="chips"><button v-for="item in QUICK" :key="item" @click="quick(item)">{{ item }}</button></div>
+        <button v-if="jarvis.wakeAvailable" class="handsfree" :aria-pressed="state.wake" @click="jarvis.setWake(!state.wake)">
+          <i class="mic" /><span><b>“Hey JARVIS”</b><small>{{ state.wake ? (state.ear === 'listening' ? 'Listening…' : 'On: just say his name') : 'Off: tap to talk hands-free' }}</small></span><em>{{ state.wake ? 'On' : 'Off' }}</em>
+        </button>
         <button class="talk" @click="talk">
           <span class="glyph" aria-hidden="true"><i /><i /><i /></span>
           <span><b>Talk to JARVIS</b><small>Voice, conversation and the full display</small></span>
@@ -202,6 +212,10 @@ onBeforeUnmount(() => { orb?.stop(); observer?.disconnect(); window.removeEventL
 .dots i{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:dots 1s ease-in-out infinite}
 .dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
 @keyframes dots{50%{opacity:.2;transform:translateY(-3px)}}
+.quick .handsfree{margin-top:12px;width:100%;display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:16px;background:rgb(255 255 255 / .05);border:1px solid rgb(255 193 90 / .16);text-align:left}
+.quick .handsfree .mic{width:10px;height:10px;border-radius:50%;background:rgb(255 255 255 / .3)}.quick .handsfree[aria-pressed=true] .mic{background:#63d8ff;box-shadow:0 0 10px #63d8ff}
+.quick .handsfree span{flex:1;display:grid;gap:2px}.quick .handsfree b{font-size:14px}.quick .handsfree small{font-size:12px;color:rgb(255 225 170 / .6)}
+.quick .handsfree em{font-style:normal;font-size:12px;font-weight:600;padding:4px 10px;border-radius:10px;background:rgb(255 255 255 / .08)}.quick .handsfree[aria-pressed=true] em{background:var(--gold);color:#1a1206}
 .quick form{display:flex;align-items:center;gap:6px;height:44px;padding:0 5px 0 15px;border-radius:22px;background:rgb(0 0 0 / .28);box-shadow:inset 0 0 0 1px rgb(255 193 90 / .18)}
 .quick form:focus-within{box-shadow:inset 0 0 0 1px rgb(255 193 90 / .55)}
 .quick input{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--white);font-size:15px;caret-color:var(--gold)}
@@ -231,6 +245,8 @@ onBeforeUnmount(() => { orb?.stop(); observer?.disconnect(); window.removeEventL
 @keyframes blink{50%{opacity:.25}}
 .jarvis-layer .whisper.live .dots{display:inline-flex;gap:5px}.jarvis-layer .whisper.live .dots i{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:blink 1s ease-in-out infinite}.jarvis-layer .whisper.live .dots i:nth-child(2){animation-delay:.15s}.jarvis-layer .whisper.live .dots i:nth-child(3){animation-delay:.3s}
 .whisper.live.left{text-align:right}
+.jarvis-layer .whisper.live .mic{display:inline-block;width:8px;height:8px;margin-right:8px;border-radius:50%;background:#63d8ff;box-shadow:0 0 10px #63d8ff;animation:blink 1.1s ease-in-out infinite;vertical-align:1px}
+.jarvis-layer .whisper.live.offer{cursor:pointer}.jarvis-layer .whisper.live.offer b{color:var(--gold);font-weight:600}
 .whisper{padding:10px 15px;border-radius:16px;font-size:13.5px;line-height:1.4;text-align:left;color:var(--white)!important;background:linear-gradient(160deg,rgb(255 200 120 / .12),rgb(255 255 255 / .02)),rgb(24 17 8 / .82)!important;border:1px solid rgb(255 193 90 / .26)!important;backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);box-shadow:0 16px 40px rgb(0 0 0 / .35);animation:type-in .9s steps(40) both}
 @keyframes type-in{from{clip-path:inset(0 100% 0 0 round 16px)}to{clip-path:inset(0 0 0 0 round 16px)}}
 .whisper-leave-active{transition:opacity .5s,translate .5s}

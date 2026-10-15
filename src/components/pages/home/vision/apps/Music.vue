@@ -187,8 +187,10 @@ onMounted(()=>{void trendingYouTube(true).then(list=>{ytTrending.value=list;});u
  const moods=Object.entries(MOODS).filter(([word])=>q.includes(word)).flatMap(([,list])=>list);
     const pool=q?tracks.filter(item=>moods.includes(item.genre)||[item.title,item.artist,item.album,item.genre].join(' ').toLowerCase().includes(q)):tracks;
  // Anything that is not a mood or one of ours, like an artist or a song name, comes from YouTube Music.
- if(q && !pool.length){ const found=await searchYouTube(q,true); if(found.length){ playYt(found,0); return; } }
- playCollection((pool.length?pool:tracks).map(item=>item.id),true);
+ const reply=command.reply as ((line:string)=>void)|undefined;
+ if(q && !pool.length){ const found=await searchYouTube(q,true); if(found.length){ playYt(found,0); reply?.(`Playing “${found[0]!.title.replace(/\s+[|·-].*$/,'').slice(0,70)}”, from ${found[0]!.channel}.`); return; } }
+ const list=(pool.length?pool:tracks); playCollection(list.map(item=>item.id),true);
+ if(list[0]) reply?.(`Playing ${list[0].title}, by ${list[0].artist}.`);
 });});
 onBeforeUnmount(()=>{unlisten();disposed=true;++operation;stopClock();clearTimeout(noticeTimer);observer?.disconnect();document.removeEventListener('visibilitychange',visibility);preference?.removeEventListener('change',motion);engine?.dispose();if(vision && pane.value)vision.dim.value=previousDim;});
 </script>

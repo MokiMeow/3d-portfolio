@@ -1,0 +1,9 @@
+{
+  "name": "jarvis-relay",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  "ai": { "binding": "AI" },
+  "kv_namespaces": [{ "binding": "STATE", "id": "b16ebfacce3644f79def52d8a4568e9f" }]
+}
