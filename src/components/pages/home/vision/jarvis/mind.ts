@@ -41,6 +41,7 @@ const EXAMPLES: [string, string][] = [
   ['Can you order me a pizza?', 'I am afraid I have no connection to the outside world, sir. Your hunger remains, regrettably, your own affair.'],
   ['I feel a bit low today.', 'I am sorry to hear it, sir. I am not much of a shoulder, but I am an excellent listener. What is on your mind?'],
   ['Who are you?', 'JARVIS. Just A Rather Very Intelligent System, running quietly inside this headset, at your service.'],
+  ['What would Tony think of my new watch?', 'He would take it apart before lunch, sir, and improve it by dinner. Then lose the screws.'],
 ];
 
 export function messages(ctx: JarvisContext, history: { you: string; jarvis: string }[], text: string): ChatCompletionMessageParam[] {
@@ -144,7 +145,9 @@ export class JarvisMind {
 /** A suggestion is only followed when the request was about going somewhere or doing something, and is not where you already are. */
 export function validTag(tag: { kind: 'place' | 'app'; id: string } | undefined, apps: readonly Entry[], places: readonly Entry[], asked: string, here: string, open: readonly Entry[]) {
   if (!tag) return undefined;
-  if (!/bored|somewhere|where|\bgo\b|take me|show me|relax|calm|think|focus|sleep|tired|music|listen|watch|play|quiet|peace|escape|explore|travel|view|scenery|stars|beach|forest|warm|cold/i.test(asked)) return undefined;
+  const wantsPlace = /\b(bored|somewhere|take me|show me|go to|get away|escape|travel|explore|scenery|change of scene|relax|calm down|unwind|sleep|tired)\b/i.test(asked);
+  const wantsApp = /\b(open|launch|play|listen|watch|music|song|video|film|movie|game)\b/i.test(asked);
+  if (tag.kind === 'place' ? !wantsPlace : !wantsApp) return undefined;
   if (tag.kind === 'place' && tag.id === here) return undefined;
   if (tag.kind === 'app' && open.some(item => item.id === tag.id)) return undefined;
   const list = tag.kind === 'place' ? places : apps;

@@ -133,6 +133,15 @@ export function useJarvis(options: {
     const reply = think(text, context(), memory);
     reply.trace.slice(1).forEach(line => log(line.trim(), line.includes('intent') ? 'sys' : 'op'));
     // Commands and facts are certain: act at once and say so.
+    // A conversation started while the core is still warming up waits for it rather than settling for less.
+    if ((reply.kind === 'chat' || reply.kind === 'unknown') && mind.status === 'loading') {
+      log('core.wait()', 'sys');
+      state.caption = addressed('One moment, {a}. My neural core is still warming up.', address()); state.words = state.caption.split(' '); state.spoken = state.words.length;
+      const mine = run;
+      for (let waited = 0; mind.status === 'loading' && waited < 90000 && mine === run; waited += 300) await new Promise(resolve => window.setTimeout(resolve, 300));
+      if (mine !== run) return;
+      state.caption = ''; state.words = [];
+    }
     if (reply.kind === 'command' || reply.kind === 'answer' || ((reply.kind === 'chat' || reply.kind === 'unknown') && mind.status !== 'ready')) {
       await new Promise(resolve => window.setTimeout(resolve, 260 + Math.random() * 220));
       const extra = await run_actions(reply.actions);
@@ -143,6 +152,8 @@ export function useJarvis(options: {
       return;
     }
     // Conversation goes to the neural core when it is awake.
+    // The local brain already noted its own placeholder reply; the model must not see it and copy it.
+    if (memory.turns.at(-1)?.you === text) memory.turns.pop();
     log(`core.generate(tokens ≤ 90)`, 'sys');
     try {
       const mine = run;
@@ -287,7 +298,9 @@ export function useJarvis(options: {
 
   // Returning visitors who chose the full JARVIS get it back without asking again.
   if (initial.tier === 'full' && initial.neural) {
-    void JarvisMind.supported().then(ok => { state.gpu = ok; if (ok) { void voice.load(); void mind.load(MODELS[0]); } });
+    // Start at once: load() reports its own failure, and a question asked in the meantime knows to wait.
+    void voice.load(); void mind.load(MODELS[0]);
+    void JarvisMind.supported().then(ok => { state.gpu = ok; });
   }
 
   return { state, voice, mind, ask, say, interrupt, whisper, remark, log, wakeNeural, setInstant, setVoice, setVoiceOn, setRemarks, setAddress, forget, dispose, address, context, setWake, pauseWake, wakeAvailable };
