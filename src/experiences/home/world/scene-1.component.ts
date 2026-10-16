@@ -60,6 +60,7 @@ import { initialAtelierState, type AtelierAction, type AtelierState } from "~/co
 import type { LabDevice } from "~/common/models/lab-device.model";
 import { initialMusicState, type MusicState } from "~/common/models/music.model";
 import { createCompanion } from './scene-1.companion';
+import { createDoomsdayCrack } from '../doomsday/trigger';
 import { meshPartIndices, splitMeshParts } from './mesh-parts';
 import { createGlossCoat, type Finish } from './gloss-coat';
 import { ATELIER_PALETTES, ATELIER_STUDIES } from './atelier-art';
@@ -161,6 +162,8 @@ export class Scene1Component extends SceneComponentBlueprint {
 	public monitorBScreen?: Mesh;
 	public coffeeSteam?: Mesh;
 	private readonly _boardNotes: Mesh[] = [];
+	/** The way into the Doomsday prelude: a crack of green light on the window. */
+	private _doomsdayCrack?: ReturnType<typeof createDoomsdayCrack>;
 	private _deskProps?: ReturnType<typeof createDeskProps>;
 
 	private _lightSwitch?: ReturnType<typeof createWallLightSwitch>;
@@ -525,6 +528,8 @@ export class Scene1Component extends SceneComponentBlueprint {
 			this._atelier.refresh(this._atelierState.value);
 			this._windowSky?.dispose();
 			this._windowSky = createWindowSky(this.modelScene);
+			this._doomsdayCrack ??= createDoomsdayCrack(this.modelScene);
+			if (import.meta.dev) Object.assign(window, { __startDoomsday: () => { void this.startDoomsday(); }, __modelScene: this.modelScene, __companion: this.companion });
 			this._coatWorkstation(this._atelier.reflectionTexture);
 			this.companion = createCompanion(this.modelScene,this._atelier.reflectionTexture,this._night,this._companionState.value,
 				()=>{this.initSelectableObjects();this._warmUp();if(this._ready.value&&this._experience.router?.currentRouteKey===pages.HOME_PAGE&&!this._experience.cameraAnimation?.enabled)
@@ -944,6 +949,9 @@ export class Scene1Component extends SceneComponentBlueprint {
 			...(this._drawers?.selectables ?? []),
 			...(this._atelier?.selectables ?? []),
 			...(this.companion?.selectables ?? []),
+			...(this._doomsdayCrack
+				? [{ object: this._doomsdayCrack.mesh, outline: false, onSelect: () => this.startDoomsday(), onHover: (on: boolean) => this._doomsdayCrack?.hover(on) }]
+				: []),
 			...(this.pcScreen && nextPage
 				? [
 						{
@@ -1077,6 +1085,28 @@ export class Scene1Component extends SceneComponentBlueprint {
 
 	/** Playback must reach the deck during the entry animation too, before the
 	 * world manager has selected a room to update. */
+	/** THE POCKET: loaded only now, from the crack on the window. */
+	public async startDoomsday() {
+		if (!this.modelScene || !this._camera?.instance) return;
+		const { startDoomsday } = await import("../doomsday");
+		const loose = [
+			...this._boardNotes,
+			...["desk_rubiks_cube", "desk_newtons_cradle"].map(name => this.modelScene?.getObjectByName(name)).filter((object): object is NonNullable<typeof object> => !!object),
+		];
+		this._experience.interactions?.stop?.();
+		await startDoomsday({
+			app: this._experience.app as unknown as Parameters<typeof startDoomsday>[0]["app"],
+			renderer: this._experience.app.renderer.instance,
+			camera: this._camera.instance,
+			modelScene: this.modelScene,
+			navigation: this._experience.navigation,
+			night: this._night,
+			loose,
+			companion: this.companion,
+			onEnd: () => { if (this.modelScene) this._experience.interactions?.start(this.selectableObjects, this.modelScene); },
+		});
+	}
+
 	public updateMusic(): void {
 		const lofi = this._experience.sound?.lofi_audio;
 		const audioAnchor = this._atelier?.root.visible ? this._atelier.recordAnchor : this.fixedComputer;
@@ -1091,6 +1121,7 @@ export class Scene1Component extends SceneComponentBlueprint {
 	}
 
 	public update(): void {
+		this._doomsdayCrack?.update(this._appTime.elapsed);
 		if (this._experience.router?.currentRouteKey === pages.HOME_PAGE) {
 			this.companion?.setMusic(!!this._experience.sound?.musicPlaying);
 			this._windowSky?.update(this._appTime.delta);
