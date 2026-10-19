@@ -158,16 +158,18 @@ export function createCompanionDock(env: Texture, night: { value: number }) {
   cylinder(0.026, 0.019, [0.69, 0.69, -0.35], rubber, 24);
   for (let i = 0; i < 5; i++)
     box([0.008, 0.016, 0.16], [0.806, 0.36 + i * 0.032, -0.48], rubber, 0.002);
+  // The braided conduit leaves the pod's outer face, drops onto the deck's open edge strip (outside the
+  // tread cradle) and runs forward along it to a clamp: it never leaves the platform.
   const cable = new CatmullRomCurve3([
-    new Vector3(0.75, 0.32, -0.72),
-    new Vector3(0.85, 0.17, -0.82),
-    new Vector3(0.78, 0.07, -0.94),
-    new Vector3(-0.35, 0.07, -0.99),
-    new Vector3(-0.69, 0.15, -0.73),
+    new Vector3(0.795, 0.36, -0.40),
+    new Vector3(0.75, 0.25, -0.24),
+    new Vector3(0.69, 0.19, -0.08),
+    new Vector3(0.68, 0.188, 0.28),
+    new Vector3(0.69, 0.188, 0.55),
   ]);
   add(new TubeGeometry(cable, 32, 0.018, 8, false), [0, 0, 0], rubber);
-  for (const x of [-0.48, 0.46])
-    box([0.045, 0.038, 0.08], [x, 0.067, -0.968], steel, 0.005);
+  for (const z of [0.1, 0.5])
+    box([0.05, 0.02, 0.045], [0.685, 0.19, z], steel, 0.005);
   // Inlaid numbered service tag and a narrow status light, never a billboard.
   const canvas = document.createElement("canvas");
   canvas.width = 1024;

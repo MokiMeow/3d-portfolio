@@ -52,6 +52,7 @@ export function createCompanion(
     materials = new Set<MeshStandardMaterial | MeshBasicMaterial>(),
     textures = new Set<Texture>();
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let puppeted = false;
   let disposed = false,
     pendingWelcome = false,
     welcomed = false,
@@ -590,8 +591,13 @@ export function createCompanion(
     setMusic(on: boolean) { music = on; },
     /** Where the guided tour starts and ends: just in front of him. */
     get position() { return carriage.position; },
+    /** While a cinematic drives him, he stops driving himself (no head tracking, no ramp, no idle). */
+    puppet(on: boolean) { puppeted = on; },
+    /** His carriage (position, heading) and the model inside it, for a cinematic to move directly. */
+    get carriage() { return carriage; },
+    get robot() { return robot; },
     update(delta: number, camera: Camera) {
-      if (disposed || !state.ready || document.hidden) return;
+      if (disposed || !state.ready || document.hidden || puppeted) return;
       const dt = Math.min(delta, 50) / 1000;
       elapsed += dt;
       // Follow the actual ramp, then the exterior apron; never float on the route.

@@ -1,3 +1,4 @@
+import { roomPixelRatio } from "~/utils/render-quality";
 import { portraitFramingScale } from "~/utils/viewport-framing";
 import {
 	Color,
@@ -61,6 +62,9 @@ import type { LabDevice } from "~/common/models/lab-device.model";
 import { initialMusicState, type MusicState } from "~/common/models/music.model";
 import { createCompanion } from './scene-1.companion';
 import { createDoomsdayCrack } from '../doomsday/trigger';
+import { placeLabWatch } from '../doomsday/hologram';
+import { preloadDoomsday } from '../doomsday/preload';
+import { filmLights } from '../doomsday/lights';
 import { meshPartIndices, splitMeshParts } from './mesh-parts';
 import { createGlossCoat, type Finish } from './gloss-coat';
 import { ATELIER_PALETTES, ATELIER_STUDIES } from './atelier-art';
@@ -529,7 +533,13 @@ export class Scene1Component extends SceneComponentBlueprint {
 			this._windowSky?.dispose();
 			this._windowSky = createWindowSky(this.modelScene);
 			this._doomsdayCrack ??= createDoomsdayCrack(this.modelScene);
-			if (import.meta.dev) Object.assign(window, { __startDoomsday: () => { void this.startDoomsday(); }, __modelScene: this.modelScene, __companion: this.companion });
+			if (!this.modelScene.getObjectByName("lab_watch")) placeLabWatch(this.modelScene, this._atelier.reflectionTexture);
+			// THE POCKET's four lights live in the lab from the start, dark, so the room's shaders are built with
+			// them once and the click never has to rebuild every one of them.
+			filmLights(this.modelScene);
+			// The film's code and assets, fetched while the lab is idle, so the crack starts it at once.
+			window.setTimeout(() => preloadDoomsday(() => import("../doomsday")), 5000);
+			if (import.meta.dev) { const self = this; Object.assign(window, { __startDoomsday: () => { void self.startDoomsday(); }, __modelScene: self.modelScene }); Object.defineProperty(window, "__companion", { configurable: true, get: () => self.companion }); }
 			this._coatWorkstation(this._atelier.reflectionTexture);
 			this.companion = createCompanion(this.modelScene,this._atelier.reflectionTexture,this._night,this._companionState.value,
 				()=>{this.initSelectableObjects();this._warmUp();if(this._ready.value&&this._experience.router?.currentRouteKey===pages.HOME_PAGE&&!this._experience.cameraAnimation?.enabled)
@@ -1103,6 +1113,17 @@ export class Scene1Component extends SceneComponentBlueprint {
 			night: this._night,
 			loose,
 			companion: this.companion,
+			music: { hold: (on: boolean) => this._experience.sound?.holdRoomAudio(on) },
+			render: {
+				scale: (scale: number) => {
+					const sizes = this._experience.app.sizes;
+					const ratio = roomPixelRatio(sizes.width, sizes.height, sizes.pixelRatio) * scale;
+					this._experience.app.renderer.instance.setPixelRatio(ratio);
+					this._experience.composer?.effect?.setPixelRatio(ratio);
+					this._experience.composer?.effect?.setSize(sizes.width, sizes.height);
+				},
+				portals: (on: boolean) => { if (this._renderer) this._renderer.portalsPaused = !on; },
+			},
 			onEnd: () => { if (this.modelScene) this._experience.interactions?.start(this.selectableObjects, this.modelScene); },
 		});
 	}

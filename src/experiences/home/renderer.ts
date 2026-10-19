@@ -106,6 +106,8 @@ export class Renderer extends ExperienceBasedBlueprint {
 	}
 
 	public enableCssRender = true;
+	/** Set while something else owns the frame (THE POCKET): the PC screen's portal stops re-rendering the scene. */
+	public portalsPaused = false;
 
 	public get mixerContext() {
 		return this._mixerContext;
@@ -156,7 +158,7 @@ export class Renderer extends ExperienceBasedBlueprint {
 			this.enableCssRender && this._mixerContext?.update();
 			this._updateFocusedScreen();
 
-			if (!Object.keys(this._renderPortalAssets).length) return;
+			if (this.portalsPaused || !Object.keys(this._renderPortalAssets).length) return;
 			const now = performance.now();
 			const portalInterval = DeviceConfig.DEVICE === "pc" ? 1000 / 30 : 1000 / 24;
 			if (now - this._lastPortalRenderAt < portalInterval) return;

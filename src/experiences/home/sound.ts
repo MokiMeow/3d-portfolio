@@ -34,6 +34,33 @@ export class Sound extends ExperienceBasedBlueprint {
 	}
 	public useRoomMusic() { this.pauseMusic(); this._music.value.source = 'room'; }
 
+	private _held?: { lofi: boolean; ambience: boolean; lofiVolume: number; ambienceVolume: number };
+	/** Something else owns the soundtrack (THE POCKET): fade the lo-fi and the room's hum out and pause them;
+	 * on release, bring back exactly what was playing. */
+	public holdRoomAudio(on: boolean) {
+		const ctx = this.listener.context, now = ctx.currentTime;
+		const fade = (audio: PositionalAudio | undefined, to: number, seconds: number) => {
+			if (!audio) return;
+			const g = audio.gain.gain; g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(to, now + seconds);
+		};
+		if (on) {
+			if (this._held) return;
+			this._held = { lofi: !!this._lofi_audio?.isPlaying, ambience: !!this._empty_room_audio?.isPlaying, lofiVolume: this._lofi_audio?.getVolume() ?? .42, ambienceVolume: this._empty_room_audio?.getVolume() ?? 1 };
+			const lofi = this._lofi_audio, ambience = this._empty_room_audio;
+			fade(lofi, 0, 1.2); fade(ambience, 0, 1.2);
+			window.setTimeout(() => { if (!this._held) return; if (lofi?.isPlaying) lofi.pause(); if (ambience?.isPlaying) ambience.pause(); }, 1300);
+			return;
+		}
+		const held = this._held; this._held = undefined;
+		if (!held) return;
+		for (const [audio, was, level] of [[this._lofi_audio, held.lofi, held.lofiVolume], [this._empty_room_audio, held.ambience, held.ambienceVolume]] as const) {
+			if (!audio || !was) continue;
+			audio.gain.gain.setValueAtTime(0, now);
+			if (!audio.isPlaying) audio.play();
+			fade(audio, level, 2.5);
+		}
+	}
+
 	private readonly _camera = this._experience.camera;
 	private readonly _ready = useState<boolean>('isExperienceReady', () => false);
 	private _disposed = false;
